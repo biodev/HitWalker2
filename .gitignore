@@ -45,5 +45,10 @@ coverage.xml
 docs/_build/
 # PyBuilder
 target/
+#HitWalker2 specific files
 network/config.py
 network/custom_functions.py
+#latex intermediary files
+*.aux
+*.out
+*.tex
