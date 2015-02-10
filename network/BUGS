@@ -1,0 +1,81 @@
+##Javascript
+
+xxx Make popovers higher than tooltips in terms of z ordering
+
+xxx change initial title for 'Query' option
+
+xxx Need to respect max_nodes in the config file when subsetting
+
+xxx Fix click events in plots (doesn't work when over bars)
+ xxx   Add gene/samples should be changed to highlight gene and/or add additional sample data--or disable
+
+xxx Fix outside panel click events
+
+xxx Fix popover click events, onclick should remove preceeding popovers
+
+xxx Allow exporting of the entire image
+
+xxx Hide/adjust X axis labels when barplot has > ~100 values, maybe add back in when exported---perhaps the better way is to only add in the names of the requested genes
+	Fix exported plot image
+
+xxx Selected patient in initial screen needs to be directly used in the query option unless other available samples are present (12-00073)
+
+xxx Offset of empty panel for siRNA plot needs to reflect history offset
+
+xxx Need to provide the user a way to 'pop' a metanode otherwise they become stumbling blocks.
+	---Optionally add in a way to form a metanode
+
+xxx Keep the user from making across panel selections--or ensure that nodes are uniquely defined across all panels.
+
+xxx Be more consistent in the history titles when involving metanodes, e.g. use something like 'sample1...sample2' instead of say Sample (3)--reproduce using 'genes with hits for 12-00145'(panel2)->look for common sirna samples (panel3), then add the 'genes with hits' metanode to the third panel.
+
+xxx Bug-seems like metanode should be formed.  Samples with sirna hits for CSFR1.  Additionally new panel with Genes with Gene score hits from sample 12-00145.  Add Sample(91)->gene score hits.
+	--This is due to sirna hits being the query, even though it dominates the two gene meta node for gene score hits.
+
+xxx If a large metanode is ungrouped, the layout freaks out.  Maybe need to make it conditional on the type of graph?--done
+	-- Would be nice to constrain labels to be in panel--now done good enough.
+	--next portion is to add labels/make labels visible conditional on the number of 		nodes in the panel--no longer necessary. 
+
+
+xxxTry to make labels more legible under general conditions
+	--done as white backgrounds were added to labels
+
+xxx Empty query labels can overlap
+
+xxx Fix 'Export Summary' for Metanodes
+	--now supports new style of parameter outputs
+
+xxx Disable mouse-over highlighting for pathway screen
+
+Need to add in spinner to HitWalker2 index page
+
+Large pathways (> 500 nodes) can be displayed, but not very well…
+	--could do a custom layout and essentially make it non-interactive in terms of 	node moving.
+	--this is doable, not sure though.  Current fix is to only show pathways < 200
+
+Labels can be goofed up if panel is clicked on before simulation is cooled, maybe add a delay to allow cooling?
+
+Stability of clustering needs to be improved.  Ok for panels but maybe need to cool down faster as above.  Maybe not reheat at all for pathway...
+
+Add ability to make a new panel when clicking within svg image
+
+---Make popovers choose left or right depending on position
+	---Comment: Not really observed to be a problem if a full window is viewed.
+
+---make legend scroll with user--maybe simply suggest users delete as they go...
+
+---fix clicking of empty query (sirna for Tyro3)->GeneScore Hit--backburner for now
+
+
+
+##Django/Python
+
+Ensure consistency of HTML endpoints in the presence of errors
+
+##Neo4j
+
+Need to enforce the selection of genes to only be limited to reference chrs and ensembl only IDs (and no LRGs)
+
+Fix issue with non-inclusion of CD24 because of lack of reference sequence
+
+

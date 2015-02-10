@@ -1,0 +1,62 @@
+\documentclass[10pt]{extarticle}
+\usepackage{extsizes}
+\usepackage[margin=.5in, paperwidth=15in, paperheight=11in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[parfill]{parskip}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{listings}
+\SweaveOpts{keep.source=TRUE}
+
+\lstset{language=Python} 
+
+\title{Putting Together a Working Version of HitWalker2: The CCLE Example}
+\author{Daniel Bottomly, Beth Wilmot and Shannon McWeeney}
+\begin{document}
+
+\make title
+
+\section[Database population]{Database population}
+
+\section[Configuration]{Configuration}
+
+There are two main files that need to be modified for \texttt{HitWalker2} to work with a custom database: \texttt{config.py} and \texttt{custom\_functions.py}.  The most important file of which is \texttt{config.py}.  In \texttt{config.py}, many aspects of \texttt{HitWalker2} can be modified including customizing how the data contained in the database should be utilized to perform the
+various calculations contained within the program.  Although everything that is needed can be supplied to \texttt{config.py}, we find it useful to separate configuration variables from any functions that might be pointed to as part of those variables.  For example, the paradigm utilized by HitWalker2 (as well as other programs) is the specification of a query, the variable(s) it needs to run and a 'handler' function that takes the result of the query and returns a Python object which can be utilized downstream.  We specify these handler functions in \texttt{custom\_functions.py}.
+
+\subsection[User Specified Parameters]{User Specified Parameters}
+
+Each instance of \texttt{HitWalker2} can allow users the ability to modify how any querying and/or prioritization is performed by exposing parameter values for them to choose from.  These parameters are specified in the \texttt{adjust\_fields} dictionary in \texttt{config.py}.
+Each item in the dictionary should be keyed by the user-viewed name of the set of parameters.  These items are themselves dicts of dicts, with the first level indicating the 'type' of parameters as well as the applicable fields.  The first 'type' is the \texttt{standard} type.
+The items in the 'fields' dict should be keyed by a unique ID for that variable and contain the following information:   
+
+\begin{center}
+    \begin{tabular}{ | l | p{20cm} |}
+    \hline
+    Key & Description \\ \hline
+    type & One of 'numeric' or 'character' indicating what type of input to expect from the user.
+    A choice of numeric, will let the user input a integer or floating point value in a text box while
+    a choice of character will let them choose from one of several options via a radio box.\\ \hline
+    \end{tabular}
+\end{center}
+
+Below is an example for the CCLE data:
+
+\lstinputlisting[language=Python, firstline=43, lastline=59]{../network/ccle_config.py}
+
+\subsection[Sample Selection]{Sample Selection}
+
+Note that currently there is not support for multiple valid samples per experimental unit.
+
+\subsection[Selection of Hits]{Selection of Hits}
+
+
+
+Note that it is important that the terminologies are the same amongst sample_rels_query and hit_session_dict (as well as throughout).  If hits are not being retrieved as expected, then this is likely to be the cause.
+
+\subsection[Selection of Variants]{Selection of Variants}
+
+<<echo=TRUE, eval=FALSE>>=
+    print('hello')
+@
+
+\end{document}

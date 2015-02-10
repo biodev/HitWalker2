@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<!--Stilll need to implement the error messages from bootstrap...-->
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    <title>Rankings for Sample {{sample_display_name.Variants}}</title>
+    <link href="{{prog_type}}/static/network/css/bootstrap.min.css" rel="stylesheet">
+        
+    <script src="{{prog_type}}/static/network/javascript/d3.v3/d3.v3.min.js" charset="utf-8"></script>
+    <script src="{{prog_type}}/static/network/javascript/jquery-1.10.2.min.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/bootstrap.min.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/spin.min.js"></script>
+</head>
+
+<body>
+
+<script>
+    var row_list = [];
+</script>
+
+<!--<form action="/HitWalker2/networkWaiting/" method="post" onsubmit="return check_entries()">
+<input type="hidden" name="sample" value='{{sample_info}}')></input>-->
+
+<div class="container">
+    
+     <div class="navbar navbar-default" role="navigation">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="{{prog_type}}/HitWalker2">HitWalker2</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li ><a href="{{prog_type}}/HitWalker2">Select Sample</a></li>
+                <li class="active"><a href="{{prog_type}}/HitWalker2/table" style="pointer-events:none">Select Variants</a></li>
+                <li class="disabled"><a href="{{prog_type}}/HitWalker2/network" style="pointer-events:none">Visualize and Query</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li><p class="navbar-text">Hello {{username}}</p></li>
+                <li><a href="{{prog_type}}/HitWalker2/logout">logout</a></li>
+            </ul>
+        </div>
+        </div>
+    <!--<h3>Variant Lab ID: {{sample_display_name.Variants}}</h3>-->
+    <h3>Ranked Query List Options</h3>
+    <!--<div class="row">
+        <div class="col-sm-3">
+            Choose Top Variants:
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-default" name="top5" onclick="check_top_n_boxes(3)">Top 3</button>
+            <button type="button" class="btn btn-default" name="top10" onclick="check_top_n_boxes(5)">Top 5</button>
+        </div>
+        <div class="col-md-2">
+            <div class="input-group">
+              <span class="input-group-addon">Top:</span>
+              <input type="text" class="form-control" id="custom_top">
+              <span class="input-group-btn">
+                <button class="btn btn-default" type="button" name="topX", onclick="check_custom_boxes()">Check</button>
+              </span>
+            </div>
+        </div>
+    </div>-->
+    <div class="row">
+        <div class="button-group col-md-3">
+           <!-- <button type="submit" class="btn btn-default" disabled=true>Submit</button>
+            <button type="button", onclick="uncheck_checkboxes()" class="btn btn-default">Clear</button>-->
+            <button type="button" onclick="populate_display_selects()" data-toggle="modal" data-target="#select_modal" class="btn btn-default">Display</button>
+            <button type="button" onclick="html_to_csv_d3()" class="btn btn-default">Export as CSV</button>
+        </div>
+    </div>
+    <form action="{{prog_type}}/HitWalker2/network/" method="post", onsubmit="return check_selections()">
+        {% csrf_token %}
+        <!-- This is from  http://stackoverflow.com/questions/18795967/how-to-center-spin-js-spinner-in-bootstrap-3-modal  and spin.js       -->
+    <div id="spinner_row" class="row">
+        <span id="network_spinner" style="position: absolute;display: block;top: 50%;left: 50%;"></span>
+    </div>
+    <div class="modal fade bs-modal-lg" id="select_modal" tabindex="-1" role="dialog" aria-labelledby="select_modal" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title">Select Genes for Visualization</h4>
+                </div>
+                <div class="modal-body">
+                    
+                    {% for cur_it in sample_display_name.items %}
+                        <input type="hidden" name="{{cur_it.0}}" value="{{cur_it.1}}")></input>
+                    {% endfor %}
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label>
+                                    Select Query Genes
+                                    <select multiple class="form-control" name="var_select" id="var_select"></select>
+                                </labels>
+                            </div>
+                            <div class="col-md-4">
+                                <label>
+                                    Select Seed Genes 
+                                    <select multiple class="form-control" name="seed_select" id="seed_select"></select>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row col-md-6">
+                            <div id="error_td"></div>
+                        </div>
+                    </div>
+                </div>
+            <div class="modal-footer">
+                <div class="button-group">
+                    <button type="submit" class="btn btn-default" >Submit</button>
+                    <button type="button", class="btn btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+</form>
+    
+</div>
+<p></p>
+<p></p>
+
+<table class="table table-hover table-condensed">
+    <thead>
+    <tr>
+    <td></td>
+    {% for header in res_header %}
+        <td style='text-align:center;'><span style='font-weight:bold;'>{{header}}</span></td>
+    {%endfor%}
+    </tr>
+    </thead>
+    <tbody>
+    {% for row in res_table %}
+    <tr>
+        <!--<script>
+                row_list.push({"symbol":"{{row.3}}", "gene":"{{row.4}}"});
+        </script>-->
+            <td id="td_{{forloop.counter}}"></td>
+        {% for row_column in row %}
+            <td style='text-align:center;'>{{row_column}}</td>
+        {%endfor%}
+    </tr>
+    {%endfor%}
+    </tbody>
+</table>
+
+<script>
+    
+    var cur_filts = {{ cur_filts|safe }};
+    var cur_param = {{ cur_param|safe }};
+    var seed_list = {{ seeds|safe }};
+    var query_list = {{ queries|safe }};
+    var sample_name = {};
+    
+    {% for cur_it in sample_display_name.items %}
+        sample_name["{{cur_it.0}}"] = "{{cur_it.1}}";
+    {% endfor %}
+    
+    var opts = {
+            lines: 13, // The number of lines to draw
+            length: 20, // The length of each line
+            width: 10, // The line thickness
+            radius: 30, // The radius of the inner circle
+            corners: 1, // Corner roundness (0..1)
+            rotate: 0, // The rotation offset
+            direction: 1, // 1: clockwise, -1: counterclockwise
+            color: '#000', // #rgb or #rrggbb or array of colors
+            speed: 1, // Rounds per second
+            trail: 60, // Afterglow percentage
+            shadow: false, // Whether to render a shadow
+            hwaccel: false, // Whether to use hardware acceleration
+            className: 'spinner', // The CSS class to assign to the spinner
+            zIndex: 2e9, // The z-index (defaults to 2000000000)
+            top: 'auto', // Top position relative to parent in px
+            left:'auto' // Left position relative to parent in px
+          };
+          //var target = document.getElementById('center_spinner');
+         
+    
+    function check_selections()
+    {
+        
+        //from http://stackoverflow.com/questions/12549770/count-the-number-of-selections-in-a-multiple-select-box
+        var var_count = $('#var_select option:selected').length;
+        var seed_count = $('#seed_select option:selected').length;
+        
+        if (var_count > 5 || seed_count > 5)
+        {
+            d3.select("#gene_select_alert").remove();
+            d3.select("#error_td").append("div").attr("class", "alert alert-danger").attr("id", "gene_select_alert").text("Cannot select > 5 genes per category");
+            
+            return (false);
+        }
+        else
+        {
+            var target = document.getElementById('network_spinner');
+            var spinner = new Spinner(opts).spin(target);
+            
+            return (true);
+        }
+        
+    }
+    
+    function populate_display_selects()
+    {
+        var query_set = d3.set();
+        var seed_set = d3.set();
+        var use_query_symbol = [];
+        var use_seed_symbol = [];
+        
+        
+        for (i = 0; i < query_list.length;i++)
+        {
+            if (query_set.has(query_list[i].symbol) == false)
+            {
+                use_query_symbol.push(query_list[i]);
+                query_set.add(query_list[i].symbol);
+            }
+        }
+        
+        //for (i = 0; i < row_list.length;i++)
+        //{
+        //    if (query_set.has(row_list[i].symbol) == false)
+        //    {
+        //        use_symbol.push({symbol:row_list[i].symbol, gene:row_list[i].gene});
+        //        query_set.add(row_list[i].symbol);
+        //    }
+        //    
+        //}
+        
+        for (i = 0; i < seed_list.length;i++)
+        {
+            if (seed_set.has(seed_list[i].symbol) == false)
+            {
+                use_seed_symbol.push(seed_list[i]);
+                seed_set.add(seed_list[i].symbol);
+            }
+        }
+        
+        d3.select('#var_select').selectAll("option")
+            .data(use_query_symbol).enter()
+            .append("option").attr("selected", function(d,i){return i < 3 ? 'true' : null;}).attr("value", function(d,i){return(d.gene);})
+            .text(function(d,i) {return(d.symbol);});
+            
+        d3.select('#seed_select').selectAll("option")
+            .data(use_seed_symbol).enter()
+            .append("option").attr("selected", function(d,i){return i < 3 ? 'true' : null;}).attr("value", function(d,i){return(d.gene);})
+            .text(function(d,i) {return(d.symbol);});
+    }
+    
+    function html_to_csv_d3 ()
+    {   
+        var table_rows = d3.selectAll("tr");
+        
+        var ret_table = "data:text/csv;charset=utf-8,";
+        
+        ret_table += "SampleIDs:\n";
+        
+        for (i in sample_name){
+            ret_table += i + ": " + sample_name[i] + "\n";
+        }
+        
+        ret_table += "\n";
+        
+        for (i in cur_param){
+            ret_table += i + "\n";
+            for (j in cur_param[i]){
+                ret_table += cur_param[i][j].name + " " + cur_param[i][j].comparison + " " + cur_param[i][j].default + "\n";
+            }
+            ret_table += "\n";
+        }
+        
+        for (i in cur_filts){
+            ret_table += i + "\n";
+            ret_table += cur_filts[i] + "\n";
+        }
+        
+        ret_table += "\n";
+        
+        table_rows.each(function()
+                         {
+                            var cur_elems = d3.select(this).selectAll("td");
+                            var cur_row = [];
+                            cur_elems.each(function(d,i)
+                                           {
+                                                if (i > 0)
+                                                {
+                                                    cur_row.push(d3.select(this).text());
+                                                }
+                                                
+                                           })
+                            ret_table += cur_row.join(",") + "\n"
+                         })
+        
+        var use_uri = encodeURI(ret_table);
+        
+        var download_link = d3.selectAll("body").append("a").attr("href", use_uri).attr("download", "{{sample_display_name.Variants}}_hitwalker.csv").attr("id", "down_link");
+        
+        document.getElementById("down_link").click();
+    }
+     
+    
+</script>
+</body>
+
+</html>

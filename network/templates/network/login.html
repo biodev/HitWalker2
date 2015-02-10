@@ -1,0 +1,66 @@
+<html>
+    <head>
+        
+        <title>Welcome to HitWalker2</title>
+        <link href="{{prog_type}}/static/network/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    
+    <body>
+        <div class="container">
+        <div class="navbar navbar-default" role="navigation">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="{{prog_type}}/HitWalker2">HitWalker2</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li class="disabled"><a href="{{prog_type}}/HitWalker2">Select Sample</a></li>
+                <li class="disabled"><a href="{{prog_type}}/HitWalker2/table" style="pointer-events:none">Select Variants</a></li>
+                <li class="disabled"><a href="{{prog_type}}/HitWalker2/network" style="pointer-events:none">Visualize and Query</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li><p class="navbar-text">Hello {{username}}</p></li>
+                <li><a href="{{prog_type}}/HitWalker2/logout">logout</a></li>
+            </ul>
+        </div>
+        </div>
+        {% if form.errors %}
+            <p class="text-danger">Your username and password didn't match. Please try again.</p>
+        {% endif %}
+        
+        <form class="form-horizontal" role="form" method="post" action="{% url 'django.contrib.auth.views.login' %}">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <div class="col-sm-offset-1 col-sm-10">
+                    <p class="lead">Please login to continue</p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}" class="col-sm-2 control-label">{{ form.username.label_tag }}</label>
+                    <div class="col-sm-10">
+                        {{ form.username }}
+                    </div> 
+            </div>
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}" class="col-sm-2 control-label">{{ form.password.label_tag }}</label>
+                    <div class="col-sm-10">
+                        {{ form.password }}
+                    </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-offset-2 col-sm-10">
+                <input type="submit" class="btn btn-default" value="login" />
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <div class="col-sm-offset-2 col-sm-10">
+                    <p>Want access? <a href="mailto:bottomly@ohsu.edu">Email us</a></p>
+                </div>
+            </div>
+            
+            <input type="hidden" name="next" value="{{ next }}" />
+        </form>
+    
+    </body>
+</html>

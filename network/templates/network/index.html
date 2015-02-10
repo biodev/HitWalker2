@@ -1,0 +1,1325 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    
+    <title>Welcome to HitWalker2</title>
+    <link href="{{prog_type}}/static/network/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{prog_type}}/static/network/css/select2.css" rel="stylesheet">
+    <link href="{{prog_type}}/static/network/css/select2-bootstrap.css" rel="stylesheet">
+        
+    <style>
+        
+        .top-buffer { margin-top:20px; }
+        .legend_link {
+                fill: none;
+                stroke: #ccc;
+                stroke-width: 1.5px;
+              }
+        .list-group-item-nobox{
+	position:relative;
+	display:block;
+	padding:10px 15px;
+	margin-bottom:-1px;
+	background-color:#fff;}
+    </style>
+    
+</head>
+<body>
+    
+    <div class="container">
+        <div class="navbar navbar-default" role="navigation">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="{{prog_type}}/HitWalker2">HitWalker2</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li class="active"><a href="{{prog_type}}/HitWalker2">Select Sample</a></li>
+                <li class="disabled"><a href="{{prog_type}}/HitWalker2/table" style="pointer-events:none">Select Variants</a></li>
+                <li class="disabled"><a href="{{prog_type}}/HitWalker2/network" style="pointer-events:none">Visualize and Query</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li><p class="navbar-text">Hello {{username}}</p></li>
+                <li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown" style="cursor:pointer">Manage Account<span class="caret"></span></a>
+                    <ul class="dropdown-menu" role="menu">
+                    <li><a href="{{prog_type}}/HitWalker2/password">Change Password</a></li>
+                    </ul>
+                </li>
+                <li><a href="{{prog_type}}/HitWalker2/logout">logout</a></li>
+            </ul>
+        </div>
+        </div>
+    <form id="overall_form" onsubmit="return form_submit()">
+        {% csrf_token %}
+    <input type="hidden" id="parameters"></input>
+    
+    <div class="jumbotron">
+        <div class="row">
+            <div class="col-md-4"><h1>HitWalker2</h1></div>
+        </div>
+        <div class="row">
+            <div class="col-md-8"><p>Variant Prioritization for Functional Genomics</p></div>
+        </div>
+        <!--<div class="row">
+            <div class="col-md-4"><p>Please Enter a Lab ID</p></div>
+        </div>-->
+        <div class="row">
+            <div class="col-md-4">
+                <div class="select2-wrapper"><!--input-lg--> 
+                    <input type="hidden" name="sample_alias" class="form-control select2 select2-offscreen" onchange="examine_sample_rels()"></input>
+                        <option></option>
+                </div>
+                <div id="sample_alias_form_group"></div>
+            </div>
+            
+        </div>
+         <div class="row" id="sample_svg_row">
+            <div class="col-md-6" id="sample_svg_div"></div>
+        </div>
+      <!--</div>-->
+        <!--<div class="container">-->
+        <!--http://stackoverflow.com/questions/10085723/twitter-bootstrap-add-top-space-between-rows-->
+        <div class="row top-buffer">
+            <div class="col-md-4"><p>Parameters</p></div>
+        </div>
+        <div class="row">
+                <div class="col-md-4">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">Adjust<span class="caret"></span></button>
+                            <ul class="dropdown-menu" role="menu">
+                               <!-- <li><a data-toggle="modal" data-target="#seed_modal" style="cursor:pointer">Seed Parameters</a></li>
+                                <li><a data-toggle="modal" data-target="#variant_modal" style="cursor:pointer">Variant Filters</a></li>
+                                <li><a data-toggle="modal" data-target="#general_modal" style="cursor:pointer">General Parameters</a></li>-->
+                            </ul>
+                        <button type="button" class="btn btn-default" data-toggle="modal" data-target="#save_modal" onclick="save_clicked() ">Save</button>
+                        <button type="button" class="btn btn-default" data-toggle="modal" data-target="#load_modal" onclick="load_clicked()">Load</button>
+                        <button type="button" class="btn btn-default" onclick="reset_def_filters()">Reset</button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="btn-group">
+                        <button type="submit" id="prioritize" form="overall_form" formaction="{{prog_type}}/HitWalker2/table/" formmethod="post" class="btn btn-primary" disabled>Prioritize</button>
+                        <button type="submit" id="query" form="overall_form" formaction="{{prog_type}}/HitWalker2/network/" formmethod="post" class="btn btn-primary" disabled>Query</button>
+                    </div>
+                </div>
+        </div>
+        <div class="row top-buffer">
+            <div class="col-md-6" id="message_text_div">
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade bs-modal-lg" id="load_modal" tabindex="-1" role="dialog" aria-labelledby="load_modal" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title">Load Parameters</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <select multiple class="form-control" id="load_select">
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4" id="param_load_div">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-default" onclick="load_ok_clicked('{{prog_type}}')">OK</button>
+                        <button type="button" class="btn btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade bs-modal-lg" id="save_modal" tabindex="-1" role="dialog" aria-labelledby="save_modal" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title">Save Parameters</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <select multiple class="form-control" id="save_select">
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <input type="text" id="save_name" class="form-control" placeholder="Save as...">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4" id="param_save_div">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-default" onclick="save_ok_clicked('{{prog_type}}')">OK</button>
+                        <button type="button" class="btn btn-default" data-dismiss="modal" aria-hidden="true">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+    
+<script src="{{prog_type}}/static/network/javascript/jquery-1.10.2.min.js"></script>
+<script src="{{prog_type}}/static/network/javascript/bootstrap.min.js"></script>
+<script src="{{prog_type}}/static/network/javascript/select2.min.js"></script>
+<script src="{{prog_type}}/static/network/javascript/d3.v3/d3.v3.min.js" charset="utf-8"></script>
+<!--<script src="{{prog_type}}/static/network/javascript/filter.js"></script>-->
+<script src="{{prog_type}}/static/network/javascript/spin.min.js"></script>
+<script src="{{prog_type}}/static/network/javascript/ajax.js"></script>
+<script>
+    
+    //var bad_value = [];
+    
+    var adjust_fields = {{ adjust_fields|safe }};
+    var param_names = d3.set( {{param_names|safe }});
+    var data_types = {{ data_types|safe }};
+    
+    var spinner_opts = {
+            lines: 13, // The number of lines to draw
+            length: 20, // The length of each line
+            width: 10, // The line thickness
+            radius: 30, // The radius of the inner circle
+            corners: 1, // Corner roundness (0..1)
+            rotate: 0, // The rotation offset
+            direction: 1, // 1: clockwise, -1: counterclockwise
+            color: '#000', // #rgb or #rrggbb or array of colors
+            speed: 1, // Rounds per second
+            trail: 60, // Afterglow percentage
+            shadow: false, // Whether to render a shadow
+            hwaccel: false, // Whether to use hardware acceleration
+            className: 'spinner', // The CSS class to assign to the spinner
+            zIndex: 2e9, // The z-index (defaults to 2000000000)
+            top: 'auto', // Top position relative to parent in px
+            left:'auto' // Left position relative to parent in px
+          };
+    
+    var modal_base = [
+                        '<div class="modal fade bs-modal-lg" id="temp" tabindex="-1" role="dialog" aria-labelledby="temp" aria-hidden="true" data-keyboard="false" data-backdrop="static">',
+                            '<div class="modal-dialog modal-lg">',
+                                '<div class="modal-content">',
+                                    '<div class="modal-header">',
+                                        '<button type="button" class="close" aria-hidden="true" onclick="ensure_ok_values(this)">&times;</button>' ,
+                                        '<h4 class="modal-title">temp</h4>',
+                                    '</div>',
+                                    '<div class="modal-body form-horizontal"></div>',
+                                    '<div class="modal-footer">',
+                                        '<button type="button" class="btn btn-default" aria-hidden="true" onclick="ensure_ok_values(this)">OK</button>',
+                                    '</div>',
+                                '</div>',
+                            '</div>',
+                        '</div>'
+                        ]
+    
+    var modal_standard_elem = [
+        '<div class="form-group">',
+            '<label for="temp" class="col-md-4 control-label"></label>',
+            '<div class="col-md-4 input-group">',
+              '<span class="input-group-addon"><</span>',
+              '<input type="text" name="temp" class="form-control" id="temp" step="any">',
+            '</div>',
+        '</div>'
+        ];
+    
+    var check_numeric_input_basic = function(cur_obj)
+    {
+        var valid_range = $.map($(cur_obj).attr("data-range").split("to"), function(n) {return parseFloat(n);})
+        
+        var modal_parent = $(cur_obj).attr("data-modal");
+        
+        if (jQuery.isNumeric($(cur_obj).val()) == false || parseFloat($(cur_obj).val()) < valid_range[0] || parseFloat($(cur_obj).val()) > valid_range[1])
+        {
+            if (document.getElementById($(cur_obj).attr("id") + "_alert") == null)
+            {
+                var assoc_label = $("label[for='"+$(cur_obj).attr("id")+"']").html();
+                
+                $("#"+modal_parent).find("div.modal-body")
+                        .append("<div id="+$(cur_obj).attr("id") + "_alert class='alert alert-danger'><p>Invalid entry for '"+assoc_label.replace(":", "")+"'. Needs to be numeric between " + valid_range[0] + "-" + valid_range[1]+"</p></div>");
+            }
+            
+            //bad_value.push(true);
+            return(false);
+        }
+        else
+        {
+            $("#" + $(cur_obj).attr("id") + "_alert").remove();
+           
+            //bad_value.push(false);
+            return(true);
+        }
+    }
+    
+    var ensure_ok_values = function(obj)
+    {
+        var modal_id = $(obj).attr("data-modal");
+        
+        var modal_alerts = $("#"+$(obj).attr("data-modal")+" > div.modal-dialog > div.modal-content > div.modal-body > div.alert")
+        
+        if ($(modal_alerts).length == 0)
+        {
+            $('#'+modal_id).modal('hide');
+        }
+    }
+    
+    function make_numeric_elem (use_fields, modal_body, modal_id, field_id, default_val, group_name)
+    {
+        var use_default = default_val;
+        
+        if (use_default == null)
+        {
+            use_default = use_fields[modal_id].fields[field_id].default;
+        }
+        
+        var use_name = field_id;
+        
+        if (group_name != null)
+        {
+            use_name = group_name + '.' + field_id;
+        }
+        
+        //var close_box = inp_div.append("span").attr("class", "input-group-addon glyphicon glyphicon-minus-sign").attr("style", "cursor:pointer");
+        
+        modal_body.append(modal_standard_elem.join(""));
+        var new_form = modal_body.find("div.form-group:last-child");
+        new_form.find("label").attr("for", field_id).html(use_fields[modal_id].fields[field_id].name+":");
+        new_form.find("span").html(use_fields[modal_id].fields[field_id].comparison);
+        new_form.find("input").attr("name", use_name)
+                              .attr("id", use_name)
+                              .attr("value", use_default)
+                              .attr("data-range", use_fields[modal_id].fields[field_id].range.join("to"))
+                              .attr("data-modal", modal_id)
+                              //need to check here for numeric versus character...
+                              .change(function() {
+                                if (check_numeric_input_basic(this))
+                                {
+                                    //if a valid value is entered
+                                        //modify adjust.fields accordingly
+                                            //note that groups would be specified ahead of the current field, so need to go to the last field.
+                                    var cur_modal = $(this).attr('data-modal');
+                                    var cur_field = $(this).attr('id').split('.').pop();
+                                    
+                                    if(adjust_fields[cur_modal].type == 'grouped')
+                                    {
+                                        var cur_groups = $(this).attr('id').split('.').slice(0,3).map(function(d,i,ar) parseInt(d));
+                                        adjust_fields[cur_modal].default_groups[cur_groups[0]][cur_groups[1]][cur_groups[2]].default=parseFloat($(this).val());
+                                    }else{
+                                        adjust_fields[cur_modal].fields[cur_field].default = parseFloat($(this).val());
+                                    }
+                                }
+                                
+                              });
+    }
+    
+    function make_character_elem(use_fields, modal_body, modal_id, field_id, default_val, group_name)
+    {
+        var radio_opts = [
+            '<div class="form-group">',
+            '<label class="col-md-4 radio-inline text-right"><strong>'+use_fields[modal_id].fields[field_id].name+':</strong></label>'
+        ]
+        
+        var use_default = default_val;
+        
+        if (use_default == null)
+        {
+            use_default = use_fields[modal_id].fields[field_id].default;
+        }
+        
+        var use_name = field_id;
+        
+        if (group_name != null)
+        {
+            use_name = group_name + '.' + field_id;
+        }
+        
+        $.each(use_fields[modal_id].fields[field_id].range, function(i, d)
+                                {
+                                        var add_pad = "";
+                                         if (i == (use_fields[modal_id].fields[field_id].range.length - 1))
+                                            {
+                                                //add some padding if last element
+                                                add_pad = 'style="padding-right:10px;"'
+                                            }
+                                    
+                                        radio_opts.push('<label class="radio-inline"' +add_pad+ '>');
+                                            if (use_default == d)
+                                            {
+                                                checked_str = "checked";
+                                            }else{
+                                                checked_str = "";
+                                            }
+                                    
+                                        radio_opts.push('<input data-modal="',modal_id,'" name="'+use_name+'" type="radio" '+checked_str+' value="'+d+'">'+d);
+                                        radio_opts.push('</label>');
+                                })
+        
+        radio_opts.push('</div>');
+        
+        modal_body.append(radio_opts.join(""));
+        
+        $('input[name="'+use_name+'"]').change(function(){
+            
+            var cur_modal = $(this).attr('data-modal');
+            var cur_field = $(this).attr('name').split('.').pop();
+            
+            if(adjust_fields[cur_modal].type == 'grouped')
+            {
+                var cur_groups = $(this).attr('name').split('.').slice(0,3).map(function(d,i,ar) parseInt(d));
+                adjust_fields[cur_modal].default_groups[cur_groups[0]][cur_groups[1]][cur_groups[2]].default=$(this).val();
+            }else{
+                adjust_fields[cur_modal].fields[cur_field].default = $(this).val();
+            }
+        });
+        
+    }
+    
+    function make_element (use_fields, modal_body, modal_id, field_id, default_val, group_name)
+    {
+        
+        if (use_fields[modal_id].fields[field_id].type == "numeric")
+        {
+            make_numeric_elem (use_fields, modal_body, modal_id, field_id, default_val, group_name)
+        }else{
+            make_character_elem(use_fields, modal_body, modal_id, field_id, default_val, group_name)
+        }
+    }
+    
+    function remove_all_groups(cur_field)
+    {
+        //get ahold of the modal-body
+        var modal_body = $('#'+cur_field).find('div.modal-body');
+        
+        //first remove existing fields
+        modal_body.children('ul.list-group').remove();
+        
+        adjust_fields[cur_field].default_groups = [[[]]];
+        adjust_fields[cur_field].logical_list = [];
+        
+        make_grouped_fields (modal_body, cur_field);
+    }
+    
+    function groups_are_present(cur_field)
+    {
+        return $('#'+cur_field).find('div.modal-body > ul.list-group > li.list-group-item > div.form-group').length > 0;
+    }
+    
+    function new_group(obj, cur_field)
+    {
+        var group_type = $(obj).html();
+        
+        //if there are no elements, then don't make any groups
+        
+        if (groups_are_present(cur_field))
+        {
+            if (group_type == "Outer")
+            {
+                adjust_fields[cur_field].default_groups.push([[]]);
+            }else{
+                var one_len = adjust_fields[cur_field].default_groups.length-1;
+                adjust_fields[cur_field].default_groups[one_len].push([]);
+            }
+        }
+        
+        
+    }
+    
+    function add_filter(obj, cur_field)
+    {
+        var def_logic = "AND"
+        
+        if (groups_are_present(cur_field) == false)
+        {
+            def_logic = "null";
+        }
+        
+        //get ahold of the modal-body
+        var modal_body = $('#'+cur_field).find('div.modal-body');
+        
+        //first remove existing fields
+        modal_body.children('ul.list-group').remove();
+        
+        //add entry to the last li of the last ul
+        var one_len = adjust_fields[cur_field].default_groups.length-1;
+        var two_len = adjust_fields[cur_field].default_groups[one_len].length-1;
+        
+        adjust_fields[cur_field].default_groups[one_len][two_len].push({field:$(obj).attr("id"),logical:def_logic})
+        
+        //also add the logical value to the end of logical_list
+        adjust_fields[cur_field].logical_list.push(def_logic);
+        
+        make_grouped_fields (modal_body, cur_field);
+    }
+    
+    function add_filter_menu(obj,  cur_field)
+    {
+        var button_div = $(obj).parent();
+        
+        if ($(button_div).find('ul.dropdown-menu').length == 0)
+        {
+            $(button_div).append('<ul class="dropdown-menu" role="menu">');
+        
+            var button_ul = button_div.find('ul.dropdown-menu');
+            
+            $.each(adjust_fields[cur_field].fields, function(key, val)
+                   {
+                        $(button_ul).append('<li><a style="cursor:pointer" id="'+key+'" onclick="add_filter(this, \''+cur_field+'\')">'+val.name+'</a></li>');
+                   });
+            
+            $(button_div).append('</ul>');
+        }
+        
+        
+    }
+    
+    function change_button_value(obj, cur_field, button_ind)
+    {
+        var changed_val = $(obj).html();
+        $(obj).closest('div.btn-group').find('button:first-child').html(changed_val);
+        adjust_fields[cur_field].logical_list[button_ind] = changed_val;
+    }
+    
+    function make_logical_button (cur_field, default_val, button_ind, addnl_group_class)
+    {
+        
+        return(['<div class="btn-group '+addnl_group_class+'">',
+                    '<button type="button" class="btn btn-default">'+default_val+'</button>',
+                    '<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false">',
+                      '<span class="caret"></span>',
+                      '<span class="sr-only">Toggle Dropdown</span>',
+                    '</button>',
+                    '<ul class="dropdown-menu" role="menu">',
+                        '<li><a style="cursor:pointer" onclick="change_button_value(this, \''+cur_field+'\', '+button_ind+')">AND</a></li>',
+                        '<li><a style="cursor:pointer" onclick="change_button_value(this, \''+cur_field+'\', '+button_ind+')">OR</a></li>',
+                    '</ul></div>'].join("")); 
+    }
+    
+    function make_grouped_fields (modal_body, cur_field)
+    {
+        var logical_indexes = adjust_fields[cur_field].logical_list;
+                
+        //as index_count[0] should be null
+        var index_count = 1;
+        
+        $.each(adjust_fields[cur_field].default_groups, function(ind, val)
+               {
+                    $(modal_body).append('<ul class="list-group">');
+                    var top_list = $(modal_body).find("ul.list-group:last-child");
+                    $.each(val, function(ind2, val2)
+                           {
+                                $(top_list).append('<li class="list-group-item">');
+                                var cur_elem = $(top_list).find('li.list-group-item:last-child');
+                                
+                                $.each(val2, function(ind3, val3)
+                                    {
+                                        var cur_def = null;
+                            
+                                        if ('default' in val3)
+                                        {
+                                            cur_def = val3.default;
+                                        }
+                                        
+                                        make_element (adjust_fields, cur_elem, cur_field, val3.field, cur_def, ind+'.'+ind2+'.'+ind3);
+                                        
+                                        //add logical info here
+                                        var added_elem = $(cur_elem).find('div.form-group:last-child');
+                                        
+                                        if (logical_indexes[index_count] != "null")
+                                        {
+                                            if (ind3 == (val2.length-1) && index_count < logical_indexes.length)
+                                            {
+                                                if (ind2 == (val.length-1) && index_count < logical_indexes.length)
+                                                {
+                                                    //put the button in a new ul
+                                                    //first end the current ul
+                                                    $(modal_body).append('</ul>')
+                                                    //start a new ul and li and add button and end li
+                                                    $(modal_body).append('<ul class="list-group"><li class="list-group-item-nobox">'+make_logical_button(cur_field, logical_indexes[index_count], index_count, "col-md-offset-5")+'</li>');
+                                                  
+                                                }else if (index_count < logical_indexes.length){
+                                                    //may make sense to put the button in a new li, so for now...
+                                                    //end the existing li
+                                                    $(top_list).append('</li>');
+                                                    //start a new one with the button
+                                                    $(top_list).append('<li class="list-group-item">'+make_logical_button(cur_field, logical_indexes[index_count], index_count, "col-md-offset-5"));
+                                                }
+                                            }
+                                            else if (index_count < logical_indexes.length)
+                                            {
+                                                //place the button after the current div
+                                                $(added_elem).append(make_logical_button (cur_field, logical_indexes[index_count], index_count, ""));
+                                                //$(added_elem).append('<button class="btn btn-default">'+logical_indexes[index_count]+'</button>');
+                                            }
+                                        }
+                                        
+                                        index_count += 1;
+                                    })
+                                
+                                $(top_list).append('</li>');
+                           });
+                    $(modal_body).append('</ul>')
+               });
+    }
+    
+    function generate_modals()
+    {
+        
+        $("button:contains('Adjust')+ul>li").remove();
+        
+        for (i in adjust_fields)
+        {
+           
+            $("#"+i).remove();
+            
+            $("button:contains('Adjust')+ul").append('<li><a data-toggle="modal" data-target="#'+i+'" style="cursor:pointer">'+i.replace('_', ' ')+'</a></li>');
+            $("#overall_form").append(modal_base.join(""));
+            var new_modal = $("#temp");
+            new_modal.attr("id", i)
+                    .attr("aria-labelledby", i)
+                    .find("div.modal-header > h4.modal-title")
+                    .html(i.replace('_', ' '));
+            new_modal.find("div.modal-header > button.close").attr("data-modal", i).click(function() {ensure_ok_values(this)});
+            new_modal.find("div.modal-footer > button").attr("data-modal", i).click(function() {ensure_ok_values(this)});
+            
+            //then need to customize the modal using the info in adjust_fields[i]
+            
+            var modal_body = new_modal.find("div.modal-body");
+            
+            if (adjust_fields[i].type == "standard")
+            {
+                for (j in adjust_fields[i].fields)
+                {
+                    make_element (adjust_fields, modal_body, i, j, null, null);   
+                }   
+            }else{
+                
+                modal_body.append(
+                    ['<div id="'+i+'_grouped_fields"></div>',
+                    '<div class="btn-group">',
+                        '<div id="filter_button" class="btn-group dropdown">',
+                              '<button type="button" onclick="add_filter_menu(this, \''+i+'\')" class="btn btn-default dropdown-toggle" data-toggle="dropdown" >',
+                                   'Add Filter <span class="caret"></span>',
+                              '</button>',
+                        '</div>',
+                        '<div class="btn-group dropdown">',
+                              '<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">',
+                                    'New Group <span class="caret"></span>',
+                              '</button>',
+                              '<ul class="dropdown-menu" role="menu">',
+                                    '<li><a onclick="new_group(this,\''+i+'\')">Outer</a></li>',
+                                    '<li><a onclick="new_group(this,\''+i+'\')">Inner</a></li>',
+                              '</ul>',
+                        '</div>',
+                        '<div class="btn-group">',
+                              '<button type="button" onclick="remove_all_groups(\''+i+'\')" class="btn btn-default" >',
+                                    'Remove All',
+                              '</button>',
+                        '</div>',
+                    '</div>',
+                '</div>'].join(""))
+                
+                make_grouped_fields (modal_body, i);
+                //filter_defaults = adjust_fields[i].default_groups;
+                //filter_list.set('fields', adjust_fields[i].fields);
+                //make_default_filters();
+                
+                //<div id="filter_main" class="modal-footer">
+                //    <button type="button" class="btn btn-default" onclick="ensure_ok_values('variant_modal')" aria-hidden="true">OK</button>
+                //</div>
+            }
+        }
+    }
+    
+     $(document).ready(function() {
+        $(".select2").select2({
+                minimumInputLength: 2,
+                placeholder: "Please Enter a Lab ID",
+                query: function(query){
+                    $.post("{{prog_type}}/HitWalker2/match_sample/", {query:query.term}, function(data, status, xhr)
+                                           {
+                                                if (status == "success")
+                                                {   
+                                                    query.callback(JSON.parse(data).data)
+                                                }
+                                                else
+                                                {
+                                                    console.log(status)
+                                                }
+                                            
+                                                
+                                           }, "text")
+                    }
+        
+        });
+        
+        generate_modals();
+       
+    });
+     
+    
+    function form_submit ()
+    {
+        var samp_dict = {};
+        var null_list = [];
+        
+        $("input[name$=_sample]").each(function()
+                                       {
+                                            var cur_val = $(this).val();
+                                            var type_samp_split = cur_val.split(": ");
+                                            var samp = type_samp_split[1];
+                                            var type = type_samp_split[0];
+                                            
+                                            var split_val = type.split(" ");
+                                            var val_type = split_val.shift();
+                                            if (split_val.join('') in samp_dict == false)
+                                            {
+                                                samp_dict[split_val.join('')] = {};
+                                            }
+                                                      
+                                            if (samp == "N/A"){
+                                               samp = null;
+                                                null_list.push(true);
+                                            }else{
+                                                null_list.push(false);
+                                            }    
+                                            
+                                            samp_dict[split_val.join('')][val_type]=samp;
+                                       });
+        
+        var all_null = null_list.every(function(x)
+                                         {
+                                            return(x);
+                                         })
+        
+        if (Object.keys(samp_dict).length == 0 || all_null == true)
+        {
+            samp_dict['SampleID'] = {Query:$(".select2").select2("data").text};
+        }
+        
+        $("input:not([name=csrfmiddlewaretoken])").removeAttr("name");
+        
+        d3.select("#sample_id_row").append("input").attr("type", "hidden").attr("name", "query_samples").property("value", JSON.stringify(samp_dict));
+        
+        d3.select("#parameters").append("input").attr("type", "hidden").attr("name", "parameters").property("value", JSON.stringify(adjust_fields));
+        
+        var target = document.getElementById('network_spinner');
+        var spinner = new Spinner(spinner_opts).spin(target);
+        
+        return (true);
+    }
+    
+    //old version below...
+    
+    //function form_submit ()
+    //{
+    //    //make hidden inputs which contain the sample data from the disabled forms...
+    //    
+    //    var samp_dict = {};
+    //    var null_list = [];
+    //    
+    //    d3.selectAll("input[name$=_sample]").each(function(d,i)
+    //                                              {
+    //                                                    var cur_val = d3.select(this).property("value");
+    //                                                    
+    //                                                    var type_samp_split = cur_val.split(": ");
+    //                                                    var samp = type_samp_split[1];
+    //                                                    var type = type_samp_split[0];
+    //                                                    
+    //                                                    //console.log(cur_val);
+    //                                                    var split_val = type.split(" ");
+    //                                                    var val_type = split_val.shift();
+    //                                                    if (split_val.join('') in samp_dict == false)
+    //                                                    {
+    //                                                        samp_dict[split_val.join('')] = {};
+    //                                                        
+    //                                                    }
+    //                                                    
+    //                                                    if (samp == "N/A"){
+    //                                                        samp = null;
+    //                                                        null_list.push(true);
+    //                                                    }else{
+    //                                                        null_list.push(false);
+    //                                                    }
+    //                                                    
+    //                                                    samp_dict[split_val.join('')][val_type]=samp;
+    //                                                    
+    //                                              })
+    //    
+    //    var all_null = null_list.every(function(x)
+    //                                     {
+    //                                        return(x);
+    //                                     })
+    //    
+    //    if (Object.keys(samp_dict).length == 0 || all_null == true)
+    //    {
+    //        //a hack as it currently is not used downstream in any meaningful way
+    //        samp_dict['LabID'] = {Unknown:$(".select2").select2("data").text};
+    //    }
+    //    
+    //    d3.select("#sample_id_row").append("input").attr("type", "hidden").attr("name", "query_samples").property("value", JSON.stringify(samp_dict));
+    //    
+    //    //d3.selectAll('[disabled=""]').attr("disabled", null);
+    //    
+    //    //additionally add how the variant filters are pieced together logically to variant_filter_logic.
+    //    //note that these were in check_all_fields, moved out as it made more sense that way...
+    //    var button_vals = make_button_info();
+    //    
+    //    document.getElementsByName("variant_filter_logic")[0].value = JSON.stringify(button_vals)
+    //    
+    //    var field_res = check_all_fields();
+    //    
+    //    if (field_res == true)
+    //    {
+    //        var target = document.getElementById('network_spinner');
+    //        var spinner = new Spinner(spinner_opts).spin(target);
+    //        return(true);
+    //    }
+    //    else
+    //    {
+    //        return(false);
+    //    }
+    //}
+    
+    function recurse_keys (nest, cur_list)
+    {
+        nest.forEach(function(key,value)
+                        {
+                            
+                            var temp_obj = {name:key, children:[]};
+                            
+                            if (Object.prototype.toString.call(value) == "[object Object]")
+                            {
+                                recurse_keys(nest.get(key), temp_obj.children);
+                            }
+                            else
+                            {
+                                
+                                for (i=0; i < value.length; i++)
+                                {
+                                    if (value[i].count > 0)
+                                    {
+                                        var temp_val = value[i];
+                                        temp_val['children'] = [];
+                                        temp_obj.children.push(temp_val);
+                                    }
+                                }
+                            }
+                            
+                           cur_list.push(temp_obj);
+                           
+                        });
+    }
+    
+    function rels_callback (data)
+    {
+        //good test for the multi-samples is 12-00156
+        //also need to allow user to paste the exact values, maybe exact search first followed by regex...
+        
+        console.log(JSON.stringify(data));
+        
+        var use_sample_obj = data.sample_list;
+        var temp_nest = d3.nest();
+        var exp_headers = [];
+        
+        use_sample_obj[0].property_order.forEach(function(d)
+                               {
+                                    temp_nest.key(function(x) x[d]);
+                                    exp_headers.push(d)
+                               });
+        
+        exp_headers.push("DataType");
+        
+        var for_nest = temp_nest.rollup(function(d) d[0].data)
+                 .map(use_sample_obj, d3.map);
+        //
+        
+        //var temp_nest = d3.nest().key(function(d) d.PatientID)
+        //                        .key(function(d) d.SpecificDiagnosis)
+        //                        .key(function(d) d.Sample)
+        //                        .rollup(function(d) d[0].data)
+        //                        .map(use_sample_obj, d3.map);
+        
+        var ids_for_rows = d3.map();
+        
+        var back_nest = d3.nest().key(function(d) d.Sample).map(use_sample_obj, d3.map);
+        
+        //see if hitwalker can be run on any samples...
+        
+        var any_valid = false;
+        
+        back_nest.forEach(function(key,value)
+                          {
+                                value.forEach(function(d)
+                                           {
+                                                if (d.required_data == 1)
+                                                {
+                                                    any_valid = true;
+                                                }
+                                           })
+                          });
+        
+        if (any_valid == true)
+        {
+            
+            if (for_nest.keys().length == 1)
+            {
+                //if only one patient is shown then retrieve info for samples
+                
+                //This breaks if searching on an alias, so will do this for now...
+                if (back_nest.has(data.sample_list[0].Sample) == true)
+                {
+                    var sel_sample_dta = back_nest.get(data.sample_list[0].Sample);
+                    
+                    console.log(JSON.stringify(sel_sample_dta));
+                    
+                    if (sel_sample_dta.length == 1 && sel_sample_dta[0].required_data == 1)
+                    {
+                        //check to see if it is valid, if so then record which datatypes are > 0 and place the lab ID in the appropriate row...
+                        for(i=0; i < sel_sample_dta[0].data.length;i++)
+                        {
+                            if (sel_sample_dta[0].data[i].count > 0)
+                            {
+                                ids_for_rows.set(sel_sample_dta[0].data[i].name, data.sample_list[0].Sample);
+                            }
+                            else
+                            {
+                                ids_for_rows.set(sel_sample_dta[0].data[i].name, "N/A");
+                            }
+                            
+                        }
+                    }
+                }
+            }
+            
+            var splice_ar = ['<div id="sample_id_row" class="row">',
+                                    '<div class="col-md-12">'];
+        
+            ids_for_rows.forEach(function(key, value)
+                                 {
+                                    splice_ar.push('<div class="col-md-4">');
+                                    splice_ar.push('<input type="text" form="overall_form" name="' + key + '_sample" class="form-control" id="' + key + '_sample" disabled value="' + key + ' Sample ID: ' + value + '">');
+                                    splice_ar.push('</div>');
+                                 });
+            
+            splice_ar.push('</div>');
+            splice_ar.push('</div>');
+            
+            //can enable the submit button
+            d3.selectAll("[type=submit]").attr("disabled", null);
+        }
+        else
+        {
+            //even if no one sample is valid, there can still be multiple samples that can be selected
+            
+            var found_dta = d3.set()
+            
+            back_nest.forEach(function(key,value)
+                          {
+                                value.forEach(function(d)
+                                           {
+                                                d.data.forEach(function(e)
+                                                {
+                                                    if (e.count > 0)
+                                                    {
+                                                        found_dta.add(e.name);
+                                                    }
+                                                    
+                                                })
+                                           })
+                          });
+            
+            var has_seed = false;
+            
+            data_types.seeds.forEach(function(d,i,ar)
+                              {
+                                    if (found_dta.has(d))
+                                    {
+                                        has_seed = true;
+                                    }
+                              });
+            
+            //if at least the 'target' and one of the 'seeds' is observed then let the user choose one...
+            if (found_dta.has(data_types.target) && has_seed)
+            {
+                //console.log('in')
+                //var ids_for_rows = d3.map({Variants:"N/A", siRNA:"N/A", GeneScore:"N/A"});
+                
+                var ids_for_rows = d3.map();
+                
+                ids_for_rows.set(data_types.target, "N/A");
+                
+                data_types.seeds.forEach(function(d,i,ar){
+                    ids_for_rows.set(d, "N/A");
+                })
+                
+                var splice_ar = ['<div id="sample_id_row" class="row">',
+                             '<div class="col-md-12">',
+                             '<p class="text-warning">No one sample for this patient can be prioritized in HitWalker2.</p><p class="text-warning">Please click on the datatypes above to be used for each sample or click "Query"</p>',
+                             '</div>'
+                             ];
+        
+                ids_for_rows.forEach(function(key, value)
+                                 {
+                                    splice_ar.push('<div class="col-md-4">');
+                                    splice_ar.push('<input type="text" name="' + key + '_sample" class="form-control" id="' + key + '_sample" disabled value="' + key + ' Sample ID: ' + value + '">');
+                                    splice_ar.push('</div>');
+                                 });
+            
+                splice_ar.push('</div>');
+                     
+                d3.select("#prioritize").attr("disabled", true);
+                d3.select("#query").attr("disabled", null);
+            }
+            else
+            {
+                 var splice_ar = ['<div id="sample_id_row" class="row">',
+                             '<div class="col-md-12">',
+                             '<p class="text-danger">Sorry, no sample can be prioritized in HitWalker2. However, you may use the "Query" functionality</p>',
+                             '</div>'
+                             ];
+            
+                d3.select("#prioritize").attr("disabled", true);
+                d3.select("#query").attr("disabled", null);
+            }
+            
+        }
+        
+        //otherwise make user choose samples...
+        
+        legend_map = [];
+        
+        recurse_keys(for_nest, legend_map);
+        
+        //as legend map is an array, needs to be a dict
+        
+        legend_map = legend_map[0];
+        
+        var is_vis = d3.select("#sample_svg_div svg");
+        
+        var is_inp = d3.select("#sample_id_row").remove();
+        
+        is_vis.remove();
+        
+        var vis = d3.select("#sample_svg_div")
+          .append("svg:svg")
+            .attr("width", 800)
+            .attr("height", 200);
+        
+        var legend_tree =  tree = d3.layout.tree().size([150,600]);
+            
+        var legend_nodes = legend_tree.nodes(legend_map);
+            
+        var legend_links = tree.links(legend_nodes);
+            
+        var diagonal = d3.svg.diagonal()
+            .projection(function(d) { return [d.y, d.x]; });
+        
+        var legend= vis.append("g").attr("class", "legend").attr("transform", "translate(20,0)");
+        
+        legend.selectAll("path.legend_link")
+                    .data(legend_links)
+                    .enter().append("path")
+                    .attr("class", "legend_link")
+                    .attr("d", diagonal);
+        
+        var legend_labs = legend.selectAll("g")
+            .data(legend_nodes)
+            .enter().append("g")
+            .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
+            
+        legend_labs.append("circle").attr("r", 5)
+        .on("click", function(d)
+            {
+                
+                var inp_box = document.getElementById(d.name+"_sample");
+                if (inp_box != undefined)
+                {
+                    inp_box.value = d.name + ' Sample ID: ' + d.parent.name;
+                    
+                    var contains_target = document.getElementById(data_types.target+"_sample").value != data_types.target + " Sample ID: N/A"
+                    
+                    var contains_seed = false;
+                    
+                    data_types.seeds.forEach(function(d,i,ar)
+                                      {
+                                            if (document.getElementById(d+"_sample").value != d + " Sample ID: N/A")
+                                            {
+                                                contains_seed = true;
+                                            }
+                                      });
+                    
+                    //if at least the 'target' and one of the 'seeds' is observed then let the user choose one...
+                    if (found_dta.has(data_types.target) && has_seed)
+                    
+                    if (contains_target && contains_seed)
+                    {
+                        d3.selectAll("[type=submit]").attr("disabled", null);
+                    }
+                }
+            });
+        
+        var category_list = [];
+        
+        legend_labs.append("text")
+                .attr("dx", function(d) { return d.children.length > 0 ? -8 : 8; })
+                .attr("dy", function(d) { return (15) })
+                .attr("text-anchor", function(d) {
+                    if(d.parent == undefined  || d.children.length == 0)
+                    {
+                        return("start");
+                    }
+                    else
+                    {
+                        return("middle");
+                    }
+                })
+                .style("font-size", "10px")
+                .text(function(d) { return d.name; });
+        
+        //var link_legend = vis.append("g").attr("class", "link_legend").attr("transform", "translate(50,100)");
+        
+        //figure out the distinct X values for all the SVG text and place the values in exp_headers according to the hierarchy
+        
+        var dist_x = d3.set();
+        var dist_list_sort = [];
+        
+        legend_nodes.forEach(function(d)
+                            {
+                                dist_x.add(d.y);
+                            })
+        
+        function compareNumbers (a,b)
+        {
+            return(a-b)
+        }
+        
+        dist_list_sort = dist_x.values();
+        dist_list_sort.sort(compareNumbers);
+        
+        var legend_list = [];
+        
+        dist_list_sort.forEach(function(d, i)
+                               {
+                                    legend_list.push({x:d, name:exp_headers[i]})
+                               });
+        
+        var legend_header = vis.append("g").attr("class", "legend").attr("transform", "translate(20,10)");
+        legend_header.selectAll("g").data(legend_list)
+                                .enter().append("g").attr("transform", function(d) { return "translate("+ d.x +",0)"; })
+                                .append("text").text(function(d) d.name).attr("text-anchor","middle").style("font-size", "10px");
+        
+        var new_row_div = $("#sample_svg_row")
+                        .after(splice_ar.join('\n')); 
+                                   
+    }
+    
+    function examine_sample_rels()
+    {
+        var target = document.getElementById('network_spinner');
+        var spinner = new Spinner(spinner_opts).spin(target);
+        var cur_id =  $(".select2").select2("data").text;
+        $.post("{{prog_type}}/HitWalker2/get_sample_rels/", {cur_id:cur_id}, function(data, status, xhr)
+                                           {
+                                                if (status == "success")
+                                                {
+                                                    spinner.stop()
+                                                    rels_callback(JSON.parse(data));
+                                                }
+                                                else
+                                                {
+                                                    console.log(status)
+                                                }
+                                            
+                                                
+                                           }, "text")
+    }
+    
+    var load_ok_clicked = function(prog_type)
+    {
+        var sel_name = $("#load_select").val();
+        
+        console.log(sel_name);
+        
+        //var load_obj = document.getElementById("load_select");
+        //var sel_name = load_obj.options[load_obj.selectedIndex];
+        
+        if (sel_name.length == 1)
+        {
+            
+              $.post(prog_type+"/HitWalker2/load_parameters/", {load_name:sel_name[0]},
+                                        function(data, status, xhr)
+                                           {
+                                                if (status == "success")
+                                                {
+                                                    var use_data = JSON.parse(data)
+                                                    
+                                                    adjust_fields = JSON.parse(use_data.parameters);
+                                                    
+                                                    generate_modals();
+                                                    
+                                                    d3.select("#param_load_alert").remove();
+                                                    add_message("Successfully loaded '"+ sel_name + "'");
+                                            
+                                                    $('#load_modal').modal('hide');
+                                                }
+                                                else
+                                                {
+                                                    console.log(status)
+                                                }
+                                            
+                                                
+                                           }, "text")
+        }
+        else{
+            if (document.getElementById("param_load_alert") == null)
+            {
+                d3.select("#param_load_div").append("div").attr("class", "alert alert-danger").attr("id", "param_load_alert").text("Please select a single name to load"); 
+            }
+            
+            //bad_value.push(true);
+        }
+        
+    }
+    
+    var save_clicked = function()
+    {
+        d3.select('#save_select').selectAll("option")
+            .data(param_names.values()).enter()
+            .append("option").on("click", function(d,i)
+                                {
+                                   //d3.select("#save_name").attr("value", d); 
+                                    $("#save_name").val(d);
+                                }).text(function(d,i) {return(d);});
+        
+        //$("#save_name").change(function()
+        //                       {
+        //                            console.log($(this).val());
+        //                       });
+    }
+    
+    var load_clicked = function()
+    {
+         d3.select('#load_select').selectAll("option")
+            .data(param_names.values()).enter()
+            .append("option").text(function(d,i) {return(d);});
+        
+    }
+    
+    var remove_menu_items = function(menu_id)
+        {
+            //console.log(menu_id)
+            var old_div = document.getElementById(menu_id);
+            while (old_div.firstChild) {
+                old_div.removeChild(old_div.firstChild);
+            }
+            
+        }
+    
+    var add_message = function(message_text)
+    {
+        remove_menu_items("message_text_div");
+        d3.select("#message_text_div").append("p").append("small").text(message_text);
+    }
+    
+    var reset_def_filters = function()
+    {
+        
+        $.post("{{prog_type}}/HitWalker2/get_default_parameters/",{}, function(data, status, xhr)
+               {
+                if (status == "success")
+                {
+                    var use_data = JSON.parse(data);
+                    
+                    adjust_fields = use_data.adjust_fields;
+                    
+                    generate_modals();
+                    
+                    add_message("Parameters have been reset to default values");
+                }
+                else{
+                    console.log(status)
+                }
+                
+               }, "text")
+    }
+    
+    var save_ok_clicked = function(prog_type)
+    {
+        
+        var save_name = $("#save_name").val();
+        
+        var serial_param = JSON.stringify(adjust_fields)
+        
+        //var save_name = document.getElementById("save_name");
+        //console.log(save_name);
+        if (save_name.value != "")
+        {
+            
+            $.post(prog_type+"/HitWalker2/save_parameters/", {save_name:save_name, adjust_fields:serial_param},
+                                        function(data, status, xhr)
+                                           {
+                                                if (status == "success")
+                                                {
+                                                    var use_data = JSON.parse(data);
+                                                    //looks successful, add the new name to the selection box options
+                                                    param_names.add(use_data.save_name);
+                                                    //bad_value.push(false);
+                                                    d3.select("#param_save_alert").remove();
+                                                    $('#save_modal').modal('hide');
+                                                    add_message("Successfully Saved '"+ use_data.save_name + "'");
+                                                }
+                                                else
+                                                {
+                                                    console.log(status)
+                                                }
+                                            
+                                                
+                                           }, "text")
+        }
+        else
+        {
+            if (document.getElementById("param_save_alert") == null)
+            {
+                d3.select("#param_save_div").append("div").attr("class", "alert alert-danger").attr("id", "param_save_alert").text("Please enter a valid name"); 
+            }
+            
+            //bad_value.push(true);
+        }
+    }
+    
+
+</script>
+</form>
+    
+</div>
+<div class="container">
+    <!-- This is from  http://stackoverflow.com/questions/18795967/how-to-center-spin-js-spinner-in-bootstrap-3-modal  and spin.js       -->
+    <div class="row">
+        <span id="network_spinner" style="position: absolute;display: block;top: 50%;left: 50%;"></span>
+    </div>
+</div>
+</body>
+</html>
+    

@@ -1,0 +1,29 @@
+
+/*
+ * These are the recommended font settings for KeyLines HTML5 version
+ *
+ * You will need to replace the '/fonts/' part of the URL with your own server paths
+ *
+ */
+
+@font-face {
+    font-family: 'Ubuntu';
+    src: url('/fonts/ubuntu-regular-webfont.eot');
+    src: url('/fonts/ubuntu-regular-webfont.eot?#iefix') format('embedded-opentype'),
+         url('/fonts/ubuntu-regular-webfont.woff') format('woff'),
+         url('/fonts/ubuntu-regular-webfont.ttf') format('truetype'),
+         url('/fonts/ubuntu-regular-webfont.svg#UbuntuRegular') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Ubuntu';
+    src: url('/fonts/ubuntu-bold-webfont.eot');
+    src: url('/fonts/ubuntu-bold-webfont.eot?#iefix') format('embedded-opentype'),
+         url('/fonts/ubuntu-bold-webfont.woff') format('woff'),
+         url('/fonts/ubuntu-bold-webfont.ttf') format('truetype'),
+         url('/fonts/ubuntu-bold-webfont.svg#UbuntuBold') format('svg');
+    font-weight: bold;
+    font-style: normal;
+}

@@ -1,0 +1,1510 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    
+    <link href="{{prog_type}}/static/network/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="{{prog_type}}/static/network/css/HitWalker2.css" rel="stylesheet" type="text/css">
+    <link href="{{prog_type}}/static/network/css/select2.css" rel="stylesheet">
+    <link href="{{prog_type}}/static/network/css/select2-bootstrap.css" rel="stylesheet">
+    <script src="{{prog_type}}/static/network/javascript/d3.v3/d3.v3.min.js" charset="utf-8"></script>
+    <script src="{{prog_type}}/static/network/javascript/jquery-1.10.2.min.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/bootstrap.min.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/network.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/ajax.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/select2.min.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/spin.min.js"></script>
+    <script src="{{prog_type}}/static/network/javascript/custom_plots.js"></script>
+   
+    <!--<script src="{{prog_type}}/static/network/javascript/jquery.debug.js"></script>-->
+    <!--<script charset="utf-8" type="text/javascript" src="{{prog_type}}/static/dajaxice/dajaxice.core.js"></script>-->
+    <title>HitWalker NetworkQuery</title>
+    <style>
+        .brush .extent {
+            fill-opacity: .1;
+            stroke: #fff;
+            shape-rendering: crispEdges;
+          }
+          
+            .popover{
+                z-index: 1040;
+                max-width:350px;
+                max-height: 500px;
+                overflow-y: scroll;
+            }
+          
+            
+    </style>
+</head>
+<body>
+    
+    <!--adapted from https://github.com/agordon/d3export_demo-->
+    <form action="{{prog_type}}/HitWalker2/pathway/" method="post" id="pathform">
+        {% csrf_token %}
+        <input type="hidden" id="pathway_name" name="pathway_name" value="">
+        <input type="hidden" id="sample_name" name="sample_name" value="">
+    </form>
+    <form action="{{prog_type}}/HitWalker2/network/" method="post" id="svgform">
+        {% csrf_token %}
+        <input type="hidden" id="output_format" name="output_format" value="">
+        <input type="hidden" id="data" name="data" value="">
+        <input type="hidden" id="plot_type" name="plot_type" value="">
+    </form>
+<!--    end adaptation-->
+    <div class="container">
+        <div class="navbar navbar-default" role="navigation">
+            <div class="container-fluid">
+                <div class="navbar-header">
+                    <a class="navbar-brand" href="{{prog_type}}/HitWalker2">HitWalker2</a>
+                </div>
+                <ul class="nav navbar-nav">
+                    <form action="{{prog_type}}/HitWalker2/table/" method="post" id="table_form">
+                        {% csrf_token %}
+                        <input type="hidden" name="redirect" value='True')></input>
+                    </form>
+                    <li ><a href="{{prog_type}}/HitWalker2">Select Sample</a></li>
+                    <li><a onclick="submit_table_data()" style="cursor:pointer">Select Variants</a></li>
+                    <li class="active"><a href="{{prog_type}}/HitWalker2/network" style="pointer-events:none">Visualize and Query</a></li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li><p class="navbar-text">Hello {{username}}</p></li>
+                    <li><p class="navbar-text">options</p></li>
+                    <li><a href="{{prog_type}}/HitWalker2/logout">logout</a></li>
+                </ul>
+            </div>
+        </div>
+    
+    <div class="row">
+    <div id="content" class="panel panel-default"  style="width:{{ w|add:w|add:legend_offset }}px">
+    <script type="text/javascript">
+        // col-md-12
+        //for jquery.debug.js
+        DEBUG = false;
+        
+        //var w = 400
+        //    h = 400
+        //    legend_offset=200;
+        //    //the history offset is for a potential future graphical representation of the provenance...
+        //    //using it now for asthetics...
+        //    history_offset=10;
+        
+        var w = {{w}}
+            h = {{h}}
+            legend_offset = {{legend_offset}}
+            history_offset = {{history_offset}};
+        
+        var panel_context = "{{panel_context}}";
+        var shiftKey = false;
+        var selected_node = d3.map();
+        var selected_panel = null;
+        var current_object = false;
+        var contextMenuShowing = false;
+        var popover_ref = null;
+        var shouldDrag = false;
+        var selected_boxs = [];
+        var history_dict = {};
+        var tool_tip_panel = "";
+        var spinner_target;
+        var graph_obj;
+        var all_vis;
+        
+        var spinner_opts = {
+            lines: 13, // The number of lines to draw
+            length: 20, // The length of each line
+            width: 10, // The line thickness
+            radius: 30, // The radius of the inner circle
+            corners: 1, // Corner roundness (0..1)
+            rotate: 0, // The rotation offset
+            direction: 1, // 1: clockwise, -1: counterclockwise
+            color: '#000', // #rgb or #rrggbb or array of colors
+            speed: 1, // Rounds per second
+            trail: 60, // Afterglow percentage
+            shadow: false, // Whether to render a shadow
+            hwaccel: false, // Whether to use hardware acceleration
+            className: 'spinner', // The CSS class to assign to the spinner
+            zIndex: 2e9, // The z-index (defaults to 2000000000)
+            top: 'auto', // Top position relative to parent in px
+            left:'auto' // Left position relative to parent in px
+          };
+        
+        var spinner = new Spinner(spinner_opts);
+        var input_vals = {{ input_vals|safe }};
+        
+        var cur_filts = {{ cur_filts|safe }};
+        var cur_param = {{ cur_param|safe }};
+        
+        var metanode_thresh = {{metanode_thresh}};
+        var node_transl = {{ node_type_transl|safe }};
+        var edge_transl = {{ edge_type_transl|safe }};
+        
+        $(document).ready(function()
+                          {
+                                spinner_target = document.getElementById('network_spinner');
+                                spinner.spin(spinner_target);
+                                
+                                input_vals['panel_context'] = panel_context;
+                                
+                                $.post("{{prog_type}}/HitWalker2/get_graph/", input_vals, function(data, status, xhr)
+                                               {
+                                                    if (status == "success")
+                                                    {   
+                                                        var parsed_data = JSON.parse(data);
+                                                        
+                                                        var graph_obj = {nodes:parsed_data.nodes, links:parsed_data.links};
+                                                        
+                                                        history_dict["panel_1"] = {action:'initial', values:{}, status:'active', title:parsed_data.title};
+
+                                                        update_image({panel_1:{graph:graph_obj}});
+                                                        
+                                                        spinner.stop();
+                                                    }
+                                                    else
+                                                    {
+                                                        console.log(status)
+                                                    }
+                                                
+                                                    
+                                               }, "text")
+                                
+                          });
+        
+        var body = d3.select("body")
+        .on("keydown", function()
+            {
+                shiftKey = d3.event.shiftKey || d3.event.metaKey;
+            })
+        .on("keyup", function() shiftKey = d3.event.shiftKey || d3.event.metaKey);
+        
+        var submit_table_data = function()
+        {
+            document.getElementById("table_form").submit();
+        }
+        
+        d3.select("#content").on("contextmenu", function()//was onclick
+                                {
+            d3.event.preventDefault();
+            if (contextMenuShowing) {
+                d3.select(".popup").remove();
+            } else {
+               
+                if (popover_ref != null)
+                {
+                  delete_popover();
+                }else{
+                    
+                    var content = '<div class="container" style="width:100px">' +
+                                        '<div class="row">' +
+                                        '<div class="btn-group-vertical">' +
+                                            '<div class="btn-group">' +
+                                                '<button type="button" class="btn btn-default dropdown-toggle col-md-12" data-toggle="dropdown" style="cursor:pointer">Export<span class="caret"></span></button>' +
+                                                '<ul class="dropdown-menu" role="menu">' +
+                                                    '<li><a data-value="pdf" onclick="export_svg (this, null)" style="cursor:pointer">PDF</a></li>' +
+                                                '</ul>' +
+                                            '</div>' +
+                                            '<div class="btn-group">' +
+                                                '<button type="button" class="btn btn-default col-md-12" style="cursor:pointer" onclick="make_blank_panel()">New Panel</button>' +
+                                            '</div>' +
+                                        '</div>' +
+                                        '</div>' +
+                                    '</div>';
+                                    
+                    //onclick="export_svg(this, \''+panel_id+'\')"
+                    
+                     $(this).popover({content:content, title:'Options', container:"body", html:true, trigger:"manual",
+                                                                              placement: "right"
+                                                                        });
+                    
+                    $(this).popover('show');
+                    $('.popover').css('left', d3.event.pageX + 'px');
+                    $('.popover').css('top', d3.event.pageY-($('.popover').height()/2) + 'px')
+                    $('.popover').css('position', 'absolute');
+                    $('.popover').css('overflow-y', 'visible');
+                    popover_ref = this;
+                }
+            }
+            }).on("click", function()
+                                 {
+                                    if (popover_ref != null)
+                                    {
+                                        delete_popover();
+                                    };
+                                    
+                                    //selected_node = d3.map();
+                                    //unselect_all(selected_panel);
+                                    //deemphasize_nodes(d3.select("#"+selected_panel), selected_node, false)
+                                    //selected_panel = null;
+                                 });
+        
+        function make_blank_panel()
+        {
+            var new_panel_id = make_unique_id();
+                
+            all_vis[new_panel_id] = {graph:{nodes:[], links:[]}};
+            history_dict[new_panel_id] = {action:'blank_panel', values:{}, status:'active', title:'New Panel'};
+            update_image(all_vis);
+        }
+        
+        function change_text (var_name)
+        {
+            var exp_button = document.getElementById("export_button");
+            exp_button.setAttribute("data-value", var_name);
+            exp_button.innerHTML = "Export as " + String.toUpperCase(var_name);
+        }
+        
+        function generate_table_headers()
+        {
+            var ret_table = "data:text/csv;charset=utf-8,";
+            
+            for (i in cur_param){
+                ret_table += i + "\n";
+                for (j in cur_param[i]){
+                    ret_table += cur_param[i][j].name + " " + cur_param[i][j].comparison + " " + cur_param[i][j].default + "\n";
+                }
+                ret_table += "\n";
+            }
+            
+            for (i in cur_filts){
+                ret_table += i + "\n";
+                ret_table += cur_filts[i] + "\n";
+            }
+            
+            ret_table += "\n";
+            
+            return(ret_table);
+        }
+        
+        //exporting the html summary tables via the 'Export Summary' button or other onclick functionality calling this
+        function export_html_summary_csv(table_id)
+        {
+            
+            var table_rows = d3.select("#"+table_id).selectAll("tr");
+            var ret_table = generate_table_headers();
+            
+            ret_table += '\n' + get_title_from_history($(popover_ref).parentsUntil("svg").attr("id")) + '\n';
+            var row_num = 0;
+            var header_len = 0;
+            table_rows.each(function()
+                             {
+                                var cur_elems = d3.select(this).selectAll("td,th");
+                                var cur_row = [];
+                                cur_elems.each(function(d,i)
+                                               {
+                                                    cur_row.push(d3.select(this).text());  
+                                               })
+                                
+                                if(row_num == 0)
+                                {
+                                    header_len = cur_row.length;
+                                }
+                                else if (row_num > 0 && cur_row.length < header_len)
+                                {
+                                    cur_row.unshift("");
+                                }
+                                ret_table += cur_row.join(",") + "\n"
+                                row_num += 1;
+                                
+                             });
+            
+            var use_uri = encodeURI(ret_table);
+            
+            var download_link = d3.selectAll("body").append("a").attr("href", use_uri).attr("download", "summary.csv").attr("id", "down_link");
+            
+            document.getElementById("down_link").click();
+            
+            download_link.remove()
+        }
+        
+        function export_csv(panel_id)
+        {
+            var ret_table = generate_table_headers();
+            
+            ret_table += 'Title: ' + get_title_from_history(panel_id) + '\n\n';
+            
+            //get all the available nodes and edges
+            
+            var all_graph =  all_vis[panel_id].graph;
+            
+            var node_names = d3.map();
+            var node_groups = d3.map();
+            var cur_group = 1;
+            var att_map = d3.map();
+            var link_map = d3.map();
+            
+            all_graph.nodes.forEach(function(d,i,ar)
+                                    {
+                                        var use_d;
+                                        if (d.attributes.node_type == "MetaNode")
+                                        {
+                                            use_d = d.children;
+                                        }else{
+                                            use_d = [d];
+                                        }
+                                        use_d.forEach(function(e, j, ar2){
+                                            node_names.set(e.id, e.display_name);
+                                            node_groups.set(e.id, cur_group);
+                                            
+                                            var temp_att_map = d3.map();
+                                            e.children.forEach(function(g, k, ar3){
+                                                if (temp_att_map.has(g.attributes.meta.node_cat))
+                                                {
+                                                    temp_att_map.set(g.attributes.meta.node_cat, temp_att_map.get(g.attributes.meta.node_cat) + ';' + g.attributes.node_type)
+                                                }else{
+                                                    temp_att_map.set(g.attributes.meta.node_cat, g.attributes.node_type);
+                                                }
+                                            })
+                                            
+                                            att_map.set(e.id, temp_att_map);
+                                            
+                                            //figure out what relationships each gene has
+                                            
+                                        });
+                                        
+                                        cur_group += 1;
+                                    });
+            
+            var norm_edges = [];
+            
+            all_graph.links.forEach(function(d,i,ar)
+                                    {
+                                        var temp_edges = {source:[], target:[]};
+                                        ['source', 'target'].forEach(function(e,j,ar2)
+                                                                     {
+                                                                        if (d[e].attributes.node_type == "MetaNode")
+                                                                        {
+                                                                            //norm_edges[i][e].push(d[e].children.map(function(x) x.id));
+                                                                            temp_edges[e] = $.merge(temp_edges[e], d[e].children.map(function(x) x.id))
+                                                                        }
+                                                                        else{
+                                                                            //norm_edges[i][e].push([d[e].id]);
+                                                                            temp_edges[e].push(d[e].id)
+                                                                        }
+                                                                        
+                                                                     });
+                                        
+                                        temp_edges.source.forEach(function(e,j,ar2)
+                                                                 {
+                                                                    temp_edges.target.forEach(function(f, k, ar3)
+                                                                                             {
+                                                                                                norm_edges.push({source:e, target:f, type:d.attributes.type});
+                                                                                             });
+                                                                 });
+                                        
+                                        
+                                    });
+            
+            var edge_nest = d3.nest().key(function(d) d.source).key(function(d) d.target).rollup(function(d) {return d.map(function(e) e.type)}).map(norm_edges, d3.map);
+            var rev_nest = d3.nest().key(function(d) d.target).key(function(d) d.source).rollup(function(d) {return d.map(function(e) e.type)}).map(norm_edges, d3.map);
+            
+            rev_nest.forEach(function(key, value)
+                             {
+                                if(edge_nest.has(key)==false)
+                                {
+                                    edge_nest.set(key, value);
+                                }else{
+                                    
+                                    var temp_edge_val = edge_nest.get(key);
+                                    
+                                    value.forEach(function(key2, value2){
+                                        if (temp_edge_val.has(key2) == false)
+                                        {
+                                            temp_edge_val.set(key2, value2);
+                                        }else{
+                                            console.log('Warning, unexpected key-value pair in export_csv')
+                                        }
+                                    });
+                                    
+                                    edge_nest.set(key, temp_edge_val);
+                                }
+                             });
+            
+            var row_list = [];
+            
+            var att_union = d3.set();
+            
+            att_map.forEach(function(key,value){
+                value.keys().forEach(function(d,i,ar){
+                    att_union.add(d);
+                });
+                
+            });
+            
+            var header_list = ['Node_Group', 'Node_Name'];
+            header_list = $.merge(header_list, att_union.values());
+            
+            //add a column for each node, indicating the type of relationship involved if any
+                                        //if there is at least one edge (e.g. not only a metanode)
+            if (edge_nest.values().length > 0)
+            {
+                header_list = $.merge(header_list,node_names.values());
+            }
+            
+            ret_table += header_list.join(',') + '\n';
+            
+            node_names.forEach(function(node_id, node_name)
+                               {
+                                    //fill by row
+                                    var temp_row = [];
+                                    
+                                    //node group
+                                    temp_row.push(node_groups.get(node_id));
+                                    
+                                    //node name
+                                    temp_row.push(node_name);
+                                    
+                                    //add a column for each of the possible attributes, but only fill those that are applicable
+                                    
+                                    att_union.values().forEach(function(d,i,ar)
+                                                               {
+                                                                    var temp_att = '.';
+                                                                    var temp_map = att_map.get(node_id);
+                                                                    if(temp_map.has(d))
+                                                                    {
+                                                                        temp_att = temp_map.get(d);
+                                                                    }
+                                                                    
+                                                                    temp_row.push(temp_att);
+                                                               });
+                                    
+                                    //add a column for each node, indicating the type of relationship involved if any
+                                        //if there is at least one edge (e.g. not only a metanode)
+                                    if (edge_nest.values().length > 0)
+                                    {
+                                            node_names.forEach(function(node_id2, node_name2){
+                                            if (edge_nest.has(node_id))
+                                            {
+                                                var temp_edge = edge_nest.get(node_id);
+                                                
+                                                if (temp_edge.has(node_id2))
+                                                {
+                                                    temp_row.push(temp_edge.get(node_id2).join(';'));
+                                                }
+                                                else{
+                                                    temp_row.push('.');
+                                                }
+                                            }
+                                            else{
+                                                temp_row.push('.');
+                                            }
+                                        });
+                                    }
+                                    
+                                    
+                                    
+                                    ret_table += temp_row.join(',') + '\n';
+                               });
+            
+            var use_uri = encodeURI(ret_table);
+            
+            var download_link = d3.selectAll("body").append("a").attr("href", use_uri).attr("download", "graph_summary.csv").attr("id", "export_csv");
+            
+            document.getElementById("export_csv").click();
+            
+            download_link.remove()
+            
+        }
+        function export_svg (obj, panel_id)
+        {
+            //adapted from https://github.com/agordon/d3export_demo
+            // Get the d3js SVG element
+            
+            var cur_obj = d3.select(obj);
+            
+            var form = document.getElementById("svgform");
+            form['output_format'].value = cur_obj.attr("data-value");
+            
+            if (panel_id == null)
+            {
+                var svg_xml = (new XMLSerializer).serializeToString(d3.select('svg').node());
+                
+                form['plot_type'].value = 'svg';
+                form['data'].value = svg_xml;
+                
+            }else{
+                var cur_g = d3.select("#"+panel_id);
+                var legend_xml = '';
+                
+                if (cur_g.attr('class') == 'g1')
+                {
+                    var legend_g = d3.select("g.legend")
+                    legend_xml = (new XMLSerializer).serializeToString(legend_g.node());
+                }
+                
+                var g_xml = (new XMLSerializer).serializeToString(cur_g.node());
+                
+                form['data'].value = legend_xml + g_xml ;
+                form['plot_type'].value = cur_g.attr('class');
+            }
+            
+            form.submit();
+            
+            //end adaptation
+            
+        }
+        
+        
+        //var vis = d3.select("#content")
+        ////.attr("tabindex", 1)
+        ////.each(function() { this.focus(); })
+        //  .insert("svg:svg")
+        //    .attr("width", w)
+        //    .attr("height", h)
+        //    //.on("dblclick.zoom", null)
+        //    //.on("mousedown", mousedown);
+        //    .attr("pointer-events", "all")
+        
+        var over_vis = d3.select("#content")
+          .insert("svg:svg")
+            .attr("width", (w*2)+legend_offset)
+            .attr("height", (h*2)+history_offset)
+            .attr("pointer-events", "all");
+        
+        //var vis_1 = over_vis.append("g").attr("class", "g1").attr("transform", "translate(0,0)");
+        //var vis_2 = over_vis.append("g").attr("class", "g2").attr("transform", "translate(800,0)");
+        
+        //function send_to_new_panel()
+        //{
+        //    var cur_panel = $(popover_ref).parentsUntil("svg").attr("id");
+        //    
+        //    console.log(d3.select($(popover_ref)).datum());
+            
+            //use_graph = {nodes:[{id:make_unique_meta_id(all_vis), display_name:samp_name, attributes:{node_type:'MetaNode', indexed_name:'name', meta:{}}, children:use_nodes}], links:[]}
+            //
+            ////console.log(JSON.stringify(use_graph));
+            //var new_panel_id = make_unique_id();
+            //
+            //history_dict[new_panel_id] = {action:'subset', status:'active', values:{prev:cur_panel, subset:subset_value}};
+            //all_vis[new_panel_id] = {graph:use_graph};
+            //update_image (all_vis);
+            //
+            //delete_popover();
+        //}
+        
+        function pathway_context(obj)
+        {
+            var cur_panel = $(popover_ref).parentsUntil("svg").attr("id");
+            
+            query_pathways(cur_panel, obj, 'static_pathway_tab')
+            
+        }
+        
+        function static_pathway_tab(panel_name)
+        {
+            var sel_vals = $("#pathway_select").val();
+            
+            if (sel_vals.length == 1)
+            {
+                $("#error_p").prop("hidden", true);
+                
+                //send the selected pathway name back to the server
+                
+                var form = document.getElementById("pathform");
+                form['pathway_name'].value = sel_vals[0].replace(/\s+\(n=\d+\)/, "");
+                form['sample_name'].value = d3.select(popover_ref).datum().id;
+                form.target='_blank';
+                form.submit();
+                
+                 delete_popover();
+                
+                //from http://www.plus2net.com/html_tutorial/submit-new.php
+                //<form name=f1 method=post action=test5.html>
+                //<input type=text name=name value='plus2net'>
+                //<input type='submit' value='Open default action file test5.php' 
+                //onclick="this.form.target='_blank';return true;">
+                //</form>
+                
+            }else{
+                $("#error_p").prop("hidden", false);
+            }
+        }
+        
+        function ungroup_nodes(obj)
+        {
+            var cur_panel = $(popover_ref).parentsUntil("svg").attr("id");
+            var graph_nodes = d3.set(all_vis[cur_panel].graph.nodes.map(function(x) x.id));
+            var sel_nodes =  d3.set( selected_node.keys());
+            //then find the selected nodes that are in this graph
+            
+            var pos_links = [];
+            var node_pos = d3.map();
+            var new_nodes = graph_nodes.nodes;
+            var new_links = [];
+            
+            var new_nodes = all_vis[cur_panel].graph.nodes.filter(function(x)
+                                                 {
+                                                    if (sel_nodes.has(x.id))
+                                                    {
+                                                        return(false);
+                                                    }else{
+                                                        return(true);
+                                                    }
+                                                 });
+            
+            new_nodes.forEach(function(d,i,ar)
+                                    {
+                                        node_pos.set(d.id, i);
+                                    });
+            
+            
+            selected_node.forEach(function(key, value)
+                          {
+                                var cur_val = d3.select(value).datum();
+                                var temp_nodes = [];
+                                
+                                
+                                //deal with the case that cur_val refers to a metanode
+                                if (cur_val.attributes.node_type == 'MetaNode' && graph_nodes.has(cur_val.id))
+                                {
+                                    cur_val.children.forEach(function(d,i,ar)
+                                                             {
+                                                                temp_nodes.push($.extend({}, d, deep=true));
+                                                             });
+                                    
+                                    all_vis[cur_panel].graph.links.forEach(function(d,i,ar)
+                                                      {
+                                                            if ($.isPlainObject(d.source) && d.source.id == key)
+                                                            {
+                                                                temp_nodes.forEach(function(e,j,ar2)
+                                                                                   {
+                                                                                        var new_d = $.extend({}, d, deep=true);
+                                                                                        new_d.source = j+new_nodes.length;
+                                                                                        new_links.push(new_d);
+                                                                                   });
+                                                                
+                                                            }else if ($.isPlainObject(d.target) &&d.target.id == key)
+                                                            {
+                                                                 temp_nodes.forEach(function(e,j,ar2)
+                                                                                   {
+                                                                                        var new_d = $.extend({}, d, deep=true);
+                                                                                        new_d.target = j+new_nodes.length;
+                                                                                        new_links.push(new_d);
+                                                                                   });
+                                                            }else{
+                                                                 //add in the remaining links
+                                                                var new_d = $.extend({}, d, deep=true);
+                                                                new_d.target = node_pos.get(new_d.target.id);
+                                                                new_d.source = node_pos.get(new_d.source.id);
+                                                                new_links.push(new_d);
+                                                            }
+                                                      });
+                                    
+                                    new_nodes = $.merge(new_nodes, temp_nodes);
+                                }
+                                else{
+                                    
+                                    console.log("WARNING: Cannot ungroup regular nodes.");
+                                }
+                                
+                               
+                          });
+            
+            all_vis[cur_panel].graph = {nodes:new_nodes, links:new_links};
+            
+            update_image (all_vis);
+            
+            delete_popover();
+        }
+        
+        function subset_meta_node(child_type, subset_value, node_id)
+        {
+            //popover ref should be uniquely defined as there can only be a single popover on the screen at a time
+            
+            var cur_panel = $(popover_ref).parentsUntil("svg").attr("id");
+            //var cur_panel_ind = panel_num_from_id (cur_panel);
+            var sub_graph =  all_vis[cur_panel].graph;
+            
+            var use_nodes = [];
+            var meta_node_count = 0;
+            
+            //for each metanode
+            sub_graph.nodes.forEach(function(d,i,ar)
+                              {
+                                if (d.id == node_id)
+                                {
+                                    meta_node_count += 1;
+                                    d.children.forEach(function(d2,i2,ar2)
+                                          {
+                                                var is_subset = false;
+                                                d2.children.forEach(function(d2child, i2child, ar2child)
+                                                                    {
+                                                                        if (d2child.attributes.node_type == rev_type_translation(subset_value) && d2child.attributes.meta.node_cat == child_type)
+                                                                        {
+                                                                            is_subset = true;
+                                                                        }
+                                                                    });
+                                                
+                                                if (is_subset)
+                                                {
+                                                    use_nodes.push(JSON.parse(JSON.stringify(d2)));
+                                                }
+                                          });
+                                }
+                                
+                              });
+            
+            if (meta_node_count != 1)
+            {
+                console.log("ERROR: Issue encountered subsetting MetaNodes, probably ID related")
+            }
+            
+            //respect config.py:max_nodes
+            if (use_nodes.length > metanode_thresh)
+            {
+                var child_nest = d3.nest().key(function(d) d.attributes.node_type).rollup(function(d) d.length).map(use_nodes);
+            
+                var samp_name = '';
+                
+                for (i in child_nest)
+                {
+                    samp_name += i + ' (' + child_nest[i] + ')';
+                }
+                
+                use_graph = {nodes:[{id:make_unique_meta_id(all_vis), display_name:samp_name, attributes:{node_type:'MetaNode', indexed_name:'name', meta:{}}, children:use_nodes}], links:[]};
+                
+            }else{
+                
+                use_graph = {nodes:use_nodes, links:[]};
+                
+            }
+            
+            //create a new metanode
+            
+            //console.log(JSON.stringify(use_graph));
+            var new_panel_id = make_unique_id();
+            
+            history_dict[new_panel_id] = {action:'subset', status:'active', values:{prev:cur_panel, subset:subset_value}};
+            all_vis[new_panel_id] = {graph:use_graph};
+            update_image (all_vis);
+            
+            delete_popover();
+        }
+        
+        function get_title_from_history(panel_id){
+            
+            if (panel_id in history_dict)
+            {
+                var panel_history = history_dict[panel_id];
+                if (panel_history.action == 'initial' || panel_history.action == 'blank_panel' || panel_history.action == 'query' || panel_history.action.match(/_plot$/))
+                {
+                    return(panel_history['title']);
+                }
+                else if (panel_history.action == 'subset'){
+                    //need to find the originating query as well as the total subsets carried out
+                    var back_panel = panel_history;
+                    var subset_list = [panel_history.values.subset];
+                    while(back_panel.values.prev != undefined && 'prev' in history_dict[back_panel.values.prev].values && history_dict[back_panel.values.prev].action == 'subset')
+                    {
+                        back_panel = history_dict[back_panel.values.prev];
+                        subset_list.push(back_panel.values.subset)
+                    }
+                    
+                    //subset_list.push(back_panel.values.subset)
+                    //back_panel = history_dict[back_panel.values.prev];
+                    
+                    //the final back_panel should be the starting point, usually a query, so the subsets will be reported relative to that
+                    
+                    var use_title;
+                    
+                    if ('title' in back_panel)
+                    {
+                        use_title = history_dict[back_panel.values.prev].title;
+                    }else{
+                        use_title = get_title_from_history(back_panel.values.prev);
+                    }
+                    
+                    return(use_title + ' limited by ' + subset_list.join(','));
+                   
+                    
+                }
+                else if (panel_history.action == "addition")
+                {
+                    var back_panel = panel_history;
+                    var add_list = [panel_history.values.addition];
+                    while(back_panel.values.prev != undefined && 'prev' in history_dict[back_panel.values.prev].values && history_dict[back_panel.values.prev].action == 'addition')
+                    {
+                        back_panel = history_dict[back_panel.values.prev];
+                        add_list.push(back_panel.values.addition)
+                    }
+                    
+                    var use_title;
+                    
+                    if ('title' in back_panel)
+                    {
+                        use_title = history_dict[back_panel.values.prev].title;
+                    }else{
+                        use_title = get_title_from_history(back_panel.values.prev);
+                    }
+                    
+                    return(use_title + ' with addition of ' + add_list.join(','));
+                }
+                else{
+                    return("Undefined history action");
+                }
+            }else{
+                return("Cannot find panel ID");
+            }
+            
+        }
+        
+        
+        
+        function update_image (vis_list)
+        {
+            //updating the image means there should not be any more defined groups...
+            selected_panel = null;
+            selected_node = d3.map();
+            
+            //check to see if the image needs to be expanded
+            d3.selectAll('div[role="tooltip"]').remove();
+            
+            d3.selectAll("g[class=g1]").remove();
+            d3.selectAll('g[class$=_plot]').remove();
+            
+            var vis_map = d3.map(vis_list);
+            
+            var total_y = 0;
+            
+            //rename the metanodes to ensure unique ids...
+            vis_list = make_unique_meta_id(vis_list);
+            
+            plot_squares = {graph:1, plot:2};
+            
+            vis_map.forEach(function(key, value)
+                             {
+                                if ('nodes' in value.graph && 'links' in value.graph)
+                                {
+                                    total_y += (1/2.0);
+                                }
+                                else
+                                {
+                                    total_y += 1;
+                                }
+                                
+                             });
+            
+            total_y = Math.ceil(total_y);
+            
+            if ((total_y*h) >= over_vis.attr("height"))
+            {
+                d3.select("svg").remove();
+                
+                over_vis = d3.select("#content")
+                .insert("svg:svg")
+                  .attr("width", (w*2)+legend_offset)
+                  .attr("height", (total_y*h) + (2*h)+history_offset)
+                  .attr("pointer-events", "all");
+            }
+            
+            
+            var legend_node_map = d3.map();
+            var legend_edge_set = d3.set();
+            
+            vis_map.values().forEach(function(d)
+                                     {
+                                        if ('nodes' in d.graph && 'links' in d.graph)
+                                        {
+                                            d.graph.nodes.forEach(function(cur_node)
+                                                                  {
+                                                                        if (legend_node_map.has(cur_node.id)==false)
+                                                                        {
+                                                                            legend_node_map.set(cur_node.id, cur_node);
+                                                                        }
+                                                                  });
+                                            
+                                            d.graph.links.forEach(function(cur_edge)
+                                                                  {
+                                                                        legend_edge_set.add(cur_edge.attributes.type);
+                                                                  })
+                                        }
+                                     });
+            
+            //depricated
+            //legend_graph = vis_map.values().reduce(function(previousValue, currentValue, index, array){return (add_to_graph(previousValue.graph, currentValue.graph));})
+            if (legend_node_map.keys().length > 0)
+            {
+                make_graph_legend(over_vis, legend_node_map.values(), legend_edge_set.values());
+            }
+                
+            
+            //var net_nodes = over_vis.selectAll("g.g1").data(vis_list, function(d) { return d.id; }).enter().append("g").attr("class", "g1");
+                            
+            
+            plot_type = {graph:0, plot:0};
+            
+            vis_map.entries().sort(function(a, b) {return panel_num_from_id(a.key) - panel_num_from_id(b.key);})
+                    .forEach(function(d,i,ar)
+                         {
+                            var key = d.key;
+                            var value = d.value;
+                            var cur_x, cur_y;
+                            //var d = value;
+                            
+                            var actual_i = (plot_squares.graph * plot_type.graph) + (plot_squares.plot * plot_type.plot);
+                            
+                            if ('nodes' in value.graph && 'links' in value.graph)
+                            {
+                                var cur_obj = over_vis.append("g").attr("class", "g1").attr("id", key);
+                                
+                                if ((actual_i+1) % 2 ==0)
+                                {
+                                    cur_x = w + legend_offset;
+                                }
+                                else
+                                {
+                                    cur_x = 0 + legend_offset;
+                                }
+                                
+                                cur_y = ((Math.ceil((actual_i+1)/2)-1)*h)+history_offset;
+                                
+                                //cur_y = 0
+                                cur_obj.attr("transform", "translate("+cur_x+","+cur_y+")");
+                                //cur_obj.append("text").text(d.title).attr("dx", w/2).attr("dy", 15).style("text-anchor", "middle");
+                                cur_obj.append("rect").attr("width", w-2).attr("height", h-2).attr("class", "BorderRect").attr("rx", "10").on("contextmenu", function()
+                                                                                            {
+                                                                                                context_function(this, false, key);
+                                                                                            });
+                                
+                                update_graph(cur_obj, value.graph,w,h, shiftKey);
+                                plot_type.graph += 1;
+                                
+                                var tt_sel = d3.select("#"+key+">g[class=brush]>rect[class=background]");
+                                
+                                tt_content = '<div class="tooltip" role="tooltip", id="tooltip_'+key+'"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>';
+                                $("#"+key).tooltip({title:get_title_from_history(key), trigger:'manual', container:'body', template:tt_content});
+                                
+                                
+                                tt_sel.on("mouseover", function()
+                                  {
+                                    
+                                    //console.log(tool_tip_panel);
+                                    if (tool_tip_panel != key)
+                                    {
+                                        $("#"+key).tooltip('show');
+                                        tool_tip_panel = key;
+                                    }
+                                    
+                                    if (panel_context == 'panel')
+                                    {
+                                        d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
+                                        cur_obj.selectAll("rect[class=BorderRect]").classed("Selected", true);
+                                    }
+                                    
+                                    deemphasize_nodes(cur_obj, selected_node, false);
+                                    
+                                    unselect_all(key);
+                                    
+                                    //console.log(selected_panel);
+                                    //console.log(JSON.stringify(selected_node));
+                                  })
+                                .on("mouseout", function()
+                                    {
+                                        if (in_current_box(cur_obj, w-2, h-2) == false)
+                                        {
+                                            $("#"+key).tooltip('hide');
+                                            tool_tip_panel = "";
+                                            
+                                            if (panel_context == 'panel')
+                                            {
+                                                d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
+                                            }
+                                        }
+                                    });
+                            }
+                            else
+                            {
+                                var cur_obj;
+                                
+                                cur_x =  0 + legend_offset;
+                                cur_y = (Math.floor((actual_i+1)/2)*h)+history_offset;
+                                
+                                //makes a blank panel to support the addition of a plot which is 2x the width of a given panel
+                                if (plot_type.graph % 2 > 0)
+                                {
+                                    cur_obj = over_vis.append("g").attr("class", "g1").attr("id", "blank_"+key);
+                                    
+                                    var temp_x = w + legend_offset;
+                                    var temp_y = ((Math.ceil((actual_i+1)/2)-1)*h) + history_offset;
+                                    cur_obj.attr("transform", "translate("+temp_x+","+temp_y+")");
+                                    cur_obj.append("rect").attr("width", w-2).attr("height", h-2)
+                                        .attr("class", "BorderRect").attr("rx", "10")
+                                        .on("mouseover", function(d,i)
+                                                      {
+                                                        if (panel_context == 'panel')
+                                                        {
+                                                            d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
+                                                            d3.select(this).classed("Selected", true);
+                                                        }
+                                                        
+                                                      }).on("contextmenu", function()//was onclick
+                                                        {
+                                                          context_function(this, true, key);
+                                                            
+                                                          });
+                                        //would need to do something like this if boxes were to be selected and dragged and dropped similar to nodes--at a later date
+                                        //.on("click", function(d,i)
+                                        //    {
+                                        //        if (!shiftKey)
+                                        //        {
+                                        //            selected_boxs = [];
+                                        //        }
+                                        //        
+                                        //        selected_boxs.push(this);
+                                        //        
+                                        //    });
+                                    
+                                    plot_type.graph += 1;
+                                    //cur_obj = over_vis.append("g").attr("class", el.graph.type+'_plot').attr("id", el.graph.type+'_'+el.graph.sample);
+                                    
+                                }
+                                
+                                cur_obj = over_vis.append("g").attr("class", value.graph.type+'_plot')
+                                        .attr("name", value.graph.type+'_'+value.graph.sample)
+                                        .attr("id", key);
+                                
+                                //takes up four squares hence w*2, h*2
+                                cur_obj.attr("transform", "translate("+cur_x+","+cur_y+")");
+                                //cur_obj.append("text").text(d.title).attr("dx", w).attr("dy", 15).style("text-anchor", "middle");
+                               
+                                jsplot_functions[value.type](cur_obj, value.graph, w*2, h, shiftKey)
+                                //can also put in an else if conditional on something like d.type...
+                                //draw_waterfall_plot();
+                                
+                                plot_type.plot += 1;
+                                //place BorderRect after the plot here as its main job is to absorb mouse clicks...
+                                var tt_sel = cur_obj.append("rect").attr("width", (w*2)-2).attr("height", h-2).attr("class", "BorderRect").attr("rx", "10");
+                                
+                                //var tt_sel = d3.select("#"+key+">rect[class^=BorderRect]");
+                                
+                                tt_content = '<div class="tooltip" role="tooltip", id="tooltip_'+key+'"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>';
+                                $("#"+key).tooltip({title:get_title_from_history(key), trigger:'manual', container:'body', template:tt_content});
+                                
+                                
+                                tt_sel.on("mouseover", function()
+                                {
+                                  
+                                  if (tool_tip_panel != key)
+                                  {
+                                      $("#"+key).tooltip('show');
+                                      tool_tip_panel = key;
+                                  }
+                                    if (panel_context == 'panel')
+                                    {
+                                        d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
+                                        cur_obj.selectAll("rect[class=BorderRect]").classed("Selected", true);
+                                    }
+                                 
+                                }).on("contextmenu", function()//was onclick
+                                  {
+                                    context_function(this, false, key);
+                                      
+                                    })
+                                .on("click", function()
+                                          {
+                                            //clear custom context menu
+                                            if (popover_ref != null)
+                                            {
+                                                delete_popover();
+                                            }
+                                            
+                                          })
+                                  .on("mouseout", function()
+                                      {
+                                          if (in_current_box(cur_obj, w-2, h-2) == false)
+                                          {
+                                              $("#"+key).tooltip('hide');
+                                              tool_tip_panel = "";
+                                              
+                                            if (panel_context == 'panel')
+                                            {
+                                                d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
+                                            }
+                                          }
+                                      });
+                                
+                            }
+                            
+                         });
+            
+            all_vis = vis_list;
+            
+        }
+        
+        function panel_num_from_id (panel_id)
+        {
+            var use_panel_list = panel_id.split('_');
+            return(parseInt(use_panel_list[use_panel_list.length-1]));
+        }
+        
+        function make_unique_id ()
+        {
+            var max_id = 0;
+            var temp_id = 0;
+            
+            for (i in history_dict)
+            {
+                temp_id = panel_num_from_id(i)
+                if (temp_id > max_id)
+                {
+                    max_id = temp_id;
+                }
+            }
+            
+            return('panel_'+(max_id+1));
+        }
+        
+        function delete_panel(panel_name)
+        {
+            //var panel_ind = panel_num_from_id (panel_name)
+            var new_obj = {};
+            
+            for (i in all_vis)
+            {
+                if (i != panel_name)
+                {
+                    new_obj[i] = all_vis[i];
+                }
+            }
+            
+            delete_popover();
+            history_dict[panel_name].status = 'deleted';
+            update_image(new_obj);
+        }
+        
+        function delete_popover()
+        {
+            $('[data-toggle="popover"]').popover('destroy');
+            $(popover_ref).popover('destroy');
+            popover_ref = null;
+            //to take care of the leftover popover which doesn't get destroyed
+            d3.selectAll('.popover').remove();
+        }
+        
+        function add_node_from_search(use_panel, type)
+        {
+            
+            var subj_nodes = [];
+            var query_nodes = [];
+            
+            //var g_ind = panel_num_from_id(use_panel);
+            
+            all_vis[use_panel].graph.nodes.forEach(function(d,i, ar)
+                         {
+                            subj_nodes.push(d);
+                         })
+            
+            var sel_nodes =  $(".select2").select2("data").search_list;
+            var node_label = $(".select2").select2("data").text;
+            
+            sel_nodes.forEach(function(d,i,ar)
+                              {
+                                    query_nodes.push({id:d, display_name:node_label,attributes:{node_type:type}});
+                              })
+            
+            copy_nodes(query_nodes, subj_nodes, use_panel);
+            
+            delete_popover();
+        }
+        
+        function add_pathway(use_panel)
+        {
+            var sel_vals = $("#pathway_select").val();
+            
+            if (sel_vals.length == 1)
+            {
+                $("#error_p").prop("hidden", true);
+                
+                //send the selected pathway name back to the server
+                
+                var subj_nodes = [];
+                var query_nodes = [];
+                
+                all_vis[use_panel].graph.nodes.forEach(function(d,i, ar)
+                             {
+                                subj_nodes.push(d);
+                             });
+                
+                //remove the number at the end to avoid goofing up the queries
+                var clean_sel_vals = sel_vals[0].replace(/\s+\(n=\d+\)/, "");
+                
+                query_nodes.push({id:clean_sel_vals, display_name:clean_sel_vals, attributes:{node_type:'Pathway'}});
+                
+                console.log(JSON.stringify(subj_nodes));
+                console.log(JSON.stringify(query_nodes));
+                
+                copy_nodes(query_nodes, subj_nodes, use_panel);
+                
+                delete_popover();
+                
+            }else{
+                $("#error_p").prop("hidden", false);
+            }
+        }
+        
+        function query_pathways(panel_name, obj, ok_func)
+        {
+            
+            content = '<div  class="container" style="width:300px">' +
+                        '<div id="spin_div"  class="row">' +
+                            '<p>Select a Pathway</p>' + 
+                            '<select id="pathway_select" multiple class="form-control"></select>' +
+                        '</div>' +
+                        '<div class="row">' +
+                            '<div class="select2-wrapper">' +
+                                '<input type="hidden" name="sample_alias" class="form-control select2 select2-offscreen"></input>' +
+                                '<option></option>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                            '<div class="btn-group">' +
+                                '<button type="button" class="btn btn-default" onclick="'+ok_func+'(\''+panel_name+'\')">OK</button>' +
+                                '<button type="button" class="btn btn-default" onclick="delete_popover()">Cancel</button>' +
+                            '</div>' +
+                            '<p id="error_p" hidden class="text-danger">Please select a single pathway</p>'+
+                            '<p id="empty_p" hidden class="text-danger">Sorry no pathways are available for the specified gene(s)</p>' +
+                        '</div>' +
+                    '</div>'
+                    
+            var pop_div = $(obj).parent().parent().parent();
+            pop_div.popover({content:content, title:'Search', container:"body", html:true, trigger:"manual",
+                                                                     placement: "right"
+                                                               });
+            
+            pop_div.popover('show');
+           
+            $(".select2").select2({
+                    minimumInputLength: 2,
+                    placeholder: "Please Enter a Gene Name",
+                    multiple:true,
+                    query: function(query){
+                        $.post("{{prog_type}}/HitWalker2/match_gene/", {query:query.term}, function(data, status, xhr)
+                                               {
+                                                    if (status == "success")
+                                                    {   
+                                                        query.callback(JSON.parse(data).data)
+                                                    }
+                                                    else
+                                                    {
+                                                        console.log(status)
+                                                    }
+                                                
+                                                    
+                                               }, "text")
+                        }
+            });
+            
+            var cur_map = d3.map();
+            
+            
+            $(".select2").on("change", function(e)
+                             {
+                                $("#empty_p").prop("hidden", true);
+                                
+                                if ('added' in e)
+                                {
+                                    if (cur_map.has(e.added.text) == false)
+                                    {
+                                        cur_map.set(e.added.text, e.added.search_list);
+                                    }
+                                    
+                                    //e.added.search_list.forEach(function(d) cur_set.add(d));
+                                }else{
+                                    //removed
+                                    //e.removed.search_list.forEach(function(d) cur_set.remove(d));
+                                    cur_map.remove(e.removed.text);
+                                }
+                                
+                                if (cur_map.keys().length > 0)
+                                {
+                                    var queries = {query:JSON.stringify(cur_map.values())};
+                                
+                                    var path_spin = new Spinner({top:'47%'}).spin();
+                                    var spin_div_ref = document.getElementById("spin_div");
+                                    spin_div_ref.appendChild(path_spin.el);
+                                    
+                                    $.post("{{prog_type}}/HitWalker2/match_pathway/", queries, function(data, status, xhr)
+                                                   {
+                                                        if (status == "success")
+                                                        {
+                                                            var data_res = JSON.parse(data).data.results;
+                                                            
+                                                            //add the resulting pathway to the select box
+                                                            var opts = d3.select("#pathway_select").selectAll("option").data(data_res, function(d) d.text);
+                                                            opts.enter().append("option").html(function(d) d.text).attr("title", function(d) d.text);
+                                                            opts.exit().remove();
+                                                            
+                                                            if (data_res.length > 0)
+                                                            {
+                                                                d3.select("#pathway_select").select("option").property('selected', true);
+                                                            }else{
+                                                                 $("#empty_p").prop("hidden", false);
+                                                            }
+                                                            
+                                                            path_spin.stop();
+                                                        }
+                                                        else
+                                                        {
+                                                            console.log(status)
+                                                        }
+                                                    
+                                                        
+                                                   }, "text")
+                                }else{
+                                    d3.select("#pathway_select").selectAll("option").remove();
+                                }
+                             });
+            
+            
+        }
+        
+        function query_nodes(panel_name, obj, type)
+        {
+            content = '<div class="container" style="width:250px">' +
+                        '<div class="row">' +
+                            '<div class="select2-wrapper">' +
+                                '<input type="hidden" name="sample_alias" class="form-control select2 select2-offscreen"></input>' +
+                                '<option></option>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                            '<div class="btn-group">' +
+                                '<button type="button" class="btn btn-default" onclick="add_node_from_search(\''+ panel_name + '\', \''+type+'\')">OK</button>' +
+                                '<button type="button" class="btn btn-default" onclick="delete_popover()">Cancel</button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>'
+            var pop_div = $(obj).parent().parent().parent();
+           pop_div.popover({content:content, title:'Search', container:"body", html:true, trigger:"manual",
+                                                                     placement: "right"
+                                                               });
+           
+           pop_div.popover('show');
+           
+            $(".select2").select2({
+                    minimumInputLength: 2,
+                    placeholder: "Please Enter a "+type+" Name",
+                    query: function(query){
+                        $.post("{{prog_type}}/HitWalker2/match_"+String.toLowerCase(type)+"/", {query:query.term}, function(data, status, xhr)
+                                               {
+                                                    if (status == "success")
+                                                    {   
+                                                        query.callback(JSON.parse(data).data)
+                                                    }
+                                                    else
+                                                    {
+                                                        console.log(status)
+                                                    }
+                                                
+                                                    
+                                               }, "text")
+                        }
+            });
+        }
+        
+        function context_function(obj, disable_all, panel_id)
+        {
+            d3.event.stopPropagation();
+            
+            d3.event.preventDefault();
+            if (contextMenuShowing) {
+                d3.select(".popup").remove();
+            } else {
+                
+                var plot_type = String.split($('#'+panel_id).attr('class'), '_')[1]
+                
+                if (popover_ref != null)
+                {
+                  delete_popover();
+                }else{
+                    
+                   var cur_panel_name = $(obj).parent().attr("id");
+                    
+                    var del_dis_str = '';
+                    var add_dis_str = '';
+                    var exp_dis_str = '';
+                    var csv_dis_str = '';
+                    
+                    if (Object.keys(all_vis).length == 1 || disable_all)
+                    {
+                        del_dis_str = 'disabled';
+                    }
+                    
+                    if (disable_all || plot_type == 'plot')
+                    {
+                        add_dis_str = 'disabled';
+                        csv_dis_str = 'pointer-events: none;color:gray;';
+                        
+                    }
+                    
+                    if (disable_all)
+                    {
+                        exp_dis_str = 'disabled';
+                    }
+                    
+                    if (panel_context == 'image')
+                    {
+                        add_dis_str = 'disabled';
+                        del_dis_str = 'disabled';
+                    }
+                    
+                    var content = '<div class="container" style="width:100px">' +
+                                        '<div class="row">' +
+                                        '<div class="btn-group-vertical">' +
+                                                '<div class="btn-group">' +
+                                                    '<button type="button" class="btn btn-default col-md-12" '+del_dis_str+' onclick="delete_panel(\''+ cur_panel_name +'\')">Delete</button>' +
+                                                '</div>' +
+                                                '<div class="btn-group">' +
+                                                '<button type="button" class="btn btn-default dropdown-toggle col-md-12" '+add_dis_str+' " data-toggle="dropdown" >Add Node<span class="caret"></button>' +
+                                                '<ul class="dropdown-menu" role="menu">' +
+                                                    '<li> <a onclick="query_nodes(\''+ cur_panel_name +'\', this, \'Gene\')" style="cursor:pointer">Gene</a></li>' +
+                                                    '<li><a onclick="query_nodes(\''+ cur_panel_name +'\', this, \'Sample\')" style="cursor:pointer">Sample</a></li>' +
+                                                    '<li><a onclick="query_pathways(\''+ cur_panel_name +'\', this, \'add_pathway\')" style="cursor:pointer">Pathway</a></li>' +
+                                                '</ul>' +
+                                            '</div>' +
+                                            '<div class="btn-group">' +
+                                                '<button type="button" class="btn btn-default dropdown-toggle col-md-12" data-toggle="dropdown" '+exp_dis_str+' style="cursor:pointer">Export<span class="caret"></span></button>' +
+                                                '<ul class="dropdown-menu" role="menu">' +
+                                                    '<li><a onclick="export_svg(this, \''+panel_id+'\')" data-value="pdf" style="cursor:pointer">PDF</a></li>' +
+                                                    '<li><a onclick="export_csv(\''+panel_id+'\')" style="cursor:pointer;'+csv_dis_str+'">CSV</a></li>' +
+                                                '</ul>' +
+                                            '</div>' +
+                                        '</div>' +
+                                        '</div>' +
+                                    '</div>';
+                    
+                     $(obj).popover({content:content, title:'Options', container:"body", html:true, trigger:"manual",
+                                                                              placement: "right"
+                                                                        });
+                    
+                    $(obj).popover('show');
+                    //console.log($('.popover').height());
+                    $('.popover').css('left', d3.event.pageX + 'px');
+                    $('.popover').css('top', d3.event.pageY-($('.popover').height()/2) + 'px')
+                    $('.popover').css('position', 'absolute');
+                    $('.popover').css('overflow-y', 'visible');
+                    popover_ref = obj;
+                }
+            }
+        }
+        
+        //update_image(all_vis);
+        
+        </script>
+    </div>
+    </div>
+    </div>
+    <div class="container">
+    <!-- This is from  http://stackoverflow.com/questions/18795967/how-to-center-spin-js-spinner-in-bootstrap-3-modal  and spin.js       -->
+    <div class="row">
+        <span id="network_spinner" style="position: absolute;display: block;top: 50%;left: 50%;"></span>
+    </div>
+</div>
+</body>
+</html>
+
+

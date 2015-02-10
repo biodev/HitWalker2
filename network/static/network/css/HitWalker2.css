@@ -1,0 +1,191 @@
+           .AML{
+           fill:Teal;
+           fill-opacity:1;
+           }
+           
+           .MPN{
+            fill:Green;
+            fill-opacity:1;
+           }
+           
+           .PLN{
+            fill:#00FFFF;
+            fill-opacity:1;
+           }
+           
+           .Expression{
+             stroke:Tomato;
+             stroke-width: 2;
+             fill: PowderBlue;
+             fill-opacity: 1;
+           }
+           
+           .HighExpression{
+             fill:Tomato;
+             fill-opacity:1;
+           }
+           
+           .White{
+            fill:LightGrey;
+            fill-opacity:1;
+           }
+           
+           .UnknownRace{
+             fill:LightBlue;
+             fill-opacity:1;
+           }
+           
+           .Male{
+            fill:Orange;
+            fill-opacity:1;
+           }
+           .Female{
+            fill:Magenta;
+            fill-opacity:1;
+           }
+           .UnknownGender{
+            fill:DarkGrey;
+            fill-opacity:1;
+           }
+           
+           .MetaNode{
+             stroke:Black;
+             fill-opacity:0;
+           }
+           
+           .siRNA_Hit{
+            fill-opacity: 1;
+            fill: Gold;
+          }
+          
+          .siRNA{
+           stroke:Gold;
+           stroke-width: 2;
+           fill: PowderBlue;
+           fill-opacity: 1;
+          }
+          
+          .Variants {
+            fill-opacity: 1;
+            fill: Blue;
+          }
+          
+          .GeneScore_Hit{
+            fill-opacity: 1;
+            fill: Red;
+          }
+          
+          .GeneScore{
+           stroke:Red;
+           stroke-width: 2;
+           fill: PowderBlue;
+           fill-opacity: 1;
+          }
+          
+          .Gene{
+            fill-opacity: 1;
+            fill: PowderBlue;
+          }
+          
+          .Sample{
+            fill-opacity: 1;
+            fill: Brown;
+          }
+          
+          .link{
+            stroke: Grey;
+          }
+          
+          .STRING{
+            stroke: PowderBlue;
+          }
+          
+           .Expression_Collected{
+             stroke:Tomato;
+             stroke-dasharray:5,5;
+           }
+          
+          .Observed_HighExpression{
+             stroke:Tomato;
+          }
+          
+          .Observed_GeneScore{
+            stroke: Red;
+          }
+          
+          .Possible_GeneScore{
+           stroke: Red;
+           stroke-dasharray:5,5;
+          }
+          
+          .Observed_siRNA{
+            stroke: Gold;
+          }
+          .Possible_siRNA{
+           stroke: Gold;
+           stroke-dasharray:5,5;
+          }
+          
+          .Ranked_Variants{
+            stroke: Blue;
+          }
+          
+          .Observed_Variants{
+            stroke: DarkBlue;
+          }
+          
+          .legend_link {
+                fill: none;
+                stroke: #ccc;
+                stroke-width: 1.5;
+              }
+              
+           .BorderRect{
+                fill:White;
+                fill-opacity: 0;
+                stroke:#e3e3e3;
+           }
+            
+           .Selected{
+                stroke:#444444;
+           }
+          
+          .Unknown{
+            stroke: Grey;
+          }
+          
+          .Unselected{
+            opacity: .3
+          }
+          
+          .link{
+                fill:none;
+            }
+            
+            .bar {
+                fill: steelblue;
+            }
+            
+            .bar.highlight{
+                fill: brown;
+              }
+          
+          .plot.text{
+           visibility: hidden;
+          }
+          
+          .axis path,
+          .axis line {
+                fill: none;
+                stroke: #000;
+                shape-rendering: crispEdges;
+          }
+          
+          .x.axis path {
+                display: none;
+          }
+
+          .plot.text.highlight{
+            fill: brown;
+            visibility: visible;
+          }
