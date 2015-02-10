@@ -45,3 +45,5 @@ coverage.xml
 docs/_build/
 # PyBuilder
 target/
+network/config.py
+network/custom_functions.py
