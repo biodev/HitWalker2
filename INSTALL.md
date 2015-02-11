@@ -1,4 +1,4 @@
-#install HitWalker2
+#Install HitWalker2
 
 #CentOS 6 version
 
@@ -118,9 +118,12 @@ nohup gunicorn HitWalker2.wsgi:application &
 
 Adding users:
 
+```
 python manage.py shell
 
 from django.contrib.auth.models import User
 
 user = User.objects.create_user('user', 'user@place.com', 'password')
+
 user.save()
+```
