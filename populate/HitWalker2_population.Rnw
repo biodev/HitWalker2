@@ -64,6 +64,29 @@ load.path.dta$pathway <- paste(load.path.dta$pathway, paste0("(", load.path.dta$
 
 load.neo4j(.data=load.path.dta, edge.name="PATHWAY_CONTAINS", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F)
 
+#also load in gene symbol data for the entrez IDs:
+    
+system("wget ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz")
+    
+#readme
+system("wget ftp://ftp.ncbi.nih.gov/gene/DATA/README")
+    
+#header is like: '#Format: tax_id GeneID Symbol LocusTag Synonyms' so need to remove the Format: prior to using...
+    
+ent.info <- read.delim("Homo_sapiens.gene_info.gz", sep="\t", header=F, skip=1, stringsAsFactors=F)
+ent.info.header <- readLines("Homo_sapiens.gene_info.gz", n=1)
+    
+ent.info.match <- regmatches(ent.info.header, regexec(":[[:space:]]+([[:alnum:][:space:]_]+)[[:space:]]+\\(", ent.info.header))[[1]][2]
+use.header <- strsplit(ent.info.match, "\\s+")[[1]]
+    
+names(ent.info) <- use.header
+    
+ent.dta <- ent.info[,c("GeneID", "Symbol", "Synonyms")]
+names(ent.dta) <- c("entrezID", "symbol", "synonyms")
+    
+load.neo4j(.data=ent.dta, edge.name="REFFERED_TO", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F, array.delim="|")
+    
+
 @
 
 \section[Configuration]{Configuration}
