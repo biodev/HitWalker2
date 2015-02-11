@@ -4,24 +4,23 @@ Installation
 ----------
 
 **Requires:** 
+* neo4j-community 2.1.6
 
 * Python 2.7.2
 
-* Django 1.5.1
+  * Django 1.5.1
 
-* scipy
+  * scipy
 
-* numpy
+  * pandas
 
-* pandas
+  * gunicorn
 
-* gunicorn
+  * py2neo 1.6.4
 
-* py2neo 1.6.4
+  * numpy
 
-* neo4j-community 2.1.6
-
-**Suggested (for exporting PDFs):**
+**Suggested Python packages (for exporting PDFs):**
 
 * tinycss
 
@@ -30,6 +29,8 @@ Installation
 * lxml
 
 * cssselect
+
+For Linux installation instructions see this [page](INSTALL.md)
 
 Accessing the neo4j database
 ----------

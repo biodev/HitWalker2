@@ -14,9 +14,57 @@
 \author{Daniel Bottomly, Beth Wilmot and Shannon McWeeney}
 \begin{document}
 
-\make title
+\maketitle
 
 \section[Database population]{Database population}
+
+Database population is currently done using \texttt{R} in conjunction with the HitWalker2/populate/populate\_hw2.R script.  Below is the code used to create the 'base' database which others can use as a backbone.
+
+<<echo=TRUE, eval=FALSE>>=
+
+source("populate_hw2.R")
+
+system("wget ftp://string-db.org/STRING/9.1/mapping_files/Entrez_mappings/entrez_gene_id.vs.string.v9.05.28122012.txt")
+    
+ppi.map <- read.delim("entrez_gene_id.vs.string.v9.05.28122012.txt", sep="\t", header=TRUE, stringsAsFactors=FALSE)
+names(ppi.map) <- c("entrezID", "stringID")
+
+#need to limit inclusion to only those entrezIDs that can be mapped back to Ensembl genes..
+#ppi.map <- ppi.map[ppi.map$entrezID %in% gene.ent$entrezID,]
+
+load.neo4j(.data=ppi.map, edge.name="MAPPED_TO", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F)
+
+#string ppi
+
+system("wget http://string-db.org/newstring_download/protein.links.v9.1/9606.protein.links.v9.1.txt.gz")
+
+string.ppi <- read.delim("9606.protein.links.v9.1.txt.gz", sep="", stringsAsFactors=F)
+
+string.ppi <- string.ppi[(string.ppi$protein1 %in%  ppi.map$stringID) & (string.ppi$protein2 %in%  ppi.map$stringID),]
+names(string.ppi) <- c("stringID", "stringID", "score")
+
+load.neo4j(.data=string.ppi, edge.name="ASSOC", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F, unique.rels=F)
+
+
+#then add in the pathway info, converted to entrez IDs
+
+path.dta <- read.pc.gmt(filename="Pathway Commons.4.All.GSEA.gmt", organism.code="9606")
+
+#here will keep database as a property of the pathway node and will only keep non-NA relationships with entrez IDs
+
+load.path.dta <- path.dta[,c("pathway", "entrezID", "database")]
+names(load.path.dta)[3] <- "pathway.database"
+load.path.dta <- load.path.dta[complete.cases(load.path.dta),]
+
+#there are duplicated entries and uniqueness constraints so will also need to deal with it ahead of time...
+
+load.path.dta <- load.path.dta[!duplicated(load.path.dta),]
+
+load.path.dta$pathway <- paste(load.path.dta$pathway, paste0("(", load.path.dta$pathway.database, ")"))
+
+load.neo4j(.data=load.path.dta, edge.name="PATHWAY_CONTAINS", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F)
+
+@
 
 \section[Configuration]{Configuration}
 
@@ -36,12 +84,59 @@ The items in the 'fields' dict should be keyed by a unique ID for that variable 
     type & One of 'numeric' or 'character' indicating what type of input to expect from the user.
     A choice of numeric, will let the user input a integer or floating point value in a text box while
     a choice of character will let them choose from one of several options via a radio box.\\ \hline
+    default & The default value the field should take.\\ \hline
+    range & For numeric value, a two element list containing the min and max the values can take.  For type = 'character', a
+    list of the values the radio boxes can take.\\ \hline
+    comparison & For numeric values, one of '<', '>' or '=' indicating how the corresponding database value should be compared to the user input.\\ \hline
+    name & A human readable name to be displayed as a label for the input.\\ \hline
     \end{tabular}
 \end{center}
 
 Below is an example for the CCLE data:
 
-\lstinputlisting[language=Python, firstline=43, lastline=59]{../network/ccle_config.py}
+\lstinputlisting[firstline=43, lastline=54]{../network/ccle_config.py}
+
+IMPORTANT: Note that these variables are added to the users current session but they are not automatically added to the defined Cypher queries.  This has to be done via the \texttt{session_params} key of a given Cypher query variable (see the 'Specification of Queries' section below).
+
+The other type of user-specified parameter are 'grouped' parameters.  These allow the user to customize not only the values that these parameters take, but also how they are organized into 'logical groups' for example: ((var1 = 2 AND var2 = 5) OR (var3 < 1)).
+If we were to allow the user to specify this query we could add an entry to \texttt{adjust\_fields} that looks similar to:
+
+\begin{lstlisting}
+
+    'Variant_Filters':{'type':'grouped',
+                       'fields':{
+                            'freq':{'type':'numeric', 'comparison':'<','default':.01, 'range':[0,1], 'name':'Global MAF', 'var_name':'gmaf','required':{'from':'Variation'}, 'trans':core.return_numeric, 'needs_has':''},
+                            'cohort_freq':{'type':'numeric', 'comparison':'<', 'default':.5, 'range':[0,1], 'name':'Cohort Alt. Frequency', 'var_name':'Sample_count', 'required':{'from':'Variation'}, 'trans':custom_functions.make_freq_from_count},
+                            'cohort_count':{'type':'numeric', 'comparison':'=', 'default':1, 'range':[0,500], 'name':'Cohort Count', 'var_name':'Sample_count', 'required':{'from':'Variation'}, 'trans':core.return_numeric},
+                            'in_1kg':{'type':'character', 'default':'False', 'range':['True', 'False'], 'name':'In 1000 genomes','var_name':'in_1kg','required':{'from':'Variation'}, 'trans':core.return_binary},
+                            'in_dbsnp':{'type':'character', 'default':'False', 'range':['True', 'False'], 'name':'In dbSNP','var_name':'in_dbsnp', 'required':{'from':'Variation'},'trans':core.return_binary},
+                            'genotype_quality': {'type':'numeric', 'comparison':'>', 'default':40, 'range':[0,100], 'name':'Genotype Quality', 'var_name':'genotype_quality', 'required':{'from':'DNA_DIFF'},'trans':core.return_numeric},
+                            
+                            'MQ0':{'type':'numeric', 'comparison':'<', 'default':4, 'range':[0,10000], 'name':'Number Ambigous Reads','var_name':'MQ0', 'required':{'from':'UNIT_DNA_DIFF'},'trans':core.return_numeric},
+                            'QD': {'type':'numeric', 'comparison':'>', 'default':5, 'range':[0,10000], 'name':'Quality / Depth','var_name':'QD', 'required':{'from':'UNIT_DNA_DIFF'},'trans':core.return_numeric},
+                            
+                            'Cons_cat':{'type':'character', 'default':'NonSynon.', 'range':['Synonymous', 'NonSynon.', 'Other'], 'var_name':'Cons_cat', 'name':'Consequence', 'required':{'from':'IMPACTS'}, 'trans':custom_functions.return_full_cons}
+                    },
+                    'default_groups':[[
+                        [{'field':'Cons_cat'},
+                         {'field':'genotype_quality', 'logical':'AND'},
+                         {'field':'QD', 'logical':'AND'},
+                         {'field':'MQ0', 'logical':'AND'},
+                         {'field':'cohort_freq','logical':'AND'}]
+                        ],
+                        [
+                            [{'field':'in_1kg', 'default':'False', 'logical':'AND'},{'field':'in_dbsnp','default':'False','logical':'AND'}],
+                            [{'field':'in_1kg', 'default':'True', 'logical':'OR'}, {'field':'freq', 'logical':'AND'}],
+                            [{'field':'in_dbsnp','default':'True', 'logical':'OR'},{'field':'in_1kg','default':'False', 'logical':'AND'},{'field':'cohort_count','logical':'AND'}]
+                        ]]
+                    
+    }
+
+\end{lstlisting}
+
+\subsection[Specification of Queries]{Specification of Queries}
+
+Query specification in \texttt{config.py} is done through dictionaries of the form: ...
 
 \subsection[Sample Selection]{Sample Selection}
 
@@ -51,7 +146,7 @@ Note that currently there is not support for multiple valid samples per experime
 
 
 
-Note that it is important that the terminologies are the same amongst sample_rels_query and hit_session_dict (as well as throughout).  If hits are not being retrieved as expected, then this is likely to be the cause.
+Note that it is important that the terminologies are the same amongst sample\_rels\_query and hit\_session\_dict (as well as throughout).  If hits are not being retrieved as expected, then this is likely to be the cause.
 
 \subsection[Selection of Variants]{Selection of Variants}
 

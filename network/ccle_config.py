@@ -41,11 +41,6 @@ data_types={
 #Currently these are opt-in.
 
 adjust_fields = {
-    'Seed_Parameters':{'type':'standard',
-                       'fields':{
-                                'drug_score':{'type':'numeric', 'default':10, 'range':[-100,100], 'comparison':'>', 'name':'Gene Score'}
-                            }
-                        },
     'General_Parameters':{'type':'standard',
                           'fields':{
                                 'string_conf':{'type':'numeric', 'default':.4, 'range':[0, 1], 'comparison':'>', 'name':'HitWalker STRING Confidence'},
