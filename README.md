@@ -67,9 +67,7 @@ python manage.py runserver
 If you do not see Java SE 7, install this:
 http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html
 
-* If Django reports "unable to open database file," check the permissions on the directory (and parent directories) where your database lives. By default this is /var/www/hitwalker_2_inst/  
-
-SQLite needs to be able to write to this directory. 
+* If Django reports "unable to open database file," check the permissions on the directory (and parent directories) where your database lives. By default this is /var/www/hitwalker_2_inst/  SQLite needs to be able to write to this directory. 
 
 * If Django reports "DatabaseError: no such table: django_site", create necessary tables by running: 
 
