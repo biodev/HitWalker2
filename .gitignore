@@ -52,3 +52,5 @@ network/custom_functions.py
 *.aux
 *.out
 *.tex
+#virtualenv file
+.project
