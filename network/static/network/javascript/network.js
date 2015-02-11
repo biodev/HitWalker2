@@ -499,7 +499,7 @@ function copy_nodes(query_nodes, subj_nodes, g_ind)
     spinner.spin(target);
     
     var use_queries = process_nodes_to_copy(query_nodes);
-    var query_set = d3.set(use_queries.map(function(d) {return d.id;}));
+    var query_set = d3.set(use_queries.map(function(d) d.id));
     
     var cur_subj =  process_nodes_to_copy(subj_nodes);
     
@@ -511,7 +511,7 @@ function copy_nodes(query_nodes, subj_nodes, g_ind)
                                              {
                                                 return(d.children[0].display_name + '...' + d.children[d.children.length-1].display_name);
                                              }else{
-                                                return(d.children.map(function(e) {e.display_name}).join(','));
+                                                return(d.children.map(function(e) e.display_name).join(','));
                                              }
                                           }else{
                                              return(d.display_name);
@@ -534,7 +534,7 @@ function copy_nodes(query_nodes, subj_nodes, g_ind)
     }
     
     //remake query_set
-    query_set = d3.set(use_queries.map(function(d) {return d.id}));
+    query_set = d3.set(use_queries.map(function(d) d.id));
     
     //globally subtract the query nodes from the subject nodes
     var use_subj = [];
@@ -673,9 +673,9 @@ function make_graph_legend(vis, node_list, edge_list)
     var legend_links = legend_hier.links(legend_nodes);
     //jQuery.extend(true, {}, 
     
-    var temp_nest = d3.nest().key(function(d) {return type_translation(d.source.attributes.node_type)}).key(function(d) {return type_translation(d.target.attributes.node_type)}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
+    var temp_nest = d3.nest().key(function(d) type_translation(d.source.attributes.node_type)).key(function(d) type_translation(d.target.attributes.node_type)).rollup(function(d) {return d.length}).map(legend_links, d3.map);
     
-    var rev_nest = d3.nest().key(function(d) {return type_translation(d.target.attributes.node_type)}).key(function(d) {return type_translation(d.source.attributes.node_type)}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
+    var rev_nest = d3.nest().key(function(d) type_translation(d.target.attributes.node_type)).key(function(d) type_translation(d.source.attributes.node_type)).rollup(function(d) {return d.length}).map(legend_links, d3.map);
     
     //need to check whether any (which) of the root keys are in the values.  If so organize the hierarchies such that  
     var root_keys = temp_nest.get("MetaNode").keys();
