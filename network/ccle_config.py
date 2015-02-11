@@ -136,10 +136,10 @@ query_prior_dict = {"Variants":[
                             'handler':core.handle_query_prior, 'session_params':None}]}
 
 score_hits=core.no_combining
-#convert_ids_to=custom_functions.gene_seed_list_to_protein
-#convert_ids_from=custom_functions.protein_seed_list_to_gene
-#get_seed_list=custom_functions.make_seed_list
-#get_query_list = custom_functions.make_seed_list
+convert_ids_to=custom_functions.gene_seed_list_to_protein
+convert_ids_from=custom_functions.protein_seed_list_to_gene
+get_seed_list=custom_functions.make_seed_list
+get_query_list=custom_functions.make_seed_list
 #
 ##Need to ensure that the query can find the appropriate parameters in the session and that the sample is refered to as '{name}'
 prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_graph_file":"/var/www/hitwalker_2_inst/protein.links.detailed.v9.05.9606.mm.mtx",
