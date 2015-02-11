@@ -324,7 +324,7 @@
                                     
                                     if(adjust_fields[cur_modal].type == 'grouped')
                                     {
-                                        var cur_groups = $(this).attr('id').split('.').slice(0,3).map(function(d,i,ar) parseInt(d));
+                                        var cur_groups = $(this).attr('id').split('.').slice(0,3).map(function(d,i,ar) {parseInt(d)});
                                         adjust_fields[cur_modal].default_groups[cur_groups[0]][cur_groups[1]][cur_groups[2]].default=parseFloat($(this).val());
                                     }else{
                                         adjust_fields[cur_modal].fields[cur_field].default = parseFloat($(this).val());
@@ -387,7 +387,7 @@
             
             if(adjust_fields[cur_modal].type == 'grouped')
             {
-                var cur_groups = $(this).attr('name').split('.').slice(0,3).map(function(d,i,ar) parseInt(d));
+                var cur_groups = $(this).attr('name').split('.').slice(0,3).map(function(d,i,ar) {parseInt(d)});
                 adjust_fields[cur_modal].default_groups[cur_groups[0]][cur_groups[1]][cur_groups[2]].default=$(this).val();
             }else{
                 adjust_fields[cur_modal].fields[cur_field].default = $(this).val();
@@ -845,13 +845,13 @@
         
         use_sample_obj[0].property_order.forEach(function(d)
                                {
-                                    temp_nest.key(function(x) x[d]);
+                                    temp_nest.key(function(x) {x[d]});
                                     exp_headers.push(d)
                                });
         
         exp_headers.push("DataType");
         
-        var for_nest = temp_nest.rollup(function(d) d[0].data)
+        var for_nest = temp_nest.rollup(function(d) {return d[0].data})
                  .map(use_sample_obj, d3.map);
         //
         
@@ -863,7 +863,7 @@
         
         var ids_for_rows = d3.map();
         
-        var back_nest = d3.nest().key(function(d) d.Sample).map(use_sample_obj, d3.map);
+        var back_nest = d3.nest().key(function(d) {return d.Sample}).map(use_sample_obj, d3.map);
         
         //see if hitwalker can be run on any samples...
         
@@ -1128,7 +1128,7 @@
         var legend_header = vis.append("g").attr("class", "legend").attr("transform", "translate(20,10)");
         legend_header.selectAll("g").data(legend_list)
                                 .enter().append("g").attr("transform", function(d) { return "translate("+ d.x +",0)"; })
-                                .append("text").text(function(d) d.name).attr("text-anchor","middle").style("font-size", "10px");
+                                .append("text").text(function(d) {return d.name}).attr("text-anchor","middle").style("font-size", "10px");
         
         var new_row_div = $("#sample_svg_row")
                         .after(splice_ar.join('\n')); 
