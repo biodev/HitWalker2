@@ -379,7 +379,7 @@
                                                                         if (d[e].attributes.node_type == "MetaNode")
                                                                         {
                                                                             //norm_edges[i][e].push(d[e].children.map(function(x) x.id));
-                                                                            temp_edges[e] = $.merge(temp_edges[e], d[e].children.map(function(x) x.id))
+                                                                            temp_edges[e] = $.merge(temp_edges[e], d[e].children.map(function(x) {x.id}))
                                                                         }
                                                                         else{
                                                                             //norm_edges[i][e].push([d[e].id]);
@@ -399,8 +399,8 @@
                                         
                                     });
             
-            var edge_nest = d3.nest().key(function(d) d.source).key(function(d) d.target).rollup(function(d) {return d.map(function(e) e.type)}).map(norm_edges, d3.map);
-            var rev_nest = d3.nest().key(function(d) d.target).key(function(d) d.source).rollup(function(d) {return d.map(function(e) e.type)}).map(norm_edges, d3.map);
+            var edge_nest = d3.nest().key(function(d) {return d.source}).key(function(d) {return d.target}).rollup(function(d) {return d.map(function(e) {e.type})}).map(norm_edges, d3.map);
+            var rev_nest = d3.nest().key(function(d) {return d.target}).key(function(d) {return d.source}).rollup(function(d) {return d.map(function(e) {e.type})}).map(norm_edges, d3.map);
             
             rev_nest.forEach(function(key, value)
                              {
@@ -756,7 +756,7 @@
             //respect config.py:max_nodes
             if (use_nodes.length > metanode_thresh)
             {
-                var child_nest = d3.nest().key(function(d) d.attributes.node_type).rollup(function(d) d.length).map(use_nodes);
+                var child_nest = d3.nest().key(function(d) {return d.attributes.node_type}).rollup(function(d) {return d.length}).map(use_nodes);
             
                 var samp_name = '';
                 
@@ -1334,8 +1334,8 @@
                                                             var data_res = JSON.parse(data).data.results;
                                                             
                                                             //add the resulting pathway to the select box
-                                                            var opts = d3.select("#pathway_select").selectAll("option").data(data_res, function(d) d.text);
-                                                            opts.enter().append("option").html(function(d) d.text).attr("title", function(d) d.text);
+                                                            var opts = d3.select("#pathway_select").selectAll("option").data(data_res, function(d) {return d.text});
+                                                            opts.enter().append("option").html(function(d) {return d.text}).attr("title", function(d) {return d.text});
                                                             opts.exit().remove();
                                                             
                                                             if (data_res.length > 0)
