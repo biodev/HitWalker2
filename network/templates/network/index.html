@@ -845,7 +845,7 @@
         
         use_sample_obj[0].property_order.forEach(function(d)
                                {
-                                    temp_nest.key(function(x) x[d]);
+                                    temp_nest.key(function(x) {return x[d]});
                                     exp_headers.push(d)
                                });
         

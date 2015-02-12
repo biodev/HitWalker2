@@ -180,7 +180,7 @@
             {
                 shiftKey = d3.event.shiftKey || d3.event.metaKey;
             })
-        .on("keyup", function() shiftKey = d3.event.shiftKey || d3.event.metaKey);
+        .on("keyup", function() {return shiftKey = d3.event.shiftKey || d3.event.metaKey});
         
         var submit_table_data = function()
         {
@@ -627,7 +627,7 @@
         function ungroup_nodes(obj)
         {
             var cur_panel = $(popover_ref).parentsUntil("svg").attr("id");
-            var graph_nodes = d3.set(all_vis[cur_panel].graph.nodes.map(function(x) x.id));
+            var graph_nodes = d3.set(all_vis[cur_panel].graph.nodes.map(function(x) {return x.id}));
             var sel_nodes =  d3.set( selected_node.keys());
             //then find the selected nodes that are in this graph
             
