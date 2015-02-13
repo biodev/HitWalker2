@@ -189,3 +189,64 @@
             fill: brown;
             visibility: visible;
           }
+
+          .default1 {
+            fill: #9467bd;
+          }
+          .default2 {
+            fill: #98df8a;
+          }
+          .default3 {
+            fill: #8c6d31;
+          }
+          .default4 {
+            fill: #f7b6d2;
+          }
+          .default5 {
+            fill: #DA7B00;
+          }
+          .default6 {
+            fill: #17becf;
+          }
+          .default7 {
+            fill: #bd9e39;
+          }
+          .default8 {
+            fill: #393b79;
+          }
+          .default9 {
+            fill: #dbdb8d;
+          }
+          .default10 {
+            fill: #C62F6B;
+          }
+          .default11 {
+            fill: #C3FF80;
+          }
+          .default12 {
+            fill: #7b4173;
+          }
+          .default13 {
+            fill: #EDDBB8;
+          }
+          .default14 {
+            fill: #c5b0d5;
+          }
+          .default15 {
+            fill: #FFC480;
+          }
+          .default16 {
+            fill: #FFFC06;
+          }
+          .default17 {
+            fill: #636B05;
+          }
+          .default18 {
+            fill: #E680FF;
+          }
+          .default19 {
+            fill: #3EB96B;
+          }
+          .default20 {
+            fill: #c49c94;
+          }
