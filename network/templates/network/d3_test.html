@@ -1389,7 +1389,7 @@
                     minimumInputLength: 2,
                     placeholder: "Please Enter a "+type+" Name",
                     query: function(query){
-                        $.post("{{prog_type}}/HitWalker2/match_"+String.toLowerCase(type)+"/", {query:query.term}, function(data, status, xhr)
+                        $.post("{{prog_type}}/HitWalker2/match_"+type.toLowerCase()+"/", {query:query.term}, function(data, status, xhr)
                                                {
                                                     if (status == "success")
                                                     {   
@@ -1415,7 +1415,7 @@
                 d3.select(".popup").remove();
             } else {
                 
-                var plot_type = String.split($('#'+panel_id).attr('class'), '_')[1]
+                var plot_type = $('#'+panel_id).attr('class').split('_')[1];
                 
                 if (popover_ref != null)
                 {
