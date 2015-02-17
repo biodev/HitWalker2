@@ -605,8 +605,8 @@ def pathway(request):
     else:
         request_post = dict(request.POST.iterlists())
         
-        input_vals = {'sample_name':request.POST['sample_name'], 'pathway_name':request.POST['pathway_name']}
-        
+        #as multiple samples can be specified and they will be sent ',' delimited by the JS:
+        input_vals = {'sample_name':request.POST['sample_name'].split(','), 'pathway_name':request.POST['pathway_name']}
         
         inp_params = request.session['inp_params']
         where_vars = request.session['where_vars']
@@ -622,6 +622,7 @@ def pathway(request):
         for i in where_vars:
             cur_filts[i['name']] = i['pretty_where']
         
+        print input_vals
         
         ret_json = {'prog_type':str(prog_type), 'username':str(request.user), 'node_type_transl':json.dumps(config.node_abbreviations), 'edge_type_transl':json.dumps(config.edge_abbreviations),
                     'metanode_thresh':config.max_nodes, 'panel_context':'image', 'input_vals':json.dumps(input_vals), 'cur_param':json.dumps(cur_param), 'cur_filts':json.dumps(cur_filts)}
