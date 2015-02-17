@@ -151,6 +151,8 @@
                                 
                                 input_vals['panel_context'] = panel_context;
                                 
+                                console.log(JSON.stringify(input_vals))
+                                
                                 $.post("{{prog_type}}/HitWalker2/get_graph/", input_vals, function(data, status, xhr)
                                                {
                                                     if (status == "success")
@@ -606,7 +608,30 @@
                 
                 var form = document.getElementById("pathform");
                 form['pathway_name'].value = sel_vals[0].replace(/\s+\(n=\d+\)/, "");
-                form['sample_name'].value = d3.select(popover_ref).datum().id;
+                
+                //form['sample_name'].value = d3.select(popover_ref).datum().id;
+                
+                var ret_samples = []
+                
+                selected_node.forEach(function(key, value)
+                          {
+                                var cur_val = d3.select(value).datum();
+                                var temp_nodes = [];
+                                
+                                if (cur_val.attributes.node_type == 'MetaNode')
+                                {
+                                    temp_nodes = $.map(cur_val.children, function(x) {return(x.id)});
+                                }else{
+                                    temp_nodes.push(cur_val.id)
+                                }
+                                
+                                $.merge(ret_samples, temp_nodes)
+                          });
+                
+                console.log(JSON.stringify(ret_samples))
+                
+                form['sample_name'].value = ret_samples
+                
                 form.target='_blank';
                 form.submit();
                 

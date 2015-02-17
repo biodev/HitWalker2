@@ -919,7 +919,7 @@ def gene_to_lab_id (genes, labids, request, config_struct_nodes, cur_graph):
 def get_pathways_sample (request, request_post):
     
     import config
-    
+    print request_post
     subj_nodes = map(lambda x:{'node_type':'Sample', 'id':x}, request_post['sample_name'])
     query_nodes = map(lambda x:{'node_type':'Pathway', 'id':x}, request_post['pathway_name'])
     
