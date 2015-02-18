@@ -1016,8 +1016,8 @@
                                     
                                     if (panel_context == 'panel')
                                     {
-                                        d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
-                                        cur_obj.selectAll("rect[class=BorderRect]").classed("Selected", true);
+                                        d3.selectAll("rect[class^=BorderRect]").classed("BorderSelected", false);
+                                        cur_obj.selectAll("rect[class=BorderRect]").classed("BorderSelected", true);
                                     }
                                     
                                     deemphasize_nodes(cur_obj, selected_node, false);
@@ -1036,7 +1036,7 @@
                                             
                                             if (panel_context == 'panel')
                                             {
-                                                d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
+                                                d3.selectAll("rect[class^=BorderRect]").classed("BorderSelected", false);
                                             }
                                         }
                                     });
@@ -1062,8 +1062,8 @@
                                                       {
                                                         if (panel_context == 'panel')
                                                         {
-                                                            d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
-                                                            d3.select(this).classed("Selected", true);
+                                                            d3.selectAll("rect[class^=BorderRect]").classed("BorderSelected", false);
+                                                            d3.select(this).classed("BorderSelected", true);
                                                         }
                                                         
                                                       }).on("contextmenu", function()//was onclick
@@ -1120,8 +1120,8 @@
                                   }
                                     if (panel_context == 'panel')
                                     {
-                                        d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
-                                        cur_obj.selectAll("rect[class=BorderRect]").classed("Selected", true);
+                                        d3.selectAll("rect[class^=BorderRect]").classed("BorderSelected", false);
+                                        cur_obj.selectAll("rect[class=BorderRect]").classed("BorderSelected", true);
                                     }
                                  
                                 }).on("contextmenu", function()//was onclick
@@ -1147,7 +1147,7 @@
                                               
                                             if (panel_context == 'panel')
                                             {
-                                                d3.selectAll("rect[class^=BorderRect]").classed("Selected", false);
+                                                d3.selectAll("rect[class^=BorderRect]").classed("BorderSelected", false);
                                             }
                                           }
                                       });

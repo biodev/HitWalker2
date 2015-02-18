@@ -34,6 +34,8 @@ import socket
 import tempfile
 from network.models import user_parameters
 
+import cssutils
+import colour
 
 prog_type = config.prog_type
 
@@ -51,6 +53,64 @@ for i in graph_struct.keys():
         if graph_edge_struct.has_key(j) == False:
             graph_edge_struct[j] = {}
         graph_edge_struct[j][i]= graph_struct[i][j]
+
+#from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
+static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
+css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
+hw_css = cssutils.parseFile(css_path)
+
+node_type_transl={}
+
+    #if the users specified a node_colors attribute for config.py
+    #check the colors against the defaults in hw_css
+        #if a match is found, add to node_type_transl pointing to the default value
+        #otherwise keep as is and add to hw_css
+#try:
+css_dict = {}
+
+for rule in hw_css:
+    if rule.selectorText.find('.default') == 0:
+        for prop in rule.style:
+            if prop.name == 'fill':
+                css_dict[str(colour.Color(prop.value))] = rule.selectorText
+
+for css_name,color in config.node_colors.items():
+    
+    if node_type_transl.has_key(css_name) == False:
+        node_type_transl[css_name] = {"name":css_name, "class":css_name}
+    
+    use_color = str(colour.Color(color))
+    if css_dict.has_key(use_color):
+        node_type_transl[css_name]['class'] = css_dict[use_color]
+    else:
+        hw_css.add('.'+css_name+'{fill:'+use_color+';}')
+    
+
+#for the entries in node_abbreviations, replace the key where appropriate
+for node,abrev in config.node_abbreviations.items():
+    if node_type_transl.has_key(abrev):
+        node_type_transl[node] = node_type_transl.pop(abrev)
+
+#if it is a _Hit or can be translated to one, then add in the appropriate class for the non-hit to hw_css
+for node_name in node_type_transl.keys():
+    if node_name.find("_Hit") != 0:
+        hw_css.add(
+            (node_name.replace("_Hit", ""),
+             '{',
+                'stroke:'+'unk;\n',
+                'stroke-width: 2;\n',
+                'fill: PowderBlue;\n'
+             '}')
+        )
+
+print node_type_transl
+print hw_css.cssText
+    
+        
+#except:
+#    node_type_transl = config.node_abbreviations
+#though they need to be fussed with to be in the form: spec_class:{name:, class:}
+    
 
 @sensitive_post_parameters()
 @never_cache
