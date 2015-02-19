@@ -11,40 +11,6 @@
             stroke: PowderBlue;
           }
           
-           .Expression_Collected{
-             stroke:Tomato;
-             stroke-dasharray:5,5;
-           }
-          
-          .Observed_HighExpression{
-             stroke:Tomato;
-          }
-          
-          .Observed_GeneScore{
-            stroke: Red;
-          }
-          
-          .Possible_GeneScore{
-           stroke: Red;
-           stroke-dasharray:5,5;
-          }
-          
-          .Observed_siRNA{
-            stroke: Gold;
-          }
-          .Possible_siRNA{
-           stroke: Gold;
-           stroke-dasharray:5,5;
-          }
-          
-          .Ranked_Variants{
-            stroke: Blue;
-          }
-          
-          .Observed_Variants{
-            stroke: DarkBlue;
-          }
-          
           .legend_link {
                 fill: none;
                 stroke: #ccc;

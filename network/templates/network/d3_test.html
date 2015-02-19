@@ -11,7 +11,7 @@
     
     
     <link href="{{prog_type}}/static/network/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-    <link href="{{prog_type}}/static/network/css/HitWalker2.css" rel="stylesheet" type="text/css">
+    <link href="{{prog_type}}/static/network/css/{{css_path}}" rel="stylesheet" type="text/css">
     <link href="{{prog_type}}/static/network/css/select2.css" rel="stylesheet">
     <link href="{{prog_type}}/static/network/css/select2-bootstrap.css" rel="stylesheet">
     <script src="{{prog_type}}/static/network/javascript/d3.v3/d3.v3.min.js" charset="utf-8"></script>
@@ -143,6 +143,17 @@
         var metanode_thresh = {{metanode_thresh}};
         var node_transl = {{ node_type_transl|safe }};
         var edge_transl = {{ edge_type_transl|safe }};
+        var default_css = d3.set({{ default_css|safe }});
+        
+        var used_defaults = d3.set();
+        
+        $.each(node_transl, function(key, value){
+            if (default_css.has(value.class))
+            {
+               used_defaults.add(value.clss) 
+            }})
+        
+        console.log(JSON.stringify(node_transl))
         
         $(document).ready(function()
                           {
@@ -166,6 +177,8 @@
                                                         update_image({panel_1:{graph:graph_obj}});
                                                         
                                                         spinner.stop();
+                                                        
+                                                        console.log(JSON.stringify(node_transl))
                                                     }
                                                     else
                                                     {

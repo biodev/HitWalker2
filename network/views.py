@@ -37,6 +37,8 @@ from network.models import user_parameters
 import cssutils
 import colour
 
+use_css = ''
+
 prog_type = config.prog_type
 
 if prog_type != "":
@@ -53,63 +55,160 @@ for i in graph_struct.keys():
         if graph_edge_struct.has_key(j) == False:
             graph_edge_struct[j] = {}
         graph_edge_struct[j][i]= graph_struct[i][j]
-
-#from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
-static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
-css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
-hw_css = cssutils.parseFile(css_path)
-
-node_type_transl={}
-
-    #if the users specified a node_colors attribute for config.py
-    #check the colors against the defaults in hw_css
-        #if a match is found, add to node_type_transl pointing to the default value
-        #otherwise keep as is and add to hw_css
-#try:
-css_dict = {}
-
-for rule in hw_css:
-    if rule.selectorText.find('.default') == 0:
-        for prop in rule.style:
-            if prop.name == 'fill':
-                css_dict[str(colour.Color(prop.value))] = rule.selectorText
-
-for css_name,color in config.node_colors.items():
-    
-    if node_type_transl.has_key(css_name) == False:
-        node_type_transl[css_name] = {"name":css_name, "class":css_name}
-    
-    use_color = str(colour.Color(color))
-    if css_dict.has_key(use_color):
-        node_type_transl[css_name]['class'] = css_dict[use_color]
-    else:
-        hw_css.add('.'+css_name+'{fill:'+use_color+';}')
-    
-
-#for the entries in node_abbreviations, replace the key where appropriate
-for node,abrev in config.node_abbreviations.items():
-    if node_type_transl.has_key(abrev):
-        node_type_transl[node] = node_type_transl.pop(abrev)
-
-#if it is a _Hit or can be translated to one, then add in the appropriate class for the non-hit to hw_css
-for node_name in node_type_transl.keys():
-    if node_name.find("_Hit") != 0:
-        hw_css.add(
-            (node_name.replace("_Hit", ""),
-             '{',
-                'stroke:'+'unk;\n',
-                'stroke-width: 2;\n',
-                'fill: PowderBlue;\n'
-             '}')
-        )
-
-print node_type_transl
-print hw_css.cssText
-    
         
-#except:
-#    node_type_transl = config.node_abbreviations
-#though they need to be fussed with to be in the form: spec_class:{name:, class:}
+
+def get_css_name_colors(css_obj, by="color", only_default=True):
+    css_dict = {}
+
+    for rule in css_obj:
+        if (only_default == True and rule.selectorText.find('.default') == 0) or (only_default == False):
+            for prop in rule.style:
+                if prop.name == 'fill' and prop.value != 'none':
+                    if by == "color":
+                        css_dict[str(colour.Color(prop.value))] = rule.selectorText
+                    elif by == "name":
+                        css_dict[rule.selectorText] = str(colour.Color(prop.value))
+                    else:
+                        raise Exception("Unknown 'by' value specified")
+    return css_dict
+
+def generate_css (user_name):
+    
+    #from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
+    static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
+    css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
+    hw_css = cssutils.parseFile(css_path)
+    
+    node_type_transl={'Gene':{'name':'Gene', 'class':'Gene'}, 'Sample':{'name':'Sample', 'class':'Sample'}}
+    edge_type_transl={'STRING':{'name':'STRING', 'class':'STRING'}}
+    
+        #if the users specified a node_colors attribute for config.py
+        #check the colors against the defaults in hw_css
+            #if a match is found, add to node_type_transl pointing to the default value
+            #otherwise keep as is and add to hw_css
+    #try:
+    css_dict = get_css_name_colors(hw_css, by="color", only_default = True)
+    
+    for css_name,color in config.node_colors.items():
+        
+        if node_type_transl.has_key(css_name) == False:
+            node_type_transl[css_name] = {"name":css_name, "class":css_name}
+        
+        use_color = str(colour.Color(color))
+        if css_dict.has_key(use_color):
+            node_type_transl[css_name]['class'] = css_dict[use_color]
+        else:
+            hw_css.add('.'+css_name+'{fill:'+use_color+';}')
+        
+    
+    #refresh the css dict here and create it by name
+    css_name_dict = get_css_name_colors(hw_css, by="name", only_default = False)
+    
+    #for the entries in node_abbreviations, replace the key where appropriate
+    for node,abrev in config.node_abbreviations.items():
+        if node_type_transl.has_key(abrev):
+            node_type_transl[node] = node_type_transl.pop(abrev)
+        else:
+            node_type_transl[node] = {'name':abrev, 'class':None}
+    
+    #similarly, add in the edge_abbreviations
+    for edge, abrev in config.edge_abbreviations.items():
+        edge_type_transl[edge] = {'name':abrev, 'class':None}
+    
+    #make sure that the seeds specified in data_types are represented so the hits can be rendered correctly
+    for node in config.data_types['seeds']:
+        if node_type_transl.has_key(node) == False:
+            node_type_transl[node] = {'name':node, 'class':None}
+    
+    #if it is a _Hit or can be translated to one, then add in the appropriate class for the non-hit to hw_css
+    #additionally, add in the edges corresponding to hits in a similar fashion
+    for node_name in node_type_transl.keys():
+        if node_name.find("_Hit") != -1 and node_type_transl[node_name]['class'] != None:
+            node_rep = node_name.replace("_Hit", "")
+            
+            if node_type_transl.has_key(node_rep) == False:
+                node_type_transl[node_rep] = {'name':node_rep, 'class':node_rep}
+            
+            hw_css.add(
+                '.'+node_type_transl[node_rep]['name'] + \
+                 '{' + \
+                    'stroke:'+css_name_dict['.'+node_type_transl[node_name]['class']]+';\n' + \
+                    'stroke-width: 2;\n' + \
+                    'fill: '+css_name_dict['.Gene']+';\n' + \
+                 '}'
+            )
+            if node_type_transl[node_name.replace("_Hit", "")]['class'] == None:
+                node_type_transl[node_rep]['class'] = copy.copy(node_type_transl[node_rep]['name'])
+            
+            #add in edge info as well
+            #'Possible_' edges
+            if edge_type_transl.has_key('Possible_'+node_rep) and edge_type_transl['Possible_'+node_rep].has_key('name'):
+                #set the class name to the 'name' version of this
+                use_p_edge_name = edge_type_transl['Possible_'+node_rep]['name']
+                edge_type_transl['Possible_'+node_rep]['class'] = use_p_edge_name
+            else:
+                use_p_edge_name = 'Possible_'+node_rep
+                edge_type_transl['Possible_'+node_rep] = {'name':use_p_edge_name, 'class':use_p_edge_name}
+                
+            
+            hw_css.add(
+                '.'+use_p_edge_name + \
+                 '{' + \
+                    'stroke:'+css_name_dict['.'+node_type_transl[node_name]['class']]+';\n' + \
+                    'stroke-dasharray:5,5;\n' + \
+                 '}'
+            )
+            #'Observed_' edges
+            if edge_type_transl.has_key('Observed_'+node_rep) and edge_type_transl['Observed_'+node_rep].has_key('name'):
+                use_o_edge_name = edge_type_transl['Observed_'+node_rep]['name']
+                edge_type_transl['Observed_'+node_rep]['class'] = use_o_edge_name
+            else:
+                use_o_edge_name = 'Observed_'+node_rep
+                edge_type_transl['Observed_'+node_rep] = {'name':'Observed_'+node_rep, 'class':'Observed_'+node_rep}
+                
+            hw_css.add(
+                '.'+use_o_edge_name + \
+                 '{' + \
+                    'stroke:'+css_name_dict['.'+node_type_transl[node_name]['class']]+';\n' + \
+                 '}'
+            )
+            
+    
+    #Finally, fill in the target edge info:
+    
+    for i in ['Ranked', 'Observed']:
+        key_val = i+'_'+config.data_types['target']
+        if edge_type_transl.has_key(key_val) and edge_type_transl[key_val].has_key('name'):
+            use_v_edge_name = edge_type_trans[key_val]['name']
+            edge_type_transl[key_val]['class'] = use_v_edge_name
+        else:
+            use_v_edge_name = key_val
+            edge_type_transl[key_val] = {'name':key_val, 'class':key_val}
+        
+        if i == 'Observed':
+            dash_str = 'stroke-dasharray:5,2;\n'
+        else:
+            dash_str = ''
+        
+        hw_css.add(
+            '.'+use_v_edge_name + \
+            '{' + \
+                    'stroke:'+css_name_dict['.'+node_type_transl[config.data_types['target']]['class']]+';\n' + \
+                    dash_str + \
+            '}'
+        )
+        
+    
+    #now serialize the new css appropriately in a unique file
+    new_css_path = os.path.join(static_storage.location, "network/static/network/css/HitWalker2_"+user_name+".css")
+    new_css_out = open(new_css_path, "w")
+    new_css_out.write(hw_css.cssText)
+    new_css_out.close()
+    
+    #remove the .'s from the class name before passing up to JS
+    default_css_classes = map(lambda x: x.replace(".", ""), get_css_name_colors(hw_css, by="name", only_default = True).keys())
+    
+    return default_css_classes, new_css_path, node_type_transl, edge_type_transl
     
 
 @sensitive_post_parameters()
@@ -663,6 +762,10 @@ def pathway(request):
            ret_json = json.load(pickle_inp)
        return render(request, 'network/d3_test.html', ret_json)
     else:
+        
+        default_css_classes, new_css_path, node_type_transl, edge_type_transl = generate_css(str(request.user))
+        request.session['new_css_path'] = new_css_path
+        
         request_post = dict(request.POST.iterlists())
         
         #as multiple samples can be specified and they will be sent ',' delimited by the JS:
@@ -684,8 +787,9 @@ def pathway(request):
         
         print input_vals
         
-        ret_json = {'prog_type':str(prog_type), 'username':str(request.user), 'node_type_transl':json.dumps(config.node_abbreviations), 'edge_type_transl':json.dumps(config.edge_abbreviations),
-                    'metanode_thresh':config.max_nodes, 'panel_context':'image', 'input_vals':json.dumps(input_vals), 'cur_param':json.dumps(cur_param), 'cur_filts':json.dumps(cur_filts)}
+        ret_json = {'prog_type':str(prog_type), 'username':str(request.user), 'node_type_transl':json.dumps(node_type_transl), 'edge_type_transl':json.dumps(edge_type_transl),
+                    'metanode_thresh':config.max_nodes, 'panel_context':'image', 'input_vals':json.dumps(input_vals), 'cur_param':json.dumps(cur_param), 'cur_filts':json.dumps(cur_filts),
+                    'css_path':os.path.basename(new_css_path), 'default_css':json.dumps(default_css_classes)}
         
         for key, val in config.pathway_sizes.items():
             if ret_json.has_key(key) == False:
@@ -728,16 +832,16 @@ def network(request):
            
             #css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
             
-            use_prog_type = prog_type.strip('/')
-            if use_prog_type != "":
-                use_prog_type = "_" + use_prog_type
-                css_path = os.path.join("/var/www/hitwalker_2_inst" + use_prog_type, "HitWalker2/network/static/network/css/HitWalker2.css")
-            else:
-                css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
+            #use_prog_type = prog_type.strip('/')
+            #if use_prog_type != "":
+            #    use_prog_type = "_" + use_prog_type
+            #    css_path = os.path.join("/var/www/hitwalker_2_inst" + use_prog_type, "HitWalker2/network/static/network/css/HitWalker2.css")
+            #else:
+            #css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
             
             if request.POST["plot_type"] == 'svg':
                 
-                use_svg = '<?xml-stylesheet type="text/css" href="' + css_path + '" ?>' + request.POST["data"]
+                use_svg = '<?xml-stylesheet type="text/css" href="' + request.session['new_css_path'] + '" ?>' + request.POST["data"]
                 
             else:
                 if request.POST["plot_type"] == 'g1':
@@ -758,9 +862,9 @@ def network(request):
                 #assuming only one non-legend g for now
                 tree.find("./*[@class=\'"+request.POST["plot_type"]+"\']").attrib['transform'] = transl
                 
-                tree.find(".//*[@class='BorderRect Selected']/..").remove(tree.find(".//*[@class='BorderRect Selected']"))
+                tree.find(".//*[@class='BorderRect BorderSelected']/..").remove(tree.find(".//*[@class='BorderRect BorderSelected']"))
                 
-                use_svg = '<?xml-stylesheet type="text/css" href="' + css_path + '" ?>' + ET.tostring(tree)
+                use_svg = '<?xml-stylesheet type="text/css" href="' + request.session['new_css_path'] + '" ?>' + ET.tostring(tree)
                 
             temp_file = tempfile.mktemp()
             
@@ -788,6 +892,10 @@ def network(request):
     else:
         
         request_post = dict(request.POST.iterlists())
+        
+        default_css_classes, new_css_path, node_type_transl, edge_type_transl = generate_css(str(request.user))
+        
+        request.session['new_css_path'] = new_css_path
         
         if request_post.has_key('query_samples'):
         
@@ -838,8 +946,9 @@ def network(request):
             cur_filts[i['name']] = i['pretty_where']
         
         
-        ret_json = {'prog_type':str(prog_type), 'username':str(request.user), 'node_type_transl':json.dumps(config.node_abbreviations), 'edge_type_transl':json.dumps(config.edge_abbreviations),
-                    'metanode_thresh':config.max_nodes, 'panel_context':'panel', 'input_vals':json.dumps(input_vals), 'cur_param':json.dumps(cur_param), 'cur_filts':json.dumps(cur_filts)}
+        ret_json = {'prog_type':str(prog_type), 'username':str(request.user), 'node_type_transl':json.dumps(node_type_transl), 'edge_type_transl':json.dumps(edge_type_transl),
+                    'metanode_thresh':config.max_nodes, 'panel_context':'panel', 'input_vals':json.dumps(input_vals), 'cur_param':json.dumps(cur_param), 'cur_filts':json.dumps(cur_filts),
+                    'css_path':os.path.basename(new_css_path),  'default_css':json.dumps(default_css_classes)}
         
         for key, val in config.network_sizes.items():
             if ret_json.has_key(key) == False:
