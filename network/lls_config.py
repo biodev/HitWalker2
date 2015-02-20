@@ -212,6 +212,24 @@ node_abbreviations = {
     'HighExpr_Hit':'HighExpression'
 }
 
+#These should correspond to the node types or the values in node_abbreviations.
+#note that node *_Hits or abbreviated versions should only be specified here
+node_colors = {
+    "MPN":"Green",
+    "PLN":"#00FFFF",
+    "HighExpression": "Tomato",
+    "White":"LightGrey",
+    "UnknownRace":"LightBlue",
+    "Male": "Orange",
+    "Female": "Magenta",
+    "UnknownGender": "DarkGrey",
+    "siRNA_Hit":"Gold",
+    "Variants": "Blue",
+    "GeneScore_Hit": "Red",
+    "Gene":"PowderBlue",
+    "Sample":"Brown"
+}
+
 edge_abbreviations = {
     'Possible_HighExpr':'Expression_Collected',
     'Observed_HighExpr':'Observed_HighExpression',

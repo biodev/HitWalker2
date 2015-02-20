@@ -342,19 +342,67 @@ function rev_type_translation(value)
     
 }
 
-function type_translation(value, transl_type)
-    {
-         if(typeof(transl_type)==='undefined') transl_type = node_transl;
+function type_translation(value, transl_type, result_type)
+{
+         if(typeof(result_type) === 'undefined') result_type = 'class'
       
-        if (value in transl_type)
-        {
-            return (transl_type[value]);
-        }
-        else
-        {
-            return (value);
-        }
-    }
+         if(typeof(transl_type)==='undefined') transl_type = node_transl;
+         
+         if (result_type == 'class')
+         {
+            if (value in transl_type == false || transl_type[value].class == null)
+            {
+               //set to one of the 'default' colors
+               
+               var remaining_defaults = d3.set();
+               
+               default_css.forEach(function(x)
+                                   {
+                                       if (used_defaults.has(x) == false)
+                                       {
+                                          remaining_defaults.add(x);
+                                       }
+                                   })
+               
+              if (remaining_defaults.size == 0)
+              {
+                  //start over
+                  var use_val = default_css.values()[0];
+                  used_defaults = d3.set([use_val]);
+                  
+                  
+              }else{
+                //choose the first available one
+                  var use_val = remaining_defaults.values()[0];
+                  used_defaults.add(use_val);
+               
+              }
+              
+              if (value in transl_type == false)
+              {
+                  transl_type[value] = {name:value, class:use_val}
+              }else{
+                  transl_type[value].class = use_val;
+              }
+              
+              return(use_val);
+              
+            }else{
+               return (transl_type[value].class)
+            }
+            
+         }else{
+            if (value in transl_type)
+            {
+                return (transl_type[value].name);
+            }
+            else
+            {
+                return (value);
+            }
+         } 
+}
+    
 function make_node_map (keep_nodes)
 {
     var keep_node_map = d3.map();
@@ -673,9 +721,9 @@ function make_graph_legend(vis, node_list, edge_list)
     var legend_links = legend_hier.links(legend_nodes);
     //jQuery.extend(true, {}, 
     
-    var temp_nest = d3.nest().key(function(d) {return type_translation(d.source.attributes.node_type)}).key(function(d) {return type_translation(d.target.attributes.node_type)}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
+    var temp_nest = d3.nest().key(function(d) {return d.source.attributes.node_type}).key(function(d) {return d.target.attributes.node_type}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
     
-    var rev_nest = d3.nest().key(function(d) {return type_translation(d.target.attributes.node_type)}).key(function(d) {return type_translation(d.source.attributes.node_type)}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
+    var rev_nest = d3.nest().key(function(d) {return d.target.attributes.node_type}).key(function(d) {return d.source.attributes.node_type}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
     
     //need to check whether any (which) of the root keys are in the values.  If so organize the hierarchies such that  
     var root_keys = temp_nest.get("MetaNode").keys();
@@ -799,7 +847,13 @@ function make_graph_legend(vis, node_list, edge_list)
             .attr("dy", function(d) { return (5) })
             .attr("text-anchor", function(d) { return d.children.length > 0 ? "end" : "start"; })
             .style("font-size", "10px")
-            .text(function(d) { return d.name.replace("_", " "); });
+            .text(function(d) {
+               if (d.type == "Node")
+               {
+                  return (type_translation(d.name, node_transl, 'name').replace("_", " "));
+               }else{
+                  return (type_translation(d.name, edge_transl, 'name').replace("_", " "));
+                }});
     
     
     node_labs = legend_labs.filter(function(d,i) {return(d.type == "Node")});
@@ -807,11 +861,11 @@ function make_graph_legend(vis, node_list, edge_list)
     
     node_labs.append("circle").attr("r", 5).attr("class", function(d)
                                                     {
-                                                       return(d.name); 
+                                                       return(type_translation(d.name)); 
                                                     });
     link_labs.append("line").attr("class", function(d)
                             {
-                               return(d.name); 
+                               return(type_translation(d.name, edge_transl, 'class')); 
                             })
                             .attr("x1", -10)
                             .attr("x2", 5)
