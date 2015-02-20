@@ -1,3 +1,5 @@
+library(Biobase)
+
 #importing pathway commons
 
 #download .gmt file from http://www.pathwaycommons.org/pc2/downloads.html
@@ -5,6 +7,84 @@
 
 #to incorporate into hitwalker use the org.Hs.eg.db database to relate uniprot to entrez
 #both the private and public versions will have reference to Entrez IDs so this will be useful...
+
+setGeneric("fromSample", def=function(obj,...) standardGeneric("fromSample"))
+setGeneric("toGene", def=function(obj,...) standardGeneric("toGene"))
+
+setClass(Class="HW2Config", representation=list(data.list="list", data.types="list", gene.models="character", neo.path="character"))
+
+#expression utils, affy for now...
+
+setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.node="probeSet", edge.name="HAS_EXPRESSION"){
+    
+})
+
+setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), annotation.package="", edge.name="PS_MAPPED_TO"){
+    
+})
+
+#MAF class utils
+
+setClass(Class="CCLEMaf", representation=list(maf="data.frame"))
+
+readMAF.ccle <- function(file.name)
+{
+    use.maf <- read.delim("file.name", sep="\t", stringsAsFactors=F)
+    
+    keep.maf <- use.maf[,c("Entrez_Gene_Id", "Genome_Change", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change",
+                           "Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
+
+    return(new("CCLEMaf", maf=keep.maf))
+}
+
+setGeneric("maf", def=function(obj,...) standardGeneric("maf"))
+setMethod("maf", signature("CCLEMaf"), function(obj){
+    return(obj@maf)
+})
+
+
+setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path, to.node="variation", edge.name="HAS_DNASEQ"){
+    #first sample -> variant
+    #the name here will be derived from the Genome_Change column as that provides potentially enough information to uniquely id a variant (indels might still be tricky...)
+    #will keep missing values as "" for now
+    
+    sample.maf <- maf(obj)
+    
+    samp.maf <- sample.maf[,c("Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
+    names(samp.maf) <- c("sample", to.node, "center", "sequencer", "alt_counts", "ref_counts", "variation.dbsnp", "variation.dbsnp_val_status")
+    samp.ccle$variation.dbsnp <- gsub(";", "&", samp.ccle$variation.dbsnp)
+    samp.ccle$variation.dbsnp_val_status <- gsub(";", "&", samp.ccle$variation.dbsnp_val_status)
+    
+    #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
+    
+    load.neo4j(.data=samp.ccle, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+})
+
+setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, from.node="variation", gene.model="entrez", edge.name="IMPACTS"){
+     #then add in the Variation->EntrezID relationships
+    
+    if (gene.model != "entrez")
+    {
+        stop("ERROR: Only gene.model = 'entrez' is supported for MAF files")
+    }
+    
+    cur.maf <- maf(obj)
+    
+    #only keep one row for each gene/variant
+    var.gene.dta <- cur.maf[!duplicated(non.na.ccle[,c("Entrez_Gene_Id", "Genome_Change")]),]
+    
+    var.gene.dta <- var.gene.dta[,c("Genome_Change", "Entrez_Gene_Id", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change")]
+    
+    names(var.gene.dta) <- c(from.node, "entrezID","variant_classification", "transcript", "transcript_strand", "cdna", "codon", "protein")
+    
+    load.neo4j(.data=var.gene.dta, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
+    
+})
+
+make.hw2.database <- function(obj, data.types, neo.path, gene.model=c("entrez", "ensembl"))
+{
+    
+}
 
 read.pc.gmt <- function(filename, organism.code="9606")
 {
