@@ -19,7 +19,11 @@ Installation
   * py2neo 1.6.4
 
   * numpy
+  
+  * colour
 
+  * cssutils
+	
 **Suggested Python packages (for exporting PDFs):**
 
 * tinycss

@@ -1,3 +1,12 @@
+    
+          .Gene{
+            fill:PowderBlue;
+          }
+          
+          .Sample{
+            fill:Brown;
+          }
+           
            .MetaNode{
              stroke:Black;
              fill-opacity:0;

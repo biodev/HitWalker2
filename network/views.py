@@ -81,6 +81,12 @@ def generate_css (user_name):
     
     node_type_transl={'Gene':{'name':'Gene', 'class':'Gene'}, 'Sample':{'name':'Sample', 'class':'Sample'}}
     edge_type_transl={'STRING':{'name':'STRING', 'class':'STRING'}}
+    #for recording the colors of the hits/targets and subtracting them from the available defaults
+    important_defaults = set()
+    used_defaults = set()
+    
+    #remove the .'s from the class name before passing up to JS
+    default_css_classes = set(get_css_name_colors(hw_css, by="name", only_default = True).keys())
     
         #if the users specified a node_colors attribute for config.py
         #check the colors against the defaults in hw_css
@@ -89,7 +95,12 @@ def generate_css (user_name):
     #try:
     css_dict = get_css_name_colors(hw_css, by="color", only_default = True)
     
-    for css_name,color in config.node_colors.items():
+    try:
+        node_colors = getattr(config, node_colors)
+    except:
+        node_colors = {}
+        
+    for css_name,color in node_colors.items():
         
         if node_type_transl.has_key(css_name) == False:
             node_type_transl[css_name] = {"name":css_name, "class":css_name}
@@ -97,10 +108,10 @@ def generate_css (user_name):
         use_color = str(colour.Color(color))
         if css_dict.has_key(use_color):
             node_type_transl[css_name]['class'] = css_dict[use_color]
+            used_defaults.add(css_dict[use_color])
         else:
             hw_css.add('.'+css_name+'{fill:'+use_color+';}')
         
-    
     #refresh the css dict here and create it by name
     css_name_dict = get_css_name_colors(hw_css, by="name", only_default = False)
     
@@ -115,10 +126,16 @@ def generate_css (user_name):
     for edge, abrev in config.edge_abbreviations.items():
         edge_type_transl[edge] = {'name':abrev, 'class':None}
     
-    #make sure that the seeds specified in data_types are represented so the hits can be rendered correctly
-    for node in config.data_types['seeds']:
+    #make sure that the seeds and target specified in data_types are represented so the hits can be rendered correctly
+    for node in map(lambda x: x+'_Hit', config.data_types['seeds']) + [config.data_types['target']]:
         if node_type_transl.has_key(node) == False:
-            node_type_transl[node] = {'name':node, 'class':None}
+            #choose a default for it
+            new_color = default_css_classes.difference(used_defaults).pop()
+            node_type_transl[node] = {'name':node, 'class':new_color.replace('.', '')}
+            used_defaults.add(new_color)
+            print new_color
+            
+        important_defaults.add(new_color)
     
     #if it is a _Hit or can be translated to one, then add in the appropriate class for the non-hit to hw_css
     #additionally, add in the edges corresponding to hits in a similar fashion
@@ -205,10 +222,9 @@ def generate_css (user_name):
     new_css_out.write(hw_css.cssText)
     new_css_out.close()
     
-    #remove the .'s from the class name before passing up to JS
-    default_css_classes = map(lambda x: x.replace(".", ""), get_css_name_colors(hw_css, by="name", only_default = True).keys())
+    default_css_list = map(lambda x: x.replace(".", ""), default_css_classes.difference(important_defaults))
     
-    return default_css_classes, new_css_path, node_type_transl, edge_type_transl
+    return default_css_list, new_css_path, node_type_transl, edge_type_transl
     
 
 @sensitive_post_parameters()
