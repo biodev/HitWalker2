@@ -116,14 +116,25 @@ def generate_css (user_name):
     css_name_dict = get_css_name_colors(hw_css, by="name", only_default = False)
     
     #for the entries in node_abbreviations, replace the key where appropriate
-    for node,abrev in config.node_abbreviations.items():
+    
+    try:
+        node_abbreviations = getattr(config, node_abbreviations)
+    except:
+        node_abbreviations = {}
+    
+    for node,abrev in node_abbreviations.items():
         if node_type_transl.has_key(abrev):
             node_type_transl[node] = node_type_transl.pop(abrev)
         else:
             node_type_transl[node] = {'name':abrev, 'class':None}
     
     #similarly, add in the edge_abbreviations
-    for edge, abrev in config.edge_abbreviations.items():
+    try:
+        edge_abbreviations = getattr(config, edge_abbreviations)
+    except:
+        edge_abbreviations = {}
+    
+    for edge, abrev in edge_abbreviations.items():
         edge_type_transl[edge] = {'name':abrev, 'class':None}
     
     #make sure that the seeds and target specified in data_types are represented so the hits can be rendered correctly
