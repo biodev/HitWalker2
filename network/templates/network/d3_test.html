@@ -157,7 +157,17 @@
         //                   {
         //                       console.log($(document).scrollLeft())
         //                   });
-        
+        //maybe something like: http://stackoverflow.com/questions/8897289/how-to-check-if-an-element-is-off-screen
+        //jQuery.expr.filters.offscreen = function(el) {
+        //    return (
+        //                (el.offsetLeft + el.offsetWidth) < 0 
+        //                || (el.offsetTop + el.offsetHeight) < 0
+        //                || (el.offsetLeft > window.innerWidth || el.offsetTop > window.innerHeight)
+        //           );
+        //  };
+        //
+        // console.log($(':offscreen'));
+        //$('div').is(':offscreen'); for a boolean answer
         
         
         $(document).ready(function()
