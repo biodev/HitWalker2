@@ -1,5 +1,8 @@
 library(Biobase)
+<<<<<<< HEAD
 library(reshape2)
+=======
+>>>>>>> 2290ff2320a5a94b4b05caf9301379b994fb00ab
 
 #importing pathway commons
 
@@ -11,7 +14,10 @@ library(reshape2)
 
 setGeneric("fromSample", def=function(obj,...) standardGeneric("fromSample"))
 setGeneric("toGene", def=function(obj,...) standardGeneric("toGene"))
+<<<<<<< HEAD
 setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
+=======
+>>>>>>> 2290ff2320a5a94b4b05caf9301379b994fb00ab
 
 setClass(Class="HW2Config", representation=list(data.list="list", data.types="list", gene.models="character", neo.path="character"))
 
@@ -19,6 +25,7 @@ setClass(Class="HW2Config", representation=list(data.list="list", data.types="li
 
 setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.node="probeSet", edge.name="HAS_EXPRESSION"){
     
+<<<<<<< HEAD
     use.exprs <- exprs(obj)
     
     melt.use.exprs <- melt(use.exprs)
@@ -65,6 +72,12 @@ setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.nod
     #load the probe->gene mappings
     
     load.neo4j(.data=probe.to.gene, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+=======
+})
+
+setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), annotation.package="", edge.name="PS_MAPPED_TO"){
+    
+>>>>>>> 2290ff2320a5a94b4b05caf9301379b994fb00ab
 })
 
 #MAF class utils
@@ -158,6 +171,7 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node
 setMethod("toGene", signature("DrugMatrix") function(obj){
     
 })
+
 
 make.hw2.database <- function(obj, data.types, neo.path, gene.model=c("entrez", "ensembl"))
 {
