@@ -233,10 +233,24 @@
                     
                     if (nearest_g.length > 0)
                     {
+                        //blank panel
+                        if (nearest_g.attr("id").startsWith("blank_"))
+                        {
+                            context_function(this, true, nearest_g.attr("id"))
+                        }else{
+                            context_function(this, false, nearest_g.attr("id"))
+                        }
                         
-                        context_function(this, false, nearest_g.attr("id"))
                     }else{
-                        var content = '<div class="container" style="width:100px">' +
+                        
+                        var plot_obj = $(d3.event.target).closest("g[class$=_plot]");
+                        
+                        if (plot_obj.length > 0)
+                        {
+                            context_function(this, true, plot_obj.attr("id"));
+                            
+                        }else{
+                            var content = '<div class="container" style="width:100px">' +
                                         '<div class="row">' +
                                         '<div class="btn-group-vertical">' +
                                             '<div class="btn-group">' +
@@ -252,18 +266,21 @@
                                         '</div>' +
                                     '</div>';
                                     
-                        //onclick="export_svg(this, \''+panel_id+'\')"
+                            //onclick="export_svg(this, \''+panel_id+'\')"
+                            
+                             $(this).popover({content:content, title:'Options', container:"body", html:true, trigger:"manual",
+                                                                                      placement: "right"
+                                                                                });
+                            
+                            $(this).popover('show');
+                            $('.popover').css('left', d3.event.pageX + 'px');
+                            $('.popover').css('top', d3.event.pageY-($('.popover').height()/2) + 'px')
+                            $('.popover').css('position', 'absolute');
+                            $('.popover').css('overflow-y', 'visible');
+                            popover_ref = this;
+                        }
                         
-                         $(this).popover({content:content, title:'Options', container:"body", html:true, trigger:"manual",
-                                                                                  placement: "right"
-                                                                            });
                         
-                        $(this).popover('show');
-                        $('.popover').css('left', d3.event.pageX + 'px');
-                        $('.popover').css('top', d3.event.pageY-($('.popover').height()/2) + 'px')
-                        $('.popover').css('position', 'absolute');
-                        $('.popover').css('overflow-y', 'visible');
-                        popover_ref = this;
                     }
                     
                 }
@@ -1104,11 +1121,11 @@
                                                             d3.select(this).classed("BorderSelected", true);
                                                         }
                                                         
-                                                      }).on("contextmenu", function()//was onclick
+                                                      });/*.on("contextmenu", function()//was onclick
                                                         {
                                                           context_function(this, true, key);
                                                             
-                                                          });
+                                                          });*/
                                         //would need to do something like this if boxes were to be selected and dragged and dropped similar to nodes--at a later date
                                         //.on("click", function(d,i)
                                         //    {
@@ -1162,11 +1179,11 @@
                                         cur_obj.selectAll("rect[class=BorderRect]").classed("BorderSelected", true);
                                     }
                                  
-                                }).on("contextmenu", function()//was onclick
+                                })/*.on("contextmenu", function()//was onclick
                                   {
                                     context_function(this, false, key);
                                       
-                                    })
+                                    })*/
                                 .on("click", function()
                                           {
                                             //clear custom context menu
