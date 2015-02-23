@@ -1,4 +1,5 @@
 library(Biobase)
+library(reshape2)
 
 #importing pathway commons
 
@@ -10,6 +11,7 @@ library(Biobase)
 
 setGeneric("fromSample", def=function(obj,...) standardGeneric("fromSample"))
 setGeneric("toGene", def=function(obj,...) standardGeneric("toGene"))
+setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
 
 setClass(Class="HW2Config", representation=list(data.list="list", data.types="list", gene.models="character", neo.path="character"))
 
@@ -17,10 +19,52 @@ setClass(Class="HW2Config", representation=list(data.list="list", data.types="li
 
 setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.node="probeSet", edge.name="HAS_EXPRESSION"){
     
+    use.exprs <- exprs(obj)
+    
+    melt.use.exprs <- melt(use.exprs)
+    names(melt.use.exprs) <- c("probeset", "sample", "score")
+    
+    melt.use.exprs$sample <- as.character(melt.use.exprs$sample)
+    melt.use.exprs$probeset <- as.character(melt.use.exprs$probeset)
+    
+    #now load the sample -> probe mappings
+    
+    melt.use.exprs <-  melt.use.exprs[,c("sample", "probeset", "score")]
+    names(melt.use.exprs)[2] <- c("probeSet")
+    
+    load.neo4j(.data=melt.use.exprs, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", unique.rels=F)
+    
 })
 
-setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), annotation.package="", edge.name="PS_MAPPED_TO"){
+setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), annotation.package=NULL, edge.name="PS_MAPPED_TO"){
     
+    if (is.null(annotation.package) || all(is.na(annotation.package)))
+    {
+        stop("ERROR: annotation.package needs to be specified")
+    }else{
+        require(annotation.package, character.only=T)
+    }
+    
+    #Then create a mapping file from probeset to gene
+    
+    gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
+    
+    probe.to.gene <- select(eval(parse(text=annotation.package)), keys=featureNames(obj), column=gene.type, keytypes="PROBEID")
+    
+    #Discard for now those that do not map to either type of genes.
+    
+    probe.to.gene <- probe.to.gene[is.na(probe.to.gene[,gene.type]) == F,]
+    
+    #probesets that map to multiple genes are perhaps not that reliable either, so discard them as well for now...
+    
+    dup.probes <- probe.to.gene$PROBEID[duplicated(probe.to.gene$PROBEID)]
+    
+    probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
+    names(probe.to.gene) <- c("probeSet", switch(gene.model, entrez="entrezID", ensembl="ensembl"))
+    
+    #load the probe->gene mappings
+    
+    load.neo4j(.data=probe.to.gene, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
 #MAF class utils
@@ -78,6 +122,40 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, from.node="var
     names(var.gene.dta) <- c(from.node, "entrezID","variant_classification", "transcript", "transcript_strand", "cdna", "codon", "protein")
     
     load.neo4j(.data=var.gene.dta, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
+    
+})
+
+#Drug class utils
+
+setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"))
+
+setMethod("getMatrix", signature("DrugMatrix"), function(obj)
+          {
+                return(obj@matrix)
+          })
+
+setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node="variation", edge.name="HAS_DNASEQ"){
+    
+    drug.mat <- getMatrix(obj)
+    
+    drug.dta <- melt(drug.mat)
+    
+    names(drug.dta) <- c("drug", "sample", "score")
+    
+    drug.dta$drug <- as.character(drug.dta$drug)
+    drug.dta$sample <- as.character(drug.dta$sample)
+    
+    #remove any na scores
+    
+    stopifnot(sum(is.na(drug.dta$value)) == sum(is.na(drug.dta)))
+    
+    drug.dta <- drug.dta[complete.cases(drug.dta),]
+    
+    load.neo4j(.data=drug.dta, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    
+})
+
+setMethod("toGene", signature("DrugMatrix") function(obj){
     
 })
 
