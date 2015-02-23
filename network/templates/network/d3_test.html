@@ -229,7 +229,14 @@
                   delete_popover();
                 }else{
                     
-                    var content = '<div class="container" style="width:100px">' +
+                    var nearest_g = $(d3.event.target).closest("g.g1");
+                    
+                    if (nearest_g.length > 0)
+                    {
+                        
+                        context_function(this, false, nearest_g.attr("id"))
+                    }else{
+                        var content = '<div class="container" style="width:100px">' +
                                         '<div class="row">' +
                                         '<div class="btn-group-vertical">' +
                                             '<div class="btn-group">' +
@@ -245,18 +252,20 @@
                                         '</div>' +
                                     '</div>';
                                     
-                    //onclick="export_svg(this, \''+panel_id+'\')"
+                        //onclick="export_svg(this, \''+panel_id+'\')"
+                        
+                         $(this).popover({content:content, title:'Options', container:"body", html:true, trigger:"manual",
+                                                                                  placement: "right"
+                                                                            });
+                        
+                        $(this).popover('show');
+                        $('.popover').css('left', d3.event.pageX + 'px');
+                        $('.popover').css('top', d3.event.pageY-($('.popover').height()/2) + 'px')
+                        $('.popover').css('position', 'absolute');
+                        $('.popover').css('overflow-y', 'visible');
+                        popover_ref = this;
+                    }
                     
-                     $(this).popover({content:content, title:'Options', container:"body", html:true, trigger:"manual",
-                                                                              placement: "right"
-                                                                        });
-                    
-                    $(this).popover('show');
-                    $('.popover').css('left', d3.event.pageX + 'px');
-                    $('.popover').css('top', d3.event.pageY-($('.popover').height()/2) + 'px')
-                    $('.popover').css('position', 'absolute');
-                    $('.popover').css('overflow-y', 'visible');
-                    popover_ref = this;
                 }
             }
             }).on("click", function()
@@ -1018,10 +1027,11 @@
                                 //cur_y = 0
                                 cur_obj.attr("transform", "translate("+cur_x+","+cur_y+")");
                                 //cur_obj.append("text").text(d.title).attr("dx", w/2).attr("dy", 15).style("text-anchor", "middle");
-                                cur_obj.append("rect").attr("width", w-2).attr("height", h-2).attr("class", "BorderRect").attr("rx", "10").on("contextmenu", function()
-                                                                                            {
-                                                                                                context_function(this, false, key);
-                                                                                            });
+                                cur_obj.append("rect").attr("width", w-2).attr("height", h-2).attr("class", "BorderRect").attr("rx", "10")
+                                //.on("contextmenu", function()
+                                //                                                            {
+                                //                                                                context_function(this, false, key);
+                                //                                                            });
                                 
                                 update_graph(cur_obj, value.graph,w,h, shiftKey);
                                 plot_type.graph += 1;
@@ -1463,13 +1473,13 @@
         
         function context_function(obj, disable_all, panel_id)
         {
-            d3.event.stopPropagation();
-            
-            d3.event.preventDefault();
+            //d3.event.stopPropagation();
+            //d3.event.preventDefault();
             if (contextMenuShowing) {
                 d3.select(".popup").remove();
             } else {
                 
+                console.log($(obj))
                 var plot_type = $('#'+panel_id).attr('class').split('_')[1];
                 
                 if (popover_ref != null)
@@ -1477,8 +1487,8 @@
                   delete_popover();
                 }else{
                     
-                   var cur_panel_name = $(obj).parent().attr("id");
-                    
+                   var cur_panel_name = panel_id//$(obj).parent().attr("id");
+                   
                     var del_dis_str = '';
                     var add_dis_str = '';
                     var exp_dis_str = '';
@@ -1535,7 +1545,7 @@
                      $(obj).popover({content:content, title:'Options', container:"body", html:true, trigger:"manual",
                                                                               placement: "right"
                                                                         });
-                    
+                    console.log(cur_panel_name);
                     $(obj).popover('show');
                     //console.log($('.popover').height());
                     $('.popover').css('left', d3.event.pageX + 'px');

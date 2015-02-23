@@ -1361,6 +1361,7 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                 
                 force.stop();
                 force2.stop();
+                
             }
             else
             {
