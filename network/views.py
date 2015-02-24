@@ -96,10 +96,12 @@ def generate_css (user_name):
     css_dict = get_css_name_colors(hw_css, by="color", only_default = True)
     
     try:
-        node_colors = getattr(config, node_colors)
+        node_colors = getattr(config, "node_colors")
     except:
         node_colors = {}
-        
+    
+    print node_colors
+    
     for css_name,color in node_colors.items():
         
         if node_type_transl.has_key(css_name) == False:
@@ -118,7 +120,7 @@ def generate_css (user_name):
     #for the entries in node_abbreviations, replace the key where appropriate
     
     try:
-        node_abbreviations = getattr(config, node_abbreviations)
+        node_abbreviations = getattr(config, "node_abbreviations")
     except:
         node_abbreviations = {}
     
@@ -130,7 +132,7 @@ def generate_css (user_name):
     
     #similarly, add in the edge_abbreviations
     try:
-        edge_abbreviations = getattr(config, edge_abbreviations)
+        edge_abbreviations = getattr(config, "edge_abbreviations")
     except:
         edge_abbreviations = {}
     
@@ -144,9 +146,8 @@ def generate_css (user_name):
             new_color = default_css_classes.difference(used_defaults).pop()
             node_type_transl[node] = {'name':node, 'class':new_color.replace('.', '')}
             used_defaults.add(new_color)
-            print new_color
             
-        important_defaults.add(new_color)
+            important_defaults.add(new_color)
     
     #if it is a _Hit or can be translated to one, then add in the appropriate class for the non-hit to hw_css
     #additionally, add in the edges corresponding to hits in a similar fashion
