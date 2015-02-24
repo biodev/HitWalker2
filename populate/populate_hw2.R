@@ -1,8 +1,5 @@
 library(Biobase)
-<<<<<<< HEAD
 library(reshape2)
-=======
->>>>>>> 2290ff2320a5a94b4b05caf9301379b994fb00ab
 
 #importing pathway commons
 
@@ -14,18 +11,61 @@ library(reshape2)
 
 setGeneric("fromSample", def=function(obj,...) standardGeneric("fromSample"))
 setGeneric("toGene", def=function(obj,...) standardGeneric("toGene"))
-<<<<<<< HEAD
 setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
-=======
->>>>>>> 2290ff2320a5a94b4b05caf9301379b994fb00ab
+setGeneric("getAnnotation", def=function(obj,...) standardGeneric("getAnnotation"))
 
 setClass(Class="HW2Config", representation=list(data.list="list", data.types="list", gene.models="character", neo.path="character"))
+
+setClass(Class="Subject", representation=list(subject.info="data.frame", subject.to.sample="data.frame"))
+
+setGeneric("addSamples<-", def=function(obj,..., value) standardGeneric("addSamples<-"))
+setReplaceMethod("addSamples", signature("Subject"), function(obj, value){
+    
+    if (('sample' %in% names(value) && names(obj@subject.info)[1] %in% names(value)) == F)
+    {
+        stop("ERROR: the names of the supplied data.frame need to reference 'sample' as well as the subject node name")
+    }
+    
+    if (nrow(obj@subject.to.sample) == 0)
+    {
+        obj@subject.to.sample <- value
+        
+    }else{
+        
+        if (all(names(obj@subject.to.sample) %in% names(value)) == F)
+        {
+            stop("ERROR: all the names of the current subject.to.sample need to be present in the supplied data.frame")
+        }
+        
+        obj@subject.to.sample <- rbind(obj@subject.to.sample, value[,names(obj@subject.to.sample)])
+    }
+    
+    validObject(obj)
+    return(obj)
+    
+})
+
+Subject <- function(subject.info, subject.to.sample=NULL)
+{
+    if(missing(subject.info) || is.null(subject.info) || all(is.na(subject.info)))
+    {
+        stop("ERROR: subject.info needs to be supplied")
+    }else if (class(subject.info) != "data.frame" || ncol(subject.info) < 1 || nrow(subject.info) == 0){
+        stop("ERROR: subject.info needs to be a data.frame with at least one column and one row")
+    }
+    
+    if (missing(subject.to.sample) || is.null(subject.to.sample) || all(is.na(subject.to.sample)))
+    {
+        subject.to.sample <- data.frame()
+    }
+    
+    return(new("Subject", subject.info=subject.info, subject.to.sample=subject.to.sample))
+}
 
 #expression utils, affy for now...
 
 setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.node="probeSet", edge.name="HAS_EXPRESSION"){
     
-<<<<<<< HEAD
     use.exprs <- exprs(obj)
     
     melt.use.exprs <- melt(use.exprs)
@@ -72,12 +112,10 @@ setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.nod
     #load the probe->gene mappings
     
     load.neo4j(.data=probe.to.gene, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-=======
 })
 
 setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), annotation.package="", edge.name="PS_MAPPED_TO"){
     
->>>>>>> 2290ff2320a5a94b4b05caf9301379b994fb00ab
 })
 
 #MAF class utils
@@ -86,7 +124,7 @@ setClass(Class="CCLEMaf", representation=list(maf="data.frame"))
 
 readMAF.ccle <- function(file.name)
 {
-    use.maf <- read.delim("file.name", sep="\t", stringsAsFactors=F)
+    use.maf <- read.delim(file.name, sep="\t", stringsAsFactors=F)
     
     keep.maf <- use.maf[,c("Entrez_Gene_Id", "Genome_Change", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change",
                            "Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
@@ -97,6 +135,10 @@ readMAF.ccle <- function(file.name)
 setGeneric("maf", def=function(obj,...) standardGeneric("maf"))
 setMethod("maf", signature("CCLEMaf"), function(obj){
     return(obj@maf)
+})
+
+setMethod("sampleNames", signature("CCLEMaf"), function(object){
+    return(unique(maf(object)$Tumor_Sample_Barcode))
 })
 
 
@@ -147,7 +189,40 @@ setMethod("getMatrix", signature("DrugMatrix"), function(obj)
                 return(obj@matrix)
           })
 
-setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node="variation", edge.name="HAS_DNASEQ"){
+setMethod("getAnnotation", signature("DrugMatrix"), function(obj){
+        return(obj@mapping)
+})
+
+setMethod("sampleNames", signature("DrugMatrix"), function(object){
+    return(unique(colnames(getMatrix(object))))
+})
+
+DrugMatrix <- function(mat, mapping){
+    
+    if(missing(mat) || is.null(mat) || all(is.na(mat)) || class(mat) != "matrix")
+    {
+        stop("ERROR: need to supply a matrix for mat")
+    }
+    
+    if (missing(mapping) || is.null(mapping) || all(is.na(mapping)) || class(mapping) != "data.frame")
+    {
+        stop("ERROR: need to supply a mapping data.frame containing the drug->gene mappings")
+    }
+    
+    if (all(c("drug", "gene") %in% names(mapping)) == F)
+    {
+        stop("ERROR: the mapping data.frame needs to have columns for both drug and gene")
+    }
+    
+    if (length(intersect(mapping$drug, rownames(mat))) == 0)
+    {
+        stop("ERROR: There is no overlap between the rownames of mat and mapping$drug.  Is the matrix of the form: drug x sample?")
+    }
+    
+    return(new("DrugMatrix", matrix=mat, mapping=mapping))
+}
+
+setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node="drug", edge.name="HAS_DRUG_ASSAY"){
     
     drug.mat <- getMatrix(obj)
     
@@ -168,8 +243,15 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node
     
 })
 
-setMethod("toGene", signature("DrugMatrix") function(obj){
+setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path, from.node="drug", gene.model=c("entrez", "ensembl"), edge.name="ACTS_ON"){
     
+    drug.genes <- getAnnotation(obj)
+    
+    drug.genes <- drug.genes[complete.cases(drug.genes),]
+    drug.genes <- drug.genes[,c("drug", "gene", "weight")]
+    names(drug.genes) <- c("drug", switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
+    
+    load.neo4j(.data=drug.genes, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
 
