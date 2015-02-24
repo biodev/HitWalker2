@@ -201,7 +201,8 @@ def generate_css (user_name):
                     'stroke:'+css_name_dict['.'+node_type_transl[node_name]['class']]+';\n' + \
                  '}'
             )
-            
+    
+    print edge_type_transl
     
     #Finally, fill in the target edge info:
     
@@ -607,10 +608,10 @@ def get_sample_rels(request):
             sample_list.append(temp_dict)
     else:
         raise Exception("sample_rels_type has not been implemented")
-        
-    print sample_list
-        
-    return HttpResponse(json.dumps({"sample_list":sample_list, "cur_id":cur_id}), mimetype="application/json")
+    
+    use_sample_list = sorted(sample_list, key=lambda x: x['required_data'], reverse=True)
+    
+    return HttpResponse(json.dumps({"sample_list":use_sample_list, "cur_id":cur_id}), mimetype="application/json")
 
 #is overkill for this function, add in below in multi_node_query
 def node_query(request):
