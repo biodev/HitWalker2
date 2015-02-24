@@ -789,15 +789,23 @@ function make_graph_legend(vis, node_list, edge_list)
     
     //add in the links too, at the level of the nodes
     var link_map = d3.set();
+    //edge_list.forEach(function(d,i,ar)
+    //{
+    //    var transl_d = type_translation(d, edge_transl)
+    //    if (link_map.has(transl_d) == false)
+    //    {
+    //        link_map.add(transl_d);
+    //        legend_map.push({name:transl_d, type:"Link", children:[]});
+    //    }
+    //})
+    
     edge_list.forEach(function(d,i,ar)
-    {
-        var transl_d = type_translation(d, edge_transl)
-        if (link_map.has(transl_d) == false)
-        {
-            link_map.add(transl_d);
-            legend_map.push({name:transl_d, type:"Link", children:[]});
-        }
-    })
+      {
+         if (link_map.has(d) == false){
+            link_map.add(d);
+            legend_map.push({name:d, type:"Link", children:[]});
+         }
+      })
     
     child_num = child_counter(legend_map);
     
