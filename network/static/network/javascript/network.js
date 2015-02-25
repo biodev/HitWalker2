@@ -1089,6 +1089,8 @@ function post_to_fullfill (obj)
                   $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
                     
                   $(obj).popover('show');
+                  
+                  adjust_screen_right(".popover");
                 }
                 else{
                     add_to_image(parsed_data, 'query', selected_node.keys());
@@ -1918,7 +1920,7 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                                         
                                                         $('[data-toggle="popover"]').popover({container:"body"});
                                                         
-                                                        
+                                                        adjust_screen_right(".popover");
                                                     }
                                                     else
                                                     {
@@ -1950,6 +1952,8 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                                         $(p_node_obj).popover({content:post_content, title:"Queries", container:"body", html:true, trigger:"manual"});
                                                         $(p_node_obj).popover('show');
                                                         popover_ref = p_node_obj;
+                                                        
+                                                        adjust_screen_right(".popover");
                                                     }
                                                     else
                                                     {

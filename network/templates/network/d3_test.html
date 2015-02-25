@@ -212,6 +212,14 @@
                                 
                           });
         
+        //from http://stackoverflow.com/questions/10415400/jquery-detecting-div-of-certain-class-has-been-added-to-dom
+        //$('body').on('DOMNodeInserted', function(e) {
+        //    if ($(e.target).is('.popover')) {
+        //       console.log($(e.target).attr('style'));
+        //    }
+        //});
+    
+        
         var body = d3.select("body")
         .on("keydown", function()
             {
@@ -688,8 +696,6 @@
                                 
                                 $.merge(ret_samples, temp_nodes)
                           });
-                
-                console.log(JSON.stringify(ret_samples))
                 
                 form['sample_name'].value = ret_samples
                 
@@ -1448,7 +1454,7 @@
                                 }
                              });
             
-            
+            adjust_screen_right(".popover");
         }
         
         function query_nodes(panel_name, obj, type)
@@ -1493,6 +1499,23 @@
                                                }, "text")
                         }
             });
+            
+            adjust_screen_right(".popover");
+        }
+        
+        function adjust_screen_right(monitor_class)
+        {
+            var left_pos = parseInt($(monitor_class).css("left"));
+            var modal_size = parseInt(parseInt($(monitor_class).css("max-width")));
+            var window_size = parseInt($(window).width());
+            
+            var shift_amount = (left_pos + modal_size) - window_size;
+            
+            if (shift_amount > 0)
+            {
+                //where 1000 is just a large amount to force the window to the edge
+                $(document).scrollLeft(1000);   
+            }
         }
         
         function context_function(obj, disable_all, panel_id)

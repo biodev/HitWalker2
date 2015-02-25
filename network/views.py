@@ -202,8 +202,6 @@ def generate_css (user_name):
                  '}'
             )
     
-    print edge_type_transl
-    
     #Finally, fill in the target edge info:
     
     for i in ['Ranked', 'Observed']:
