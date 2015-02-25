@@ -1341,6 +1341,59 @@
             }
         }
         
+        function pathway_context_panel(obj, panel_name){
+            
+            //find nodes available for the current panel
+            
+            var node_map = {Sample:[], Gene:[]};
+            
+            //for all of these, select the nodes in the panel if not already
+            
+            d3.selectAll("#"+panel_name+" circle.Sample").each(function(x)
+                                             {
+                                                    if (selected_node.has(x.id) == false)
+                                                    {
+                                                        selected_node.set(x.id, this);
+                                                    }
+                                                    
+                                             });
+            
+            all_vis[panel_name].graph.nodes.forEach(function(x)
+                    {
+                        if (x.attributes.node_type == "MetaNode")
+                        {
+                            x.children.forEach(function(y)
+                                    {
+                                        
+                                        node_map[y.attributes.node_type].push({id:y.id, text:y.display_name, search_list:[y.id]});
+                                        
+                                    });
+                        }else{
+                            node_map[x.attributes.node_type].push({id:x.id, text:x.display_name, search_list:[x.id]});
+                        }
+                        
+                    });
+            
+            //if there is only sample nodes
+                //take the user to the standard gene picking screen
+            
+            if (node_map.Sample.length > 0 && node_map.Gene.length == 0)
+            {
+                query_pathways(panel_name, obj, 'static_pathway_tab')
+            }else{
+                 //if there are gene and sample nodes
+                //send to gene picking screen and query for the first X genes
+                
+                query_pathways(panel_name, obj, 'static_pathway_tab')
+                
+                $(".select2").select2('data', node_map.Gene, true)
+                
+                console.log($(".select2").select2('val'));
+            }
+           
+            
+        }
+        
         function query_pathways(panel_name, obj, ok_func)
         {
             
@@ -1564,7 +1617,7 @@
                         del_dis_str = 'disabled';
                     }
                     
-                    var content = '<div class="container" style="width:100px">' +
+                    var content = '<div class="container" style="width:120px">' +
                                         '<div class="row">' +
                                         '<div class="btn-group-vertical">' +
                                                 '<div class="btn-group">' +
@@ -1577,6 +1630,9 @@
                                                     '<li><a onclick="query_nodes(\''+ cur_panel_name +'\', this, \'Sample\')" style="cursor:pointer">Sample</a></li>' +
                                                     '<li><a onclick="query_pathways(\''+ cur_panel_name +'\', this, \'add_pathway\')" style="cursor:pointer">Pathway</a></li>' +
                                                 '</ul>' +
+                                            '</div>' +
+                                            '<div class="btn-group">' +
+                                                    '<button type="button" class="btn btn-default col-md-12" '+add_dis_str+' onclick="pathway_context_panel(this,\''+ cur_panel_name +'\')">Pathway Context</button>' +
                                             '</div>' +
                                             '<div class="btn-group">' +
                                                 '<button type="button" class="btn btn-default dropdown-toggle col-md-12" data-toggle="dropdown" '+exp_dis_str+' style="cursor:pointer">Export<span class="caret"></span></button>' +
