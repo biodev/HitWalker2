@@ -13,13 +13,79 @@ setGeneric("fromSample", def=function(obj,...) standardGeneric("fromSample"))
 setGeneric("toGene", def=function(obj,...) standardGeneric("toGene"))
 setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
 setGeneric("getAnnotation", def=function(obj,...) standardGeneric("getAnnotation"))
+setGeneric("configure", def=function(obj,...) standardGeneric("configure"))
+setGeneric("populate", def=function(obj,...) standardGeneric("populate"))
 
-setClass(Class="HW2Config", representation=list(data.list="list", data.types="list", gene.models="character", neo.path="character"))
+#data.types needs to be a list like: list(seeds=seed.vec,target='target')
+#where the names in seeds and target need to correspond to the names of the ... arguments to makeHW2Config
+
+setClass(Class="HW2Config", representation=list(data.list="list", data.types="list", gene.model="character"))
+
+makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL,...)
+{
+    gene.model <- match.arg(gene.model)
+    
+    data.list <- list(...)
+    
+    if (is.null(names(data.list)))
+    {
+        stop("ERROR: data.list needs to have names")
+    }
+    
+    if (class(data.types) != "list" || is.null(data.types) == T || all(c('seeds', 'target') %in% names(data.types)) == F)
+    {
+        stop("ERROR: data.types needs to be a named list of the following form: list(seeds=seed.vec,target='target')")
+    }
+    
+    data.names <- as.character(unlist(data.types))
+    
+    if (all(data.names %in% names(data.list)) == F)
+    {
+        stop("ERROR: All of the strings specified in data.types need to correspond to names supplied here")
+    }
+    
+    return(new("HW2Config", data.list=data.list, data.types=data.types, gene.model=gene.model))
+}
+
+setMethod("populate", signature("HW2Config"), function(obj, neo.path){
+    
+    obj.list <- obj@data.list
+    
+    gene.model <- obj@gene.model
+    
+    for(i in seq_along(obj.list))
+    {
+        message(paste("Starting:", i))
+        fromSample(obj.list[[i]], neo.path=neo.path)
+        toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
+    }
+    
+})
+
+setMethod("configure", signature("HW2Config"), function(obj){
+    copySubstitute() #which is part of Biobase
+    
+    #also might need the rjson package
+    #write(toJSON())
+})
 
 setClass(Class="Subject", representation=list(subject.info="data.frame", subject.to.sample="data.frame"))
 
 setGeneric("addSamples<-", def=function(obj,..., value) standardGeneric("addSamples<-"))
-setReplaceMethod("addSamples", signature("Subject"), function(obj, value){
+setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
+    
+    if (is.data.frame(value) == F)
+    {
+        subj.name <- names(obj@subject.info)[1]
+        
+        use.names <- intersect(sampleNames(value), obj@subject.info[,1])
+        
+        call.list <- append(setNames(list(use.names, use.names), c(subj.name,"sample")), list(...))
+        
+        call.list$stringsAsFactors <- F
+        
+        value <- do.call(data.frame, call.list)
+    }
     
     if (('sample' %in% names(value) && names(obj@subject.info)[1] %in% names(value)) == F)
     {
@@ -83,13 +149,13 @@ setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.n
     
 })
 
-setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), annotation.package=NULL, edge.name="PS_MAPPED_TO"){
+setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), edge.name="PS_MAPPED_TO"){
     
-    if (is.null(annotation.package) || all(is.na(annotation.package)))
+    if (length(annotation(obj)) == 0 || require(annotation(obj)) == F)
     {
-        stop("ERROR: annotation.package needs to be specified")
+        stop("ERROR: need to specify a ")
     }else{
-        require(annotation.package, character.only=T)
+        annotation.package <- annotation(obj)
     }
     
     #Then create a mapping file from probeset to gene
@@ -253,12 +319,6 @@ setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path, from.node="
     
     load.neo4j(.data=drug.genes, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
-
-
-make.hw2.database <- function(obj, data.types, neo.path, gene.model=c("entrez", "ensembl"))
-{
-    
-}
 
 read.pc.gmt <- function(filename, organism.code="9606")
 {
@@ -729,5 +789,26 @@ in.csv.col <- function(vec, search.vals, delim.str=",", match.func=any)
                         match.func(x %in% search.vals) 
                      })
     return(in.vec)
+}
+
+#taken from older code and needs to be adapted and checked...
+create.initial.graph <- function()
+{
+    library(igraph)
+
+    string.graph <- read.delim("/Users/bottomly/Desktop/tyner_results/string_preparation/protein.links.detailed.v9.05.9606.ncol", sep="", header=FALSE, stringsAsFactors=FALSE)
+    names(string.graph) <- c("from.node", "to.node", "weight")
+    
+    string.graph$weight <- string.graph$weight/1000
+    
+    use.graph <- graph.data.frame(string.graph, directed=FALSE)
+    
+    temp.sparse <- get.adjacency(graph=use.graph, sparse=TRUE, attr="weight", type="both")/2
+    
+    writeMM(temp.sparse, file="protein.links.detailed.v9.05.9606.mm.mtx")
+    
+    all(colnames(temp.sparse) == rownames(temp.sparse))#TRUE
+    
+    write.table(rownames(temp.sparse), file="protein.links.detailed.v9.05.9606.mm.names", sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
 }
 
