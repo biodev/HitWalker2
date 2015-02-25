@@ -71,9 +71,15 @@ pip install tinycss
 
 pip install cssselect
 
+pip install cssutils
+
+pip install colour
+
 pip install pandas
 
 pip install gunicorn
+
+pip install eventlet
 
 deactivate
 ```
@@ -112,7 +118,7 @@ cd /path/to/HitWalker2
 
 python manage.py syncdb
 
-nohup gunicorn HitWalker2.wsgi:application &
+nohup gunicorn -k 'eventlet' HitWalker2.wsgi:application &
 
 ```
 
