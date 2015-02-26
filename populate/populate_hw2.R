@@ -1,5 +1,7 @@
 library(Biobase)
 library(reshape2)
+library(igraph)
+library(rjson)
 
 #importing pathway commons
 
@@ -47,13 +49,24 @@ makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types
     return(new("HW2Config", data.list=data.list, data.types=data.types, gene.model=gene.model))
 }
 
-setMethod("populate", signature("HW2Config"), function(obj, neo.path){
+setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL){
+    
+    if (missing(skip) || is.null(skip) || all(is.na(skip)))
+    {
+        skip <- integer(0)
+    }else if (is.numeric(skip)){
+        
+        skip <- as.integer(skip)
+        
+    }else{
+        stop("ERROR: skip needs to be an integer value or not specified at all")
+    }
     
     obj.list <- obj@data.list
     
     gene.model <- obj@gene.model
     
-    for(i in seq_along(obj.list))
+    for(i in setdiff(seq_along(obj.list), skip))
     {
         message(paste("Starting:", i))
         fromSample(obj.list[[i]], neo.path=neo.path)
@@ -217,12 +230,12 @@ setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path, to.node="v
     
     samp.maf <- sample.maf[,c("Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
     names(samp.maf) <- c("sample", to.node, "center", "sequencer", "alt_counts", "ref_counts", "variation.dbsnp", "variation.dbsnp_val_status")
-    samp.ccle$variation.dbsnp <- gsub(";", "&", samp.ccle$variation.dbsnp)
-    samp.ccle$variation.dbsnp_val_status <- gsub(";", "&", samp.ccle$variation.dbsnp_val_status)
+    samp.maf$variation.dbsnp <- gsub(";", "&", samp.maf$variation.dbsnp)
+    samp.maf$variation.dbsnp_val_status <- gsub(";", "&", samp.maf$variation.dbsnp_val_status)
     
     #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
     
-    load.neo4j(.data=samp.ccle, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    load.neo4j(.data=samp.maf, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
 setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, from.node="variation", gene.model="entrez", edge.name="IMPACTS"){
@@ -236,7 +249,7 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, from.node="var
     cur.maf <- maf(obj)
     
     #only keep one row for each gene/variant
-    var.gene.dta <- cur.maf[!duplicated(non.na.ccle[,c("Entrez_Gene_Id", "Genome_Change")]),]
+    var.gene.dta <- cur.maf[!duplicated(cur.maf[,c("Entrez_Gene_Id", "Genome_Change")]),]
     
     var.gene.dta <- var.gene.dta[,c("Genome_Change", "Entrez_Gene_Id", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change")]
     
@@ -301,7 +314,7 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node
     
     #remove any na scores
     
-    stopifnot(sum(is.na(drug.dta$value)) == sum(is.na(drug.dta)))
+    stopifnot(sum(is.na(drug.dta$score)) == sum(is.na(drug.dta)))
     
     drug.dta <- drug.dta[complete.cases(drug.dta),]
     
@@ -678,6 +691,102 @@ sample.neo4j.graph <- function(graph_struct="/var/www/hitwalker_2_inst/graph_str
     writeLines(paste0("DUMP", entire.statement, ";"), con=tmp.file)
     
     system(paste(file.path(neo.path, "bin", "neo4j-shell"), "-file", tmp.file,">", dump.file))
+}
+
+clean.neo4j.res <- function(result)
+{
+    if (length(result) == 6)
+    {
+        return(NULL)
+    }else{
+        
+        use.res <- result[seq(from=4, to=length(result)-3)]
+    
+        #also get the header
+        use.res <- append(result[2], use.res)
+        
+        use.res <- gsub("\"", "", gsub("|\\[|\\]|\\s", "", use.res), fixed=T)
+        
+        split.res <- sapply(strsplit(use.res, "\\|"), function(x) x[x!=""])
+        
+        if (class(split.res) == "character")
+        {
+            return(split.res[-1])
+        }else if (class(split.res) == "matrix")
+        {
+            header <- split.res[,1]
+            split.res <- split.res[,-1]
+            ret.dta <- data.frame(t(split.res), stringsAsFactors=F)
+            names(ret.dta) <- make.names(header)
+            return(ret.dta)
+        }else{
+            stop("ERROR: Unexpected type for result")   
+        }
+    }
+    
+    
+}
+
+#neo.path=normalizePath("neo4j-community-2.1.6/")
+make.graph.struct <- function(neo.path, graph.struct.path="test_graph_struct.json")
+{
+    
+    message("Getting labels from DB")
+    
+    label.query <- "'MATCH (n) RETURN DISTINCT LABELS(n);'"
+    
+    labs <- system(paste(file.path(neo.path, "bin", "neo4j-shell"), "-c", label.query), intern=T)
+    
+    use.labs <- clean.neo4j.res(labs)
+    
+    lab.list <- lapply(use.labs, function(i)
+           {
+                message(paste("Starting", i))
+                cur.query <- paste0('MATCH (n:', i ,')-[r]->(m) RETURN DISTINCT LABELS(n) AS from_node, LABELS(m) AS to_node, TYPE(r) AS type;')
+        
+                cur.res <- system(paste0(file.path(neo.path, "bin", "neo4j-shell"), " -c ","'",cur.query, "'"), intern=T)
+                
+                return(clean.neo4j.res(cur.res))
+           })
+    
+    lab.dta <- do.call("rbind", lab.list)
+    
+    #make an igraph object
+    
+    lab.graph <- graph.data.frame(lab.dta)
+    
+    un.lab.graph <- as.undirected(lab.graph, edge.attr.comb="first")
+    
+    graph.list <- lapply(get.adjedgelist(un.lab.graph), function(x)
+                         {
+                            unique.x <- unique(x)
+                            
+                            temp.list <- lapply(unique.x, function(y)
+                                   {
+                                        return(V(un.lab.graph)[inc(E(un.lab.graph)[y])]$name)
+                                   })
+                            
+                            names(temp.list) <- E(un.lab.graph)[unique.x]$type
+                            return(temp.list)
+                         })
+    
+    pretty.graph.list <- mapply(function(x,y){
+        
+        lapply(x, function(z)
+               {
+                    if (length(z) > 1)
+                    {
+                        return(z[z != y])
+                    }else{
+                        return(z)
+                    }
+                    
+               })
+    }, graph.list, names(graph.list))
+    
+    write(toJSON(pretty.graph.list), file=graph.struct.path)
+    
+    return(lab.graph)
 }
 
 read.graph_struct  <- function(graph_struct="/var/www/hitwalker_2_inst/graph_struct.json")
