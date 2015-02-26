@@ -1363,10 +1363,8 @@
                         if (x.attributes.node_type == "MetaNode")
                         {
                             x.children.forEach(function(y)
-                                    {
-                                        
+                                    { 
                                         node_map[y.attributes.node_type].push({id:y.id, text:y.display_name, search_list:[y.id]});
-                                        
                                     });
                         }else{
                             node_map[x.attributes.node_type].push({id:x.id, text:x.display_name, search_list:[x.id]});
@@ -1386,9 +1384,17 @@
                 
                 query_pathways(panel_name, obj, 'static_pathway_tab')
                 
-                $(".select2").select2('data', node_map.Gene, true)
+                var gene_map = [];
                 
-                console.log($(".select2").select2('val'));
+                if (node_map.Gene.length > 5)
+                {
+                    gene_map = node_map.Gene.slice(0,5);
+                }else{
+                    gene_map = node_map.Gene;
+                }
+                
+                $(".select2").select2('data', gene_map, true)
+                
             }
            
             
@@ -1454,12 +1460,26 @@
                                 $("#empty_p").prop("hidden", true);
                                 
                                 if ('added' in e)
-                                {
-                                    if (cur_map.has(e.added.text) == false)
+                                {   
+                                    var use_obj = [];
+                                    
+                                    if (jQuery.isPlainObject(e.added))
                                     {
-                                        cur_map.set(e.added.text, e.added.search_list);
+                                        use_obj.push(e.added);
+                                        
+                                    }else {
+                                        
+                                        $.merge(use_obj, e.added);
                                     }
                                     
+                                    use_obj.forEach(function(x)
+                                            {
+                                                if (cur_map.has(x.text) == false)
+                                                {
+                                                    cur_map.set(x.text, x.search_list);
+                                                }
+                                            });
+                                   
                                     //e.added.search_list.forEach(function(d) cur_set.add(d));
                                 }else{
                                     //removed
@@ -1469,6 +1489,7 @@
                                 
                                 if (cur_map.keys().length > 0)
                                 {
+                                    
                                     var queries = {query:JSON.stringify(cur_map.values())};
                                 
                                     var path_spin = new Spinner({top:'47%'}).spin();
