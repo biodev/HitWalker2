@@ -164,9 +164,11 @@ setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.n
 
 setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), edge.name="PS_MAPPED_TO"){
     
-    if (length(annotation(obj)) == 0 || require(annotation(obj)) == F)
+    gene.model <- match.arg(gene.model)
+    
+    if (length(annotation(obj)) == 0 || require(annotation(obj), character.only=T) == F)
     {
-        stop("ERROR: need to specify a ")
+        stop("ERROR: need to specify an annotation package ")
     }else{
         annotation.package <- annotation(obj)
     }
@@ -175,7 +177,7 @@ setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.nod
     
     gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
     
-    probe.to.gene <- select(eval(parse(text=annotation.package)), keys=featureNames(obj), column=gene.type, keytypes="PROBEID")
+    probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj), column=gene.type, keytypes="PROBEID"))
     
     #Discard for now those that do not map to either type of genes.
     
@@ -191,10 +193,6 @@ setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.nod
     #load the probe->gene mappings
     
     load.neo4j(.data=probe.to.gene, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-})
-
-setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), annotation.package="", edge.name="PS_MAPPED_TO"){
-    
 })
 
 #MAF class utils
@@ -727,10 +725,8 @@ clean.neo4j.res <- function(result)
     
 }
 
-#neo.path=normalizePath("neo4j-community-2.1.6/")
-make.graph.struct <- function(neo.path, graph.struct.path="test_graph_struct.json")
+compute.graph.structure <- function(neo.path)
 {
-    
     message("Getting labels from DB")
     
     label.query <- "'MATCH (n) RETURN DISTINCT LABELS(n);'"
@@ -753,20 +749,37 @@ make.graph.struct <- function(neo.path, graph.struct.path="test_graph_struct.jso
     
     #make an igraph object
     
-    lab.graph <- graph.data.frame(lab.dta)
+    return(graph.data.frame(lab.dta))
+}
+
+#neo.path=normalizePath("neo4j-community-2.1.6/")
+make.graph.struct <- function(neo.graph, graph.struct.path="test_graph_struct.json")
+{
     
-    un.lab.graph <- as.undirected(lab.graph, edge.attr.comb="first")
+    if (missing(graph.struct.path) || is.null(graph.struct.path) || all(is.na(graph.struct.path)) || (is.character(graph.struct.path) == F))
+    {
+       stop("ERROR: Need to supply a valid path for the graph_struct file")
+    }
     
-    graph.list <- lapply(get.adjedgelist(un.lab.graph), function(x)
+    if (missing(neo.graph) || is.null(neo.graph) || all(is.na(neo.graph)) || (class(neo.graph) != "igraph"))
+    {
+        stop("ERROR: neo.graph needs to be an igraph object")
+    }
+    
+    lab.graph <- neo.graph
+    
+    un.neo.graph <- as.undirected(neo.graph, edge.attr.comb="first")
+
+    graph.list <- lapply(get.adjedgelist(un.neo.graph), function(x)
                          {
                             unique.x <- unique(x)
                             
                             temp.list <- lapply(unique.x, function(y)
                                    {
-                                        return(V(un.lab.graph)[inc(E(un.lab.graph)[y])]$name)
+                                        return(V(un.neo.graph)[inc(E(un.neo.graph)[y])]$name)
                                    })
                             
-                            names(temp.list) <- E(un.lab.graph)[unique.x]$type
+                            names(temp.list) <- E(un.neo.graph)[unique.x]$type
                             return(temp.list)
                          })
     
@@ -786,7 +799,6 @@ make.graph.struct <- function(neo.path, graph.struct.path="test_graph_struct.jso
     
     write(toJSON(pretty.graph.list), file=graph.struct.path)
     
-    return(lab.graph)
 }
 
 read.graph_struct  <- function(graph_struct="/var/www/hitwalker_2_inst/graph_struct.json")
