@@ -1134,20 +1134,37 @@ def match_pathway(query):
     
     query = json.loads(query)
     
-    from config import cypher_session
+    import config
     
-    graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
+    session = cypher.Session(config.cypher_session)
+    tx = session.create_transaction()
     
-    query_list = [] 
+    use_query = ('MATCH (g:Gene)-[:EXTERNAL_ID]-()-[:GENESET_CONTAINS]-(path) WITH path, COUNT(g) AS g_count WHERE g_count < 200 '
+                 'MATCH (gene:Gene)-[:EXTERNAL_ID]-()-[r:GENESET_CONTAINS]-(path) WHERE gene.name IN {gene_names} RETURN DISTINCT ID(path), path.name + " (n=" + g_count + ")"')
     
-    if len(query) == 0:
-        return query, []
-    else:
-        sample_query = neo4j.CypherQuery(graph_db,'MATCH (g:Gene)-[:EXTERNAL_ID]-()-[:GENESET_CONTAINS]-(path) WITH path, COUNT(g) AS g_count WHERE g_count < 200 MATCH (gene:Gene)-[:EXTERNAL_ID]-()-[r:GENESET_CONTAINS]-(path) WHERE ALL(x IN '+str(json.dumps(query))+' WHERE ANY(y in x WHERE gene.name = y)) RETURN DISTINCT ID(path), path.name + " (n=" + g_count + ")"')
-        
-        for i in sample_query.execute().data:
-            query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':[i.values[1]]})
-        
+    for i in query:
+        tx.append(use_query, {'gene_names':i})
+    
+    count_dict = collections.Counter()
+    
+    for i in core.BasicResultsIterable(tx.execute()):
+        temp = []
+        if len(i) > 0:
+            if isinstance(i[0], tuple):
+                for j in i:
+                    temp.append(str(j[0])+'.'+j[1])
+                count_dict.update(temp)
+    
+    query_list = []
+    
+    for i in count_dict.most_common():
+        if i[1] == len(query):
+            
+            split_keys = i[0].split(".")
+            query_list.append({'id':int(split_keys[0]), 'text':split_keys[1], 'search_list':[split_keys[1]]})
+        else:
+            break 
+    
     return query, query_list
 
 
