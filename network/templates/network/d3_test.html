@@ -82,7 +82,15 @@
         </div>
     
     <div class="row">
-    <div id="content" class="panel panel-default"  style="width:{{ w|add:w|add:legend_offset }}px">
+    
+     
+    {% if panel_context == "image" %}
+        <div id="content" class="panel panel-default" style="width:{{ w|add:legend_offset }}px">
+    {% else %}
+        <div id="content" class="panel panel-default" style="width:{{ w|add:w|add:legend_offset }}px">
+    {% endif %}
+    
+      
     <script type="text/javascript">
         // col-md-12
         //for jquery.debug.js
@@ -199,8 +207,6 @@
                                                         update_image({panel_1:{graph:graph_obj}});
                                                         
                                                         spinner.stop();
-                                                        
-                                                        console.log(JSON.stringify(node_transl))
                                                     }
                                                     else
                                                     {
@@ -211,6 +217,20 @@
                                                }, "text")
                                 
                           });
+        
+         var over_vis = d3.select("#content")
+          .insert("svg:svg")
+            .attr("width", function(x){
+                if (panel_context == "image")
+                {
+                    return(w+legend_offset)
+                }else{
+                    return((w*2)+legend_offset);
+                }
+                
+                })
+            .attr("height", (h*2)+history_offset)
+            .attr("pointer-events", "all");
         
         //from http://stackoverflow.com/questions/10415400/jquery-detecting-div-of-certain-class-has-been-added-to-dom
         //$('body').on('DOMNodeInserted', function(e) {
@@ -630,12 +650,6 @@
         //    //.on("mousedown", mousedown);
         //    .attr("pointer-events", "all")
         
-        var over_vis = d3.select("#content")
-          .insert("svg:svg")
-            .attr("width", (w*2)+legend_offset)
-            .attr("height", (h*2)+history_offset)
-            .attr("pointer-events", "all");
-        
         //var vis_1 = over_vis.append("g").attr("class", "g1").attr("transform", "translate(0,0)");
         //var vis_2 = over_vis.append("g").attr("class", "g2").attr("transform", "translate(800,0)");
         
@@ -988,7 +1002,14 @@
                 
                 over_vis = d3.select("#content")
                 .insert("svg:svg")
-                  .attr("width", (w*2)+legend_offset)
+                  .attr("width", function(x){
+                    if (panel_context == "image")
+                    {
+                        return(w+legend_offset)
+                    }else{
+                        return((w*2)+legend_offset);
+                    }
+                  })
                   .attr("height", (total_y*h) + (2*h)+history_offset)
                   .attr("pointer-events", "all");
             }
