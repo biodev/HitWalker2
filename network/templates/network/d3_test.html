@@ -229,7 +229,14 @@
                 }
                 
                 })
-            .attr("height", (h*2)+history_offset)
+            .attr("height", function(x){
+                if (panel_context == "image")
+                {
+                    return(h+history_offset);
+                }else{
+                    return((h*2)+history_offset);
+                }
+            })
             .attr("pointer-events", "all");
         
         //from http://stackoverflow.com/questions/10415400/jquery-detecting-div-of-certain-class-has-been-added-to-dom
@@ -1010,7 +1017,15 @@
                         return((w*2)+legend_offset);
                     }
                   })
-                  .attr("height", (total_y*h) + (2*h)+history_offset)
+                  .attr("height", function(x){
+                    if (panel_context == "image")
+                    {
+                        return(h+history_offset);
+                    }else{
+                        return((total_y*h) + (2*h)+history_offset);
+                    }
+                    
+                  })
                   .attr("pointer-events", "all");
             }
             
