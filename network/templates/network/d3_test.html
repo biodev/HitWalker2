@@ -1619,6 +1619,9 @@
             var modal_size = parseInt(parseInt($(monitor_class).css("max-width")));
             var window_size = parseInt($(window).width());
             
+            console.log(parseInt($(window).width()));
+            console.log(parseInt($(document).width()));
+            
             var shift_amount = (left_pos + modal_size) - window_size;
             
             if (shift_amount > 0)
