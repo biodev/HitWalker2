@@ -214,7 +214,7 @@ def generate_css (user_name):
             edge_type_transl[key_val] = {'name':key_val, 'class':key_val}
         
         if i == 'Observed':
-            dash_str = 'stroke-dasharray:5,2;\n'
+            dash_str = 'stroke-dasharray:5,1;\n'
         else:
             dash_str = ''
         

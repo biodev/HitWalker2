@@ -764,6 +764,7 @@ def get_pathway(res_list, nodes, request):
     nodes.extend(gene_nl)
 
 def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
+    
     from_node_dict = from_node.todict()
     to_node_dict = to_node.todict()
     
@@ -780,6 +781,8 @@ def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
                 
                 if request.session.has_key('hitwalker_score') and request.session['hitwalker_score'].nodeList().hasNode(to_node_dict["id"]) == True and from_node_dict['id'] == request.session['query_samples']['SampleID'][config.data_types['target']]:
                     temp_rel_name = "Ranked_" + temp_rel_name
+                else:
+                    temp_rel_name = "Observed_" + temp_rel_name
                 
             else:
             

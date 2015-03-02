@@ -69,8 +69,13 @@
                         {% csrf_token %}
                         <input type="hidden" name="redirect" value='True')></input>
                     </form>
-                    <li ><a href="{{prog_type}}/HitWalker2">Select Sample</a></li>
-                    <li><a onclick="submit_table_data()" style="cursor:pointer">Select Variants</a></li>
+                    <li><a href="{{prog_type}}/HitWalker2">Select Sample</a></li>
+                    
+                    {% if "query_samples" in input_vals %}
+                        <li class="disabled"><a style="cursor:pointer">Select Variants</a></li>
+                    {% else %}
+                        <li><a onclick="submit_table_data()" style="cursor:pointer">Select Variants</a></li>
+                    {% endif %}
                     <li class="active"><a href="{{prog_type}}/HitWalker2/network" style="pointer-events:none">Visualize and Query</a></li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
