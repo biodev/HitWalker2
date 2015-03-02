@@ -75,8 +75,45 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL)
     
 })
 
-setMethod("configure", signature("HW2Config"), function(obj){
-    copySubstitute() #which is part of Biobase
+setMethod("configure", signature("HW2Config"), function(obj, dest.dir="test"){
+    #copySubstitute() --which is part of Biobase
+    
+    if (file.exists(dest.dir))
+    {
+        unlink(dest.dir, recursive=T)
+    }
+    
+    dir.create(dest.dir)
+    
+    src.files <- paste0("/Users/bottomly/Desktop/github_projects/HitWalker2/populate/", c("tmpl_config.py", "tmpl_custom_functions.py"))
+    
+    #make sure the seeds are added to the configure file as a list
+    obj@data.types$seeds <- as.list(obj@data.types$seeds)
+    
+    subj.name <- subjectName(obj)
+    
+    base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WHERE ANY(x IN [subject.name] + subject.alias WHERE x = "$$sample$$") WITH subject, sample ')
+    
+    for(i in nodeNames(obj)){
+        base.query <- append(base.query, paste0('OPTIONAL MATCH (sample)-[:',relName(obj, i),']-(res) WITH subject, sample, COUNT(res) AS ',i,' '))
+    }
+    
+    
+    #need to add in something into the Subject class which indicates a good type to use
+    #form the case statement based off of data.types
+    base.query <- append(base.query, paste0(' WHERE ', paste(paste0(nodeNames(obj), ' > 0'), collapse=" OR ")), ' RETURN subject.name AS ',subj.name,' ')
+    
+    # + \
+    #                'OPTIONAL MATCH (sample)-[:HAS_EXPRESSION]-(expr) WITH cellline, sample, COUNT(expr) AS Exprs ' + \
+    #                'OPTIONAL MATCH (sample)-[:HAS_DRUG_ASSAY]-(assay) WITH cellline, sample, Exprs, COUNT(assay) AS DrugScore ' + \
+    #                'OPTIONAL MATCH (sample)-[:HAS_DNASEQ]-(variant) WITH cellline, sample, Exprs, DrugScore, COUNT(variant) AS Variants ' + \
+    #                ' WHERE Exprs > 0 OR DrugScore > 0 OR Variants > 0 RETURN cellline.name as CellLine, cellline.histology_subtype AS Type, sample.name AS Sample, Exprs, DrugScore, Variants, CASE WHEN (DrugScore > 0) AND (Variants > 0) THEN 1 ELSE 0 END AS required_data'
+
+    
+    
+    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name)
+    
+    copySubstitute(src=src.files, dest=dest.dir, symbolValues=sub.list, symbolDelimiter="@", recursive=T)
     
     #also might need the rjson package
     #write(toJSON())
@@ -315,6 +352,10 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node
     stopifnot(sum(is.na(drug.dta$score)) == sum(is.na(drug.dta)))
     
     drug.dta <- drug.dta[complete.cases(drug.dta),]
+    
+    #reorder the edges
+    
+    drug.dta <- drug.dta[,c("sample", "drug", "score")]
     
     load.neo4j(.data=drug.dta, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
     

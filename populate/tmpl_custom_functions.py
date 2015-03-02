@@ -10,7 +10,7 @@ def match_sample(query):
     
     query_list = []
     
-    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:CellLine) WHERE n.name =~ "'+query+'.*' +'"UNWIND [n.name] + n.alias AS name_alias WITH n, name_alias RETURN ID(n), name_alias')
+    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@) WHERE n.name =~ "'+query+'.*' +'"UNWIND [n.name] + n.alias AS name_alias WITH n, name_alias RETURN ID(n), name_alias')
     
     for i in sample_query.execute().data:
         query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':[i.values[1]]})

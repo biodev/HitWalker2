@@ -20,10 +20,7 @@ pathway_sizes = {"w":800, "h":800, "legend_offset":200, "history_offset":10}
 
 #the seeds need to refer to all the variables that are used as 'seeds' for the ranking algorithm
 #the target is the variable to be ranked (otherwise known as the query)
-data_types={
-    'seeds':['DrugScore'],
-    'target':'Variants'
-}
+data_types=@DATA_TYPES@
 
 #fields part of the 'Adjust' dropdown on the main page that accept user input
 #this input controls which genes get prioritized and how the queries are performed
@@ -47,8 +44,8 @@ adjust_fields = {
                                 'path_conf':{'type':'numeric', 'default':.95, 'range':[0, 1], 'comparison':'>', 'name':'Pathway STRING Confidence'},
                                 'res_prob':{'type':'numeric', 'default':.3, 'range':[0,1], 'comparison':'=', 'name':'Restart Probability'},
                                 'max_iter':{'type':'numeric', 'default':100, 'range':[0, 10000], 'comparison':'=', 'name':'Max Iterations'},
-                                'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'},
-                                'expression':{'type':'numeric', 'default':.75, 'range':[0,1], 'comparison':'>', 'name':'Expression (Hit) Threshold'},
+                                'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}
+                                #--questionable: 'expression':{'type':'numeric', 'default':.75, 'range':[0,1], 'comparison':'>', 'name':'Expression (Hit) Threshold'},
                             }   
                         }
 }
@@ -75,6 +72,8 @@ gene_score = {'query':'MATCH (n:Sample)-[r:HAS_DRUG_ASSAY]-() WITH percentileCon
               'handler':None, 'session_params':None}
 
 variant = {'query': 'MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene) WHERE n.name IN {SAMPLE} RETURN n,r,m,r2,o' , 'handler':None, 'session_params':None}
+
+#also need to add in expression
 
 #gene_score = {'query':'MATCH(n:LabID)-[r:GENE_SCORE_RUN]-()-[r2:SCORE_MAPPED_TO]-(m:Gene{name:{GENE}}) WHERE HAS(r.score) AND n.name IN {LABID} RETURN m.name AS gene, n.name AS sample, "GeneScore" AS var, MAX(r.score) AS score ,ANY(x IN COLLECT(r.score*r2.modifier) WHERE x > {GENESCORE}) AS is_hit',
 #              'handler':custom_functions.get_gene_score, 'session_params':None}
@@ -106,12 +105,7 @@ variant = {'query': 'MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene) W
 #
 
 #needs to have $$sample$$ which will be supplied by the 'text' return value of matchers['sample']
-sample_rels_query = 'MATCH (cellline:CellLine)-[]->(sample) WHERE ANY(x IN [cellline.name] + cellline.alias WHERE x = "$$sample$$") WITH cellline, sample ' + \
-                    'OPTIONAL MATCH (sample)-[:HAS_EXPRESSION]-(expr) WITH cellline, sample, COUNT(expr) AS Exprs ' + \
-                    'OPTIONAL MATCH (sample)-[:HAS_DRUG_ASSAY]-(assay) WITH cellline, sample, Exprs, COUNT(assay) AS DrugScore ' + \
-                    'OPTIONAL MATCH (sample)-[:HAS_DNASEQ]-(variant) WITH cellline, sample, Exprs, DrugScore, COUNT(variant) AS Variants ' + \
-                    ' WHERE Exprs > 0 OR DrugScore > 0 OR Variants > 0 RETURN cellline.name as CellLine, cellline.histology_subtype AS Type, sample.name AS Sample, Exprs, DrugScore, Variants, CASE WHEN (DrugScore > 0) AND (Variants > 0) THEN 1 ELSE 0 END AS required_data'
-
+sample_rels_query = @REL_QUERY_STR@
 sample_rels_type = 'hierarchical'
 
 ##This specifies the functions to be used for searching on genes, pathways and samples
@@ -232,7 +226,7 @@ edge_abbreviations = {}
 #
 
 graph_initializers = {
-    'panel':custom_functions.get_shortest_paths,
+#    'panel':custom_functions.get_shortest_paths,
 #    'image':custom_functions.get_pathways_sample
 }
 #
