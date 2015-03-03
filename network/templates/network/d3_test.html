@@ -689,6 +689,43 @@
             
             query_pathways(cur_panel, obj, 'static_pathway_tab')
             
+            var gene_map = [];
+            
+            //if the selected nodes are genes, record and pop them from selected nodes
+            
+            selected_node.forEach(function(key, value)
+                          {
+                                var cur_val = d3.select(value).datum();
+                                var temp_genes = [];
+                                
+                                if (cur_val.attributes.node_type == 'MetaNode')
+                                {
+                                    cur_val.children.forEach(function(y){
+                                        
+                                        if (y.attributes.node_type == "Gene")
+                                        {
+                                            gene_map.push({id:y.id, text:y.display_name, search_list:[y.id]});
+                                        }
+                                    })
+                                }else{
+                                    
+                                    if (cur_val.attributes.node_type == "Gene"){
+                                        gene_map.push({id:cur_val.id, text:cur_val.display_name, search_list:[cur_val.id]});
+                                    }
+                                    
+                                }
+                          });
+            
+            gene_map.forEach(function(x){
+                    selected_node.remove(x.id);
+            })
+            
+            if (gene_map.length > 5)
+            {
+                gene_map = gene_map.slice(0,5);
+            }
+            
+            $(".select2").select2('data', gene_map, true)
         }
         
         function static_pathway_tab(panel_name)
