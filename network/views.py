@@ -653,7 +653,9 @@ def multi_node_query(request):
     if num_metas == len(unique_types):
         ungroup_dis_text = ""
     
-    if all(map(lambda x: x == "Sample", unique_types)):
+    type_intersect = unique_types.intersection(set(['Sample', 'Gene']))
+    
+    if  (len(type_intersect) == 1 and type_intersect == set(['Sample'])) or len(type_intersect) == 2:
         pathway_dis_text = ""
     
     group_buttons = '<div class="btn-group"><button type="button" class="btn btn-default" '+ungroup_dis_text+' onclick="ungroup_nodes(this)">Ungroup</button></div>'
