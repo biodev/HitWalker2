@@ -1,0 +1,6 @@
+git config filter.dater.smudge 'sub_val=`git describe --long --always`;sed -e "s/@VERSION@/${sub_val}/"'
+
+git config filter.dater.clean 'sed -e "s/<small id=\"version\">[0-9A-Za-z]\{1,\}/<small id=\"version\">@VERSION@/"'
+
+#Added to .gitattributes:
+network/templates/network/*.html filter=dater
