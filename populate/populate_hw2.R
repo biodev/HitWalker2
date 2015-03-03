@@ -17,11 +17,33 @@ setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
 setGeneric("getAnnotation", def=function(obj,...) standardGeneric("getAnnotation"))
 setGeneric("configure", def=function(obj,...) standardGeneric("configure"))
 setGeneric("populate", def=function(obj,...) standardGeneric("populate"))
+setGeneric("dataTypes", def=function(obj,...) standardGeneric("dataTypes"))
+
+setGeneric("nodeName", def=function(obj,...) standardGeneric("nodeName"))
+setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
+setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
+setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
+
+setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character"))
+
+setMethod("nodeName", signature("NeoData"), function(obj){
+    return(obj@node.name)
+})
+
+setMethod("sampleEdge", signature("NeoData"), function(obj){
+    return(obj@sample.edge.name)
+})
+
+setMethod("geneEdge", signature("NeoData"), function(obj){
+    return(obj@gene.edge.name)
+})
+
+setClass(Class="Subject", representation=list(subject.info="data.frame", subject.to.sample="data.frame", type="character"))
 
 #data.types needs to be a list like: list(seeds=seed.vec,target='target')
 #where the names in seeds and target need to correspond to the names of the ... arguments to makeHW2Config
 
-setClass(Class="HW2Config", representation=list(data.list="list", data.types="list", gene.model="character"))
+setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", gene.model="character"))
 
 makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL,...)
 {
@@ -46,8 +68,31 @@ makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types
         stop("ERROR: All of the strings specified in data.types need to correspond to names supplied here")
     }
     
-    return(new("HW2Config", data.list=data.list, data.types=data.types, gene.model=gene.model))
+    return(new("HW2Config", subject=subject, data.list=data.list, data.types=data.types, gene.model=gene.model))
 }
+
+setGeneric("subjectName", def=function(obj,...) standardGeneric("subjectName"))
+setMethod("subjectName", signature("HW2Config"), function(obj){
+    
+    return(nodeNames(obj@subject)) 
+})
+
+setMethod("dataTypes", signature("HW2Config"), function(obj){
+    return(names(obj@data.list))  
+})
+
+setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel.type=c("from", "to")){
+    
+    if (missing(data.type) || is.null(data.type) || all(is.na(data.type)))
+    {
+        data.type <- names(obj@data.list)
+    }
+    
+    rel.type <- match.arg(rel.type)
+    
+    return(sapply(obj@data.list[data.type], function(x) switch(rel.type, from=sampleEdge, to=geneEdge)(x)))
+    
+})
 
 setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL){
     
@@ -65,6 +110,20 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL)
     obj.list <- obj@data.list
     
     gene.model <- obj@gene.model
+    
+    #populate the subject->sample info
+    
+    subject.info <- hw2.conf@subject@subject.info
+    
+    if (ncol(subject.info) > 1)
+    {
+        names(subject.info)[2:ncol(subject.info)] <- paste(names(subject.info)[1], names(subject.info)[2:ncol(subject.info)], sep=".")
+    }
+    
+    
+    
+    load.neo4j(.data=subject.info, edge.name=NULL,commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    load.neo4j(.data=hw2.conf@subject@subject.to.sample, edge.name="DERIVED", commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", merge.from=F)
     
     for(i in setdiff(seq_along(obj.list), skip))
     {
@@ -90,20 +149,21 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="test"){
     #make sure the seeds are added to the configure file as a list
     obj@data.types$seeds <- as.list(obj@data.types$seeds)
     
-    subj.name <- subjectName(obj)
+    subj.name <- capwords(subjectName(obj))
     
     base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WHERE ANY(x IN [subject.name] + subject.alias WHERE x = "$$sample$$") WITH subject, sample ')
     
-    for(i in nodeNames(obj)){
-        base.query <- append(base.query, paste0('OPTIONAL MATCH (sample)-[:',relName(obj, i),']-(res) WITH subject, sample, COUNT(res) AS ',i,' '))
+    prev.types <- character()
+    
+    for(i in dataTypes(obj)){
+        base.query <- append(base.query, paste0('OPTIONAL MATCH (sample)-[:',relNames(obj, data.type=i, rel.type="from"),']-(res) WITH subject, sample, ',paste(prev.types, collapse=" , "),', COUNT(res) AS ',i,' '))
+        prev.types <- append(prev.types, i)
     }
     
+    base.query <- append(base.query, paste0(' WHERE ', paste(paste0(dataTypes(obj), ' > 0'), collapse=" OR "), ' RETURN subject.name AS ',subj.name,' subject.',obj@subject@type, ' AS Type, sample.name AS Sample, ',
+                                            paste(dataTypes(obj), collapse=" , "), ', CASE WHEN ', paste(paste0(obj@data.types$seeds, ' > 0'), collapse=" AND "), ' THEN 1 ELSE 0 END AS required_data'))
     
-    #need to add in something into the Subject class which indicates a good type to use
-    #form the case statement based off of data.types
-    base.query <- append(base.query, paste0(' WHERE ', paste(paste0(nodeNames(obj), ' > 0'), collapse=" OR ")), ' RETURN subject.name AS ',subj.name,' ')
-    
-    # + \
+    #
     #                'OPTIONAL MATCH (sample)-[:HAS_EXPRESSION]-(expr) WITH cellline, sample, COUNT(expr) AS Exprs ' + \
     #                'OPTIONAL MATCH (sample)-[:HAS_DRUG_ASSAY]-(assay) WITH cellline, sample, Exprs, COUNT(assay) AS DrugScore ' + \
     #                'OPTIONAL MATCH (sample)-[:HAS_DNASEQ]-(variant) WITH cellline, sample, Exprs, DrugScore, COUNT(variant) AS Variants ' + \
@@ -119,7 +179,7 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="test"){
     #write(toJSON())
 })
 
-setClass(Class="Subject", representation=list(subject.info="data.frame", subject.to.sample="data.frame"))
+
 
 setGeneric("addSamples<-", def=function(obj,..., value) standardGeneric("addSamples<-"))
 setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
@@ -161,7 +221,11 @@ setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
     
 })
 
-Subject <- function(subject.info, subject.to.sample=NULL)
+setMethod("nodeName", signature("Subject"), function(obj){
+    return(names(obj@subject.info)[1])  
+})
+
+Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
 {
     if(missing(subject.info) || is.null(subject.info) || all(is.na(subject.info)))
     {
@@ -170,19 +234,37 @@ Subject <- function(subject.info, subject.to.sample=NULL)
         stop("ERROR: subject.info needs to be a data.frame with at least one column and one row")
     }
     
+    if (missing(type.col) || is.null(type.col) || all(is.na(type.col)))
+    {
+        subject.info$type <- "N/A"
+        type <- "type"
+        
+    }else if (length(type.col) == 1 && is.character(type.col) == T && type.col %in% colnames(subject.info)){
+        type <- type.col
+    }else{
+        stop("ERROR: type.col needs to be a single column indicating the 'type' of a subject (e.g. diagnosis  or type of cell line)")
+    }
+    
     if (missing(subject.to.sample) || is.null(subject.to.sample) || all(is.na(subject.to.sample)))
     {
         subject.to.sample <- data.frame()
     }
     
-    return(new("Subject", subject.info=subject.info, subject.to.sample=subject.to.sample))
+    return(new("Subject", subject.info=subject.info, subject.to.sample=subject.to.sample, type=type))
 }
 
 #expression utils, affy for now...
 
-setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.node="probeSet", edge.name="HAS_EXPRESSION"){
+setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains="NeoData")
+
+HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet"){
     
-    use.exprs <- exprs(obj)
+    return(new("HW2exprSet", exprs=exprs, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
+}
+
+setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path){
+    
+    use.exprs <- exprs(obj@exprs)
     
     melt.use.exprs <- melt(use.exprs)
     names(melt.use.exprs) <- c("probeset", "sample", "score")
@@ -193,28 +275,28 @@ setMethod("fromSample", signature("ExpressionSet"), function(obj, neo.path, to.n
     #now load the sample -> probe mappings
     
     melt.use.exprs <-  melt.use.exprs[,c("sample", "probeset", "score")]
-    names(melt.use.exprs)[2] <- c("probeSet")
+    names(melt.use.exprs)[2] <- nodeName(obj)
     
-    load.neo4j(.data=melt.use.exprs, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", unique.rels=F)
+    load.neo4j(.data=melt.use.exprs, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", unique.rels=F)
     
 })
 
-setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.node="probeSet", gene.model=c("entrez", "ensembl"), edge.name="PS_MAPPED_TO"){
+setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path,gene.model=c("entrez", "ensembl")){
     
     gene.model <- match.arg(gene.model)
     
-    if (length(annotation(obj)) == 0 || require(annotation(obj), character.only=T) == F)
+    if (length(annotation(obj@exprs)) == 0 || require(annotation(obj@exprs), character.only=T) == F)
     {
         stop("ERROR: need to specify an annotation package ")
     }else{
-        annotation.package <- annotation(obj)
+        annotation.package <- annotation(obj@exprs)
     }
     
     #Then create a mapping file from probeset to gene
     
     gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
     
-    probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj), column=gene.type, keytypes="PROBEID"))
+    probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj@exprs), column=gene.type, keytypes="PROBEID"))
     
     #Discard for now those that do not map to either type of genes.
     
@@ -225,25 +307,25 @@ setMethod("toGene", signature("ExpressionSet"), function(obj, neo.path, from.nod
     dup.probes <- probe.to.gene$PROBEID[duplicated(probe.to.gene$PROBEID)]
     
     probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
-    names(probe.to.gene) <- c("probeSet", switch(gene.model, entrez="entrezID", ensembl="ensembl"))
+    names(probe.to.gene) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"))
     
     #load the probe->gene mappings
     
-    load.neo4j(.data=probe.to.gene, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    load.neo4j(.data=probe.to.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
 #MAF class utils
 
-setClass(Class="CCLEMaf", representation=list(maf="data.frame"))
+setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData")
 
-readMAF.ccle <- function(file.name)
+readMAF.ccle <- function(file.name, sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation")
 {
     use.maf <- read.delim(file.name, sep="\t", stringsAsFactors=F)
     
     keep.maf <- use.maf[,c("Entrez_Gene_Id", "Genome_Change", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change",
                            "Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
 
-    return(new("CCLEMaf", maf=keep.maf))
+    return(new("CCLEMaf", maf=keep.maf, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
 }
 
 setGeneric("maf", def=function(obj,...) standardGeneric("maf"))
@@ -256,7 +338,7 @@ setMethod("sampleNames", signature("CCLEMaf"), function(object){
 })
 
 
-setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path, to.node="variation", edge.name="HAS_DNASEQ"){
+setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path){
     #first sample -> variant
     #the name here will be derived from the Genome_Change column as that provides potentially enough information to uniquely id a variant (indels might still be tricky...)
     #will keep missing values as "" for now
@@ -264,16 +346,16 @@ setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path, to.node="v
     sample.maf <- maf(obj)
     
     samp.maf <- sample.maf[,c("Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
-    names(samp.maf) <- c("sample", to.node, "center", "sequencer", "alt_counts", "ref_counts", "variation.dbsnp", "variation.dbsnp_val_status")
+    names(samp.maf) <- c("sample", nodeName(obj), "center", "sequencer", "alt_counts", "ref_counts", "variation.dbsnp", "variation.dbsnp_val_status")
     samp.maf$variation.dbsnp <- gsub(";", "&", samp.maf$variation.dbsnp)
     samp.maf$variation.dbsnp_val_status <- gsub(";", "&", samp.maf$variation.dbsnp_val_status)
     
     #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
     
-    load.neo4j(.data=samp.maf, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    load.neo4j(.data=samp.maf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
-setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, from.node="variation", gene.model="entrez", edge.name="IMPACTS"){
+setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, gene.model="entrez"){
      #then add in the Variation->EntrezID relationships
     
     if (gene.model != "entrez")
@@ -288,15 +370,15 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, from.node="var
     
     var.gene.dta <- var.gene.dta[,c("Genome_Change", "Entrez_Gene_Id", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change")]
     
-    names(var.gene.dta) <- c(from.node, "entrezID","variant_classification", "transcript", "transcript_strand", "cdna", "codon", "protein")
+    names(var.gene.dta) <- c(nodeName(obj), "entrezID","variant_classification", "transcript", "transcript_strand", "cdna", "codon", "protein")
     
-    load.neo4j(.data=var.gene.dta, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
+    load.neo4j(.data=var.gene.dta, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
     
 })
 
 #Drug class utils
 
-setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"))
+setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains="NeoData")
 
 setMethod("getMatrix", signature("DrugMatrix"), function(obj)
           {
@@ -311,7 +393,7 @@ setMethod("sampleNames", signature("DrugMatrix"), function(object){
     return(unique(colnames(getMatrix(object))))
 })
 
-DrugMatrix <- function(mat, mapping){
+DrugMatrix <- function(mat, mapping,sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug"){
     
     if(missing(mat) || is.null(mat) || all(is.na(mat)) || class(mat) != "matrix")
     {
@@ -333,10 +415,10 @@ DrugMatrix <- function(mat, mapping){
         stop("ERROR: There is no overlap between the rownames of mat and mapping$drug.  Is the matrix of the form: drug x sample?")
     }
     
-    return(new("DrugMatrix", matrix=mat, mapping=mapping))
+    return(new("DrugMatrix", matrix=mat, mapping=mapping, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
 }
 
-setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node="drug", edge.name="HAS_DRUG_ASSAY"){
+setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path){
     
     drug.mat <- getMatrix(obj)
     
@@ -344,7 +426,7 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node
     
     names(drug.dta) <- c("drug", "sample", "score")
     
-    drug.dta$drug <- as.character(drug.dta$drug)
+    drug.dta$drug <- as.character(drug.dta[,"drug"])
     drug.dta$sample <- as.character(drug.dta$sample)
     
     #remove any na scores
@@ -357,19 +439,27 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path, to.node
     
     drug.dta <- drug.dta[,c("sample", "drug", "score")]
     
-    load.neo4j(.data=drug.dta, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    #compute a median for the drugs
+    drug.medians <- aggregate(score~drug, median, data=drug.dta)
+    names(drug.medians) <- c(nodeName(obj), paste0(nodeName(obj),".median_ic50"))
+    
+    load.neo4j(.data=drug.medians, edge.name=NULL, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    
+    names(drug.dta)[2] <- nodeName(obj)
+    
+    load.neo4j(.data=drug.dta, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
     
 })
 
-setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path, from.node="drug", gene.model=c("entrez", "ensembl"), edge.name="ACTS_ON"){
+setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path, gene.model=c("entrez", "ensembl")){
     
     drug.genes <- getAnnotation(obj)
     
     drug.genes <- drug.genes[complete.cases(drug.genes),]
     drug.genes <- drug.genes[,c("drug", "gene", "weight")]
-    names(drug.genes) <- c("drug", switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
+    names(drug.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
     
-    load.neo4j(.data=drug.genes, edge.name=edge.name, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+    load.neo4j(.data=drug.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
 read.pc.gmt <- function(filename, organism.code="9606")
