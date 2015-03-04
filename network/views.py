@@ -396,11 +396,12 @@ def table(request):
         
         valid_hit_genes = core.get_valid_hits(request, config.hit_session_dict)
         
+        print len(valid_hit_genes)
+        #figure out what to do if no hits are available
+        
         valid_query_res = core.get_valid_querys(request, config.query_prior_dict)
         
         comb_gene_hits = config.score_hits(request, valid_hit_genes)
-        
-        print comb_gene_hits.todict()
         
         conv_prot_hits = config.convert_ids_to(request, comb_gene_hits)
         

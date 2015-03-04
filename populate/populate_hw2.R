@@ -74,7 +74,7 @@ makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types
 setGeneric("subjectName", def=function(obj,...) standardGeneric("subjectName"))
 setMethod("subjectName", signature("HW2Config"), function(obj){
     
-    return(nodeNames(obj@subject)) 
+    return(nodeName(obj@subject)) 
 })
 
 setMethod("dataTypes", signature("HW2Config"), function(obj){
@@ -120,8 +120,6 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL)
         names(subject.info)[2:ncol(subject.info)] <- paste(names(subject.info)[1], names(subject.info)[2:ncol(subject.info)], sep=".")
     }
     
-    
-    
     load.neo4j(.data=subject.info, edge.name=NULL,commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
     load.neo4j(.data=hw2.conf@subject@subject.to.sample, edge.name="DERIVED", commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", merge.from=F)
     
@@ -134,15 +132,13 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL)
     
 })
 
-setMethod("configure", signature("HW2Config"), function(obj, dest.dir="test"){
+setMethod("configure", signature("HW2Config"), function(obj, dest.dir="/Users/bottomly/Desktop/github_projects/HitWalker2/network/"){
     #copySubstitute() --which is part of Biobase
     
-    if (file.exists(dest.dir))
+    if (file.exists(dest.dir) == F)
     {
-        unlink(dest.dir, recursive=T)
+        dir.create(dest.dir)
     }
-    
-    dir.create(dest.dir)
     
     src.files <- paste0("/Users/bottomly/Desktop/github_projects/HitWalker2/populate/", c("tmpl_config.py", "tmpl_custom_functions.py"))
     
@@ -156,27 +152,33 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="test"){
     prev.types <- character()
     
     for(i in dataTypes(obj)){
-        base.query <- append(base.query, paste0('OPTIONAL MATCH (sample)-[:',relNames(obj, data.type=i, rel.type="from"),']-(res) WITH subject, sample, ',paste(prev.types, collapse=" , "),', COUNT(res) AS ',i,' '))
+        base.query <- append(base.query, paste0('OPTIONAL MATCH (sample)-[:',relNames(obj, data.type=i, rel.type="from"),']-(res) WITH subject, sample',paste(c(" ", prev.types), collapse=" , "),', COUNT(res) AS ',i,' '))
         prev.types <- append(prev.types, i)
     }
     
-    base.query <- append(base.query, paste0(' WHERE ', paste(paste0(dataTypes(obj), ' > 0'), collapse=" OR "), ' RETURN subject.name AS ',subj.name,' subject.',obj@subject@type, ' AS Type, sample.name AS Sample, ',
+    base.query <- append(base.query, paste0(' WHERE ', paste(paste0(dataTypes(obj), ' > 0'), collapse=" OR "), ' RETURN subject.name AS ',subj.name,', subject.',obj@subject@type, ' AS Type, sample.name AS Sample, ',
                                             paste(dataTypes(obj), collapse=" , "), ', CASE WHEN ', paste(paste0(obj@data.types$seeds, ' > 0'), collapse=" AND "), ' THEN 1 ELSE 0 END AS required_data'))
     
-    #
-    #                'OPTIONAL MATCH (sample)-[:HAS_EXPRESSION]-(expr) WITH cellline, sample, COUNT(expr) AS Exprs ' + \
-    #                'OPTIONAL MATCH (sample)-[:HAS_DRUG_ASSAY]-(assay) WITH cellline, sample, Exprs, COUNT(assay) AS DrugScore ' + \
-    #                'OPTIONAL MATCH (sample)-[:HAS_DNASEQ]-(variant) WITH cellline, sample, Exprs, DrugScore, COUNT(variant) AS Variants ' + \
-    #                ' WHERE Exprs > 0 OR DrugScore > 0 OR Variants > 0 RETURN cellline.name as CellLine, cellline.histology_subtype AS Type, sample.name AS Sample, Exprs, DrugScore, Variants, CASE WHEN (DrugScore > 0) AND (Variants > 0) THEN 1 ELSE 0 END AS required_data'
-
+    #Add in the base queries for the seeds and target as well
     
+    base.queries <- character()
     
-    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name)
+    for(i in unlist(obj@data.types))
+    {
+        temp.query <- paste0(i,"= {'query':'", gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T), "', 'handler':None, 'session_params':None", "}")
+        base.queries <- append(base.queries, temp.query)
+    }
+    
+    rep.query <- paste0("{'", obj@data.types$target, "':[{'query':'", gsub("\n\\s+", " ", obj@data.list[[obj@data.types$target]]@report.query, perl=T)  ,"', 'handler':core.handle_query_prior, 'session_params':None}]}")
+    
+    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
+                     REPORT_QUERY=rep.query)
     
     copySubstitute(src=src.files, dest=dest.dir, symbolValues=sub.list, symbolDelimiter="@", recursive=T)
     
     #also might need the rjson package
     #write(toJSON())
+    
 })
 
 
@@ -316,7 +318,12 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path,gene.model=c
 
 #MAF class utils
 
-setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData")
+setClass(Class="CCLEMaf", representation=list(maf="data.frame", base.query="character", report.query="character"), contains="NeoData",
+         prototype=list(base.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene) WHERE n.name IN {SAMPLE} RETURN n,r,m,r2,o',
+                        report.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene)-[:REFFERED_TO]-(symb) WHERE n.name IN {name}
+                            RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
+                            r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,
+                            r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id '))
 
 readMAF.ccle <- function(file.name, sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation")
 {
@@ -378,7 +385,10 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, gene.model="en
 
 #Drug class utils
 
-setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains="NeoData")
+setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame", base.query="character"), contains="NeoData",
+         prototype=list(base.query='MATCH (n:Sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE n.name IN {SAMPLE}
+                        WITH n, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
+                        RETURN o.name AS gene, n.name AS sample, "GeneScore" AS var, effect_score AS score, effect_score > 0 AS is_hit;'))
 
 setMethod("getMatrix", signature("DrugMatrix"), function(obj)
           {

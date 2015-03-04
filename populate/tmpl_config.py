@@ -67,19 +67,12 @@ adjust_fields = {
 
 #as our test case: 22RV1_PROSTATE
 
-gene_score = {'query':'MATCH (n:Sample)-[r:HAS_DRUG_ASSAY]-() WITH percentileCont(r.ic50, .5) AS med_ic50 MATCH (n:Sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE n.name IN {SAMPLE}  \
-                        WITH n, o,  SUM(CASE WHEN r.ic50 < (med_ic50 / 5.0) THEN 1 ELSE -1 END) AS effect_score  RETURN o.name AS gene, n.name AS sample, "DrugScore" AS var, effect_score AS score, effect_score > 0 AS is_hit',
-              'handler':None, 'session_params':None}
+@BASE_QUERIES@
 
-variant = {'query': 'MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene) WHERE n.name IN {SAMPLE} RETURN n,r,m,r2,o' , 'handler':None, 'session_params':None}
 
 #also need to add in expression
 
-#gene_score = {'query':'MATCH(n:LabID)-[r:GENE_SCORE_RUN]-()-[r2:SCORE_MAPPED_TO]-(m:Gene{name:{GENE}}) WHERE HAS(r.score) AND n.name IN {LABID} RETURN m.name AS gene, n.name AS sample, "GeneScore" AS var, MAX(r.score) AS score ,ANY(x IN COLLECT(r.score*r2.modifier) WHERE x > {GENESCORE}) AS is_hit',
-#              'handler':custom_functions.get_gene_score, 'session_params':None}
-#siRNA =  {'query':'MATCH(n:LabID)-[r:SIRNA_RUN]-()-[r2:SIRNA_MAPPED_TO]-(m:Gene{name:{GENE}}) WHERE HAS(r.zscore) AND n.name IN {LABID} RETURN m.name AS gene, n.name AS sample, "siRNA" AS var, r.run_type AS type, MIN(r.zscore) AS score, ANY(x IN COLLECT(r.zscore*r2.modifier) WHERE x < {SIRNASCORE}) AS is_hit',
-#          'handler':custom_functions.get_sirna_score, 'session_params':None}
-#
+
 #gene_exprs_low = {'query':'MATCH(n:LabID)-[r:EXON_ARRAY_RUN]-()-[r2:ASSIGNED]-(m:Gene{name:{GENE}}) WHERE HAS(r.score) AND n.name IN {LABID} RETURN m.name AS gene, n.name AS sample, "LowExpr" AS var, MAX(r.score) AS score, ALL(x IN COLLECT(r.score) WHERE x < {LOWEXPRS}) AS is_hit',
 #          'handler':custom_functions.get_exprs, 'session_params':None}
 #
@@ -105,7 +98,7 @@ variant = {'query': 'MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene) W
 #
 
 #needs to have $$sample$$ which will be supplied by the 'text' return value of matchers['sample']
-sample_rels_query = @REL_QUERY_STR@
+sample_rels_query = """@REL_QUERY_STR@"""
 sample_rels_type = 'hierarchical'
 
 ##This specifies the functions to be used for searching on genes, pathways and samples
@@ -119,15 +112,13 @@ matchers = {
 #core.handle_hits needs the following:
 
 #{name} is necessary here as the sample name will come directly from getNodes
-hit_session_dict = {"DrugScore":[core.customize_query(gene_score, query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_hits)]}
+hit_session_dict = {}
+
+for i in data_types['seeds']:
+    hit_session_dict[i] = [core.customize_query(eval(i), query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_hits)]
 
 #Here we also need to have 'query_ind', 'gene_ind' and a unique 'row_id'
-query_prior_dict = {"Variants":[
-                            {'query': ('MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene)-[:REFFERED_TO]-(symb) WHERE n.name IN {name}' 
-                              'RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,'
-                              'r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,'
-                              'r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id') ,
-                            'handler':core.handle_query_prior, 'session_params':None}]}
+query_prior_dict = @REPORT_QUERY@
 
 score_hits=core.no_combining
 convert_ids_to=custom_functions.gene_seed_list_to_protein
