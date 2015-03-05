@@ -282,6 +282,63 @@ class GeneNode(Node):
     def children(self):
         return super(GeneNode, self).children()
 
+#class RaceNode(core.Node):
+#    def __init__(self,cypher_node):
+#        cypher_res = cypher_node.get_properties()
+#        if cypher_res.has_key("race") == False or cypher_res["race"] == "Unknown":
+#            cypher_res["race"] = "UnknownRace"
+#        self.node_dict = {'id':cypher_res["name"]+cypher_res["race"], 'display_name':cypher_res["race"], 'attributes':{'node_type':cypher_res["race"], 'other_nodes':[], 'indexed_name':'name', 'meta':{'node_cat':'Race'}}, 'children':core.NodeList()}
+#        self.id = cypher_res["name"]+cypher_res["race"]
+#        self.display_name = cypher_res["race"]
+#    def todict (self):
+#        return super(RaceNode, self).todict()
+
+#class SubjectNode(core.Node):
+#    def __init__(self,cypher_res):
+#        diag_child = DiagnosisNode(cypher_res[1])
+#        gend_child = GenderNode(cypher_res[2])
+#        race_child = RaceNode(cypher_res[2])
+#        
+#        att_meta = cypher_res[0].get_properties()
+#        att_meta.pop("name")
+#        for i in cypher_res[2].get_properties().items():
+#            att_meta[i[0]] = i[1]
+#        
+#        self.node_dict = {'id':cypher_res[0]["name"], 'display_name':cypher_res[0]["name"], 'attributes':{'node_type':'Sample', 'indexed_name':'name', 'meta':att_meta}, 'children':core.NodeList()}
+#        self.node_dict['children'].add(diag_child)
+#        self.node_dict['children'].add(gend_child)
+#        self.node_dict['children'].add(race_child)
+#        self.id = cypher_res[0]["name"]
+#        self.display_name = cypher_res[0]["name"]
+#        
+#    def todict (self):
+#        return super(SubjectNode, self).todict()
+
+class BasicSubjectChild(Node):
+    def __init__(self, cur_prop):
+        self.node_dict = {'id':cypher_res["name"]+cypher_res["race"], 'display_name':cypher_res["race"], 'attributes':{'node_type':cypher_res["race"], 'other_nodes':[], 'indexed_name':'name', 'meta':{'node_cat':'Race'}}, 'children':core.NodeList()}
+        self.id = cypher_res["name"]+cypher_res["race"]
+        self.display_name = cypher_res["race"]
+    def todict(self):
+        return super(BasicSubjectChild, self).todict()
+        
+class SubjectNode(Node):
+    
+    def __init__(self, cypher_res):
+        
+        cypher_props = cypher_res[0].get_properties()
+        
+        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Subject', 'indexed_name':'name', 'meta':{}}, 'children':core.NodeList()}
+        
+        for i in cypher_props.items():
+            if i[0] in set(['name', 'alias']) == False:
+                self.node_dict['children'].add(BasicSubjectChild())
+                
+                
+    def todict (self):
+        return super(SubjectNode, self).todict()
+    
+
 class BasicChild(Node):
     
     def __init__(self,res_list):

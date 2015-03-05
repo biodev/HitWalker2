@@ -55,8 +55,17 @@ adjust_fields = {
     #gene ID, gene symbol, and the collection of pathways (or [] if that info is not available).
 #gene_names = {'query':'MATCH (n:Gene{name:{GENE}})-[r:KNOWN_AS]-(m) WHERE r.status="symbol" WITH n,m OPTIONAL MATCH (n)<-[:EXTERNAL_ID]-()<-[:GENESET_CONTAINS]-(p) RETURN n.name,m.name, COLLECT(DISTINCT p.name)', 'handler':custom_functions.get_gene_names, 'session_params':None}
 
-#gene_names = {'query':'MATCH (n:Gene{name:{GENE}})-[r:KNOWN_AS]-(m) WHERE r.status="symbol" RETURN n.name,m.name, []', 'handler':custom_functions.get_gene_names, 'session_params':None}
+gene_names = {'query':'MATCH (n:EntrezID{name:{GENE}})-[r:REFFERED_TO]-(m) RETURN n.name,m.name, []', 'handler':custom_functions.get_gene_names, 'session_params':None}
 
+#gene_rels = {'query':'MATCH (gene:Gene{name:{FROM_GENE}})-[:EXTERNAL_ID]-()-[:MAPPED_TO]-(string_from)-[r:ASSOC]-(string_to)-[:MAPPED_TO]-()-[:EXTERNAL_ID]-(gene_to) WHERE gene_to.name IN {TO_GENES} AND HAS(r.score) AND r.score > ({string_conf}*1000) RETURN gene.name,gene_to.name, MAX(r.score)', 'handler':None, 'session_params':[['string_conf']]}
+#
+
+subject = {'query':'MATCH (n:@SUBJECT@{name:{SUBJECTID}}) RETURN n', 'handler':custom_functions.get_subject, 'session_params':None}
+
+#labid = {'query':'MATCH (n:SampleID{name:{SAMPLEID}})<-[:PRODUCED]-(m)<-[:HAS_DISEASE]-(k) RETURN n,m,k', 'handler':custom_functions.get_lab_id, 'session_params':None}
+#
+#pathway = {'query':'MATCH (path:GeneSet{name:{PATHNAME}})-[:GENESET_CONTAINS]->()-[:EXTERNAL_ID]->(gene) RETURN path.name, COLLECT(DISTINCT gene.name)', 'handler':custom_functions.get_pathway, 'session_params':None}
+#
 
 #Basic node info for the seeds:
 
@@ -86,12 +95,7 @@ adjust_fields = {
 #variant = {'query':'MATCH (gene:Gene{name:{GENE}})-[:TRANSCRIBED]->(trans)<-[impacts_r:IMPACTS]-(var) WITH gene,trans,var,impacts_r MATCH (labid:LabID)<-[alias_r:ALIAS_OF]-(samp)-[dna_diff_r:DNA_DIFF]->(var)<-[unit_dna_diff_r:UNIT_DNA_DIFF]-(exp) WHERE (exp)<-[:GENOTYPED_USING]-(samp) AND alias_r.alias_type="genotype" AND labid.name IN {LABID} RETURN DISTINCT gene.name, var.name, labid.name',
 #           'handler':custom_functions.get_variants, 'session_params':None}
 #
-#gene_rels = {'query':'MATCH (gene:Gene{name:{FROM_GENE}})-[:EXTERNAL_ID]-()-[:MAPPED_TO]-(string_from)-[r:ASSOC]-(string_to)-[:MAPPED_TO]-()-[:EXTERNAL_ID]-(gene_to) WHERE gene_to.name IN {TO_GENES} AND HAS(r.score) AND r.score > ({string_conf}*1000) RETURN gene.name,gene_to.name, MAX(r.score)', 'handler':None, 'session_params':[['string_conf']]}
-#
-#labid = {'query':'MATCH (n:LabID{name:{LABID}})<-[:PRODUCED]-(m)<-[:HAS_DISEASE]-(k) RETURN n,m,k', 'handler':custom_functions.get_lab_id, 'session_params':None}
-#
-#pathway = {'query':'MATCH (path:GeneSet{name:{PATHNAME}})-[:GENESET_CONTAINS]->()-[:EXTERNAL_ID]->(gene) RETURN path.name, COLLECT(DISTINCT gene.name)', 'handler':custom_functions.get_pathway, 'session_params':None}
-#
+
 
 #sample relationships
 
@@ -140,6 +144,11 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 #['query_samples', 'LabID', 'siRNA']
 #lambda x: [['query_samples', 'LabID', 'Variants']]
 
+node_queries={
+    'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
+    'SampleID':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))]
+}
+
 #node_queries = {
 #    'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}")),
 #            core.customize_query(gene_score, query=lambda x: x.replace("{GENE}", "{name}").replace("{GENESCORE}", "{gene_score}").replace("{LABID}", "{GeneScore}"), session_params=lambda x: [['gene_score']]),
@@ -148,7 +157,7 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 #            #core.customize_query(gene_exprs_low, query=lambda x:x.replace("{GENE}", "{name}").replace("{LABID}","{Variants}").replace("{LOWEXPRS}", "{low_exprs}"), session_params=lambda x:[['low_exprs']]),
 #            core.customize_query(gene_exprs_low, query=lambda x:x.replace("{GENE}", "{name}").replace("{LABID}","{Variants}").replace("LowExpr", "HighExpr").replace("< {LOWEXPRS}", "> {high_exprs}"), session_params=lambda x:[['high_exprs']])
 #            ],
-#    'LabID':[core.customize_query(labid, query=lambda x: x.replace("{LABID}", "{name}"))]
+#    'SampleID':[core.customize_query(labid, query=lambda x: x.replace("{LABID}", "{name}"))]
 #            
 #}
 #

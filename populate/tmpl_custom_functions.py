@@ -2,6 +2,7 @@ from py2neo import neo4j, cypher
 import core
 import collections
 
+
 def match_sample(query):
     
     from config import cypher_session
@@ -178,6 +179,17 @@ def netprop_rwr(request, seed_gene_nl, initial_graph_file, string_session_name, 
     
     return core.SeedList(prot_nl)
 
+def get_gene_names(res_list, nodes, request):
+    
+    for i in core.BasicResultsIterable(res_list):
+        if len(i) > 0:
+            nodes.add(core.GeneNode(i))
+
+def get_subject (res_list, nodes, request):
+    for i in core.BasicResultsIterable(res_list):
+        if len(i) > 0:
+            nodes.add(core.SubjectNode(i))
+
 def get_shortest_paths (request, request_post):
     
     from config import cypher_session
@@ -189,7 +201,7 @@ def get_shortest_paths (request, request_post):
         ##if bypassing table I think this would be necessary...
         #simply create a graph with the node(s) requested by the user 
         
-        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'LabID', request)
+        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'SampleID', request)
         
         node_names = final_nodes_list.display_names()
         
