@@ -217,7 +217,7 @@ edge_abbreviations = {}
 #
 
 graph_initializers = {
-#    'panel':custom_functions.get_shortest_paths,
+    'panel':custom_functions.get_shortest_paths,
 #    'image':custom_functions.get_pathways_sample
 }
 #

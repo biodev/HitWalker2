@@ -180,7 +180,14 @@
             left:'auto' // Left position relative to parent in px
           };
           //var target = document.getElementById('center_spinner');
-         
+    
+    //if no table elements are present then direct the user back to the start for another sample
+    if ($("td_0").length == 0){
+        
+        $("button").attr("disabled", true);
+        $("div.container").append('<div><p class="text-danger">Sorry no hits were found</p></div>');
+    }
+    
     
     function check_selections()
     {

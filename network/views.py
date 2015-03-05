@@ -396,40 +396,45 @@ def table(request):
         
         valid_hit_genes = core.get_valid_hits(request, config.hit_session_dict)
         
-        print len(valid_hit_genes)
-        #figure out what to do if no hits are available
+        if len(valid_hit_genes) > 0:
         
-        valid_query_res = core.get_valid_querys(request, config.query_prior_dict)
-        
-        comb_gene_hits = config.score_hits(request, valid_hit_genes)
-        
-        conv_prot_hits = config.convert_ids_to(request, comb_gene_hits)
-        
-        prior_prot_hits = config.prioritization_func['function'](request, conv_prot_hits, **config.prioritization_func['args'])
-        
-        #subset to only those genes which are seeds or queries
-        
-        limit_list = comb_gene_hits.nodeList().ids()
-        query_only_ids = map(lambda x: x.getAttr(['attributes', 'gene']),valid_query_res)
-        
-        limit_list.extend(query_only_ids)
-        
-        query_results = config.convert_ids_from(request, prior_prot_hits, limit_list)
-        
-        seed_list = config.get_seed_list(comb_gene_hits)
-        
-        temp_query = copy.deepcopy(query_results)
-        temp_query.subset(query_only_ids)
-        
-        query_list = config.get_query_list(temp_query)
-        
-        print seed_list
-        print query_list
-        
-        #make the results table
-        
-        rels, rels_header = core.make_results_table(valid_query_res, valid_hit_genes, query_results)
-        
+            valid_query_res = core.get_valid_querys(request, config.query_prior_dict)
+            
+            comb_gene_hits = config.score_hits(request, valid_hit_genes)
+            
+            conv_prot_hits = config.convert_ids_to(request, comb_gene_hits)
+            
+            prior_prot_hits = config.prioritization_func['function'](request, conv_prot_hits, **config.prioritization_func['args'])
+            
+            #subset to only those genes which are seeds or queries
+            
+            limit_list = comb_gene_hits.nodeList().ids()
+            query_only_ids = map(lambda x: x.getAttr(['attributes', 'gene']),valid_query_res)
+            
+            limit_list.extend(query_only_ids)
+            
+            query_results = config.convert_ids_from(request, prior_prot_hits, limit_list)
+            
+            seed_list = config.get_seed_list(comb_gene_hits)
+            
+            temp_query = copy.deepcopy(query_results)
+            temp_query.subset(query_only_ids)
+            
+            query_list = config.get_query_list(temp_query)
+            
+            #make the results table
+            
+            rels, rels_header = core.make_results_table(valid_query_res, valid_hit_genes, query_results)
+            
+            
+        else:
+            
+            rels = []
+            rels_header = []
+            seed_list = []
+            query_list = []
+            query_results = core.SeedList(core.NodeList())
+            
         request.session['hitwalker_score'] = query_results
         request.session['seed_list'] = seed_list
         request.session['query_list'] = query_list
@@ -448,10 +453,13 @@ def table(request):
         
         for i in where_vars:
             cur_filts[i['name']] = i['pretty_where']
-        
+            
         return render(request, 'network/res_table.html', {'res_table':rels, 'res_header':rels_header, 'sample_display_name':request.session['query_samples']['SampleID'],
-                                                        'cur_filts':json.dumps(cur_filts), 'cur_param':json.dumps(cur_param), 'seeds':json.dumps(seed_list[:50]), 'queries':json.dumps(query_list[:50]), 'prog_type':prog_type,
-                                                        'username':request.user})
+                                                    'cur_filts':json.dumps(cur_filts), 'cur_param':json.dumps(cur_param), 'seeds':json.dumps(seed_list[:50]), 'queries':json.dumps(query_list[:50]), 'prog_type':prog_type,
+                                                    'username':request.user})
+            
+        
+        
         
         
 
