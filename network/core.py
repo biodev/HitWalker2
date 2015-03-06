@@ -282,43 +282,12 @@ class GeneNode(Node):
     def children(self):
         return super(GeneNode, self).children()
 
-#class RaceNode(core.Node):
-#    def __init__(self,cypher_node):
-#        cypher_res = cypher_node.get_properties()
-#        if cypher_res.has_key("race") == False or cypher_res["race"] == "Unknown":
-#            cypher_res["race"] = "UnknownRace"
-#        self.node_dict = {'id':cypher_res["name"]+cypher_res["race"], 'display_name':cypher_res["race"], 'attributes':{'node_type':cypher_res["race"], 'other_nodes':[], 'indexed_name':'name', 'meta':{'node_cat':'Race'}}, 'children':core.NodeList()}
-#        self.id = cypher_res["name"]+cypher_res["race"]
-#        self.display_name = cypher_res["race"]
-#    def todict (self):
-#        return super(RaceNode, self).todict()
-
-#class SubjectNode(core.Node):
-#    def __init__(self,cypher_res):
-#        diag_child = DiagnosisNode(cypher_res[1])
-#        gend_child = GenderNode(cypher_res[2])
-#        race_child = RaceNode(cypher_res[2])
-#        
-#        att_meta = cypher_res[0].get_properties()
-#        att_meta.pop("name")
-#        for i in cypher_res[2].get_properties().items():
-#            att_meta[i[0]] = i[1]
-#        
-#        self.node_dict = {'id':cypher_res[0]["name"], 'display_name':cypher_res[0]["name"], 'attributes':{'node_type':'Sample', 'indexed_name':'name', 'meta':att_meta}, 'children':core.NodeList()}
-#        self.node_dict['children'].add(diag_child)
-#        self.node_dict['children'].add(gend_child)
-#        self.node_dict['children'].add(race_child)
-#        self.id = cypher_res[0]["name"]
-#        self.display_name = cypher_res[0]["name"]
-#        
-#    def todict (self):
-#        return super(SubjectNode, self).todict()
-
 class BasicSubjectChild(Node):
+    #where cur_prop is a tuple of length 2
     def __init__(self, cur_prop):
-        self.node_dict = {'id':cypher_res["name"]+cypher_res["race"], 'display_name':cypher_res["race"], 'attributes':{'node_type':cypher_res["race"], 'other_nodes':[], 'indexed_name':'name', 'meta':{'node_cat':'Race'}}, 'children':core.NodeList()}
-        self.id = cypher_res["name"]+cypher_res["race"]
-        self.display_name = cypher_res["race"]
+        self.node_dict = {'id':string.joinfields(cur_prop), 'display_name':cur_prop[1], 'attributes':{'node_type':cur_prop[1], 'other_nodes':[], 'indexed_name':'name', 'meta':{'node_cat':cur_prop[0]}}, 'children':NodeList()}
+        self.id = string.joinfields(cur_prop)
+        self.display_name = cur_prop[1]
     def todict(self):
         return super(BasicSubjectChild, self).todict()
         
@@ -328,16 +297,32 @@ class SubjectNode(Node):
         
         cypher_props = cypher_res[0].get_properties()
         
-        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Subject', 'indexed_name':'name', 'meta':{}}, 'children':core.NodeList()}
+        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Sample', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}
         
         for i in cypher_props.items():
-            if i[0] in set(['name', 'alias']) == False:
-                self.node_dict['children'].add(BasicSubjectChild())
-                
+            if (i[0] in set(['name', 'alias'])) == False:
+                self.node_dict['children'].add(BasicSubjectChild(i))
+        
+        self.id = cypher_props["name"]
+        self.display_name = cypher_props["name"]
                 
     def todict (self):
         return super(SubjectNode, self).todict()
     
+
+class BasicGeneChild(Node):
+    def __init__(self,gene_node, samp_dict, var):
+        self.node_dict = {'id':gene_node.id +'_' + var, 'display_name':gene_node.display_name + '_' + var, 'attributes':{'node_type':var, 'other_nodes':[], 'meta':{'node_cat':'Assay Result', 'type':[], 'score':[], 'is_hit':[]}}, 'children':NodeList()}
+        for i in samp_dict.items():
+            self.node_dict['attributes']['other_nodes'].append(i[0])
+            self.node_dict['attributes']['meta']['score'].append(i[1][0][0])
+            self.node_dict['attributes']['meta']['is_hit'].append(i[1][0][1])
+        if any(self.node_dict['attributes']['meta']['is_hit']):
+            self.node_dict['attributes']['node_type'] += '_Hit'
+        self.id = gene_node.id +'_' + var
+        self.display_name = gene_node.display_name + '_' + var
+    def todict (self):
+        return super(BasicGeneChild, self).todict()
 
 class BasicChild(Node):
     
@@ -481,6 +466,31 @@ class RelationshipSet:
         else:
             self.rel_key_pos = 0
             raise StopIteration
+
+def handle_gene_hits(res_list, nodes, request):
+    for i in BasicResultsIterable(res_list):
+        #print i
+        if len(i) > 0:
+            if isinstance(i[0], tuple):
+                use_i = i[:]
+            else:
+                use_i = [i[:]]
+            
+            #[[u'ENSG00000158258', u'07-00112', u'LowExpr', 0.199990661272727, True]]
+            
+            gene_list = collections.defaultdict(list)
+            use_vars = set()
+            
+            for j in use_i:
+                gene_list[j[1]].append([j[3], j[4]])
+                use_vars.add(j[2])
+                
+            gene_score = BasicGeneChild(nodes.getNode(use_i[0][0]), gene_list, list(use_vars)[0])
+            nodes.addChild(use_i[0][0], gene_score)
+    
+    
+def handle_gene_targets(res_list, nodes, request):
+    print res_list
 
 def make_sample_table (node, context, sample_link=""):
     

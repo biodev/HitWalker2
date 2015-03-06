@@ -165,7 +165,14 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="/Users/bo
     
     for(i in unlist(obj@data.types))
     {
-        temp.query <- paste0(i,"= {'query':'", gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T), "', 'handler':None, 'session_params':None", "}")
+        if (i %in% obj@data.types$seeds)
+        {
+            handler <- 'core.handle_gene_hits'
+        }else{
+            handler <- 'core.handle_gene_targets'
+        }
+        
+        temp.query <- paste0(i,"= {'query':'", gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T), "', 'handler':",handler,", 'session_params':None", "}")
         base.queries <- append(base.queries, temp.query)
     }
     
@@ -319,7 +326,7 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path,gene.model=c
 #MAF class utils
 
 setClass(Class="CCLEMaf", representation=list(maf="data.frame", base.query="character", report.query="character"), contains="NeoData",
-         prototype=list(base.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene) WHERE n.name IN {SAMPLE} RETURN n,r,m,r2,o',
+         prototype=list(base.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}}) WHERE n.name IN {SAMPLE} RETURN *',
                         report.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene)-[:REFFERED_TO]-(symb) WHERE n.name IN {name}
                             RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
                             r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,

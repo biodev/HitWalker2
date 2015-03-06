@@ -108,7 +108,7 @@ sample_rels_type = 'hierarchical'
 ##This specifies the functions to be used for searching on genes, pathways and samples
 matchers = {
     #'pathway':custom_functions.match_pathway,
-    #'gene':custom_functions.match_gene,
+    'gene':custom_functions.match_gene,
     'sample':custom_functions.match_sample
 }
 
@@ -146,8 +146,16 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 
 node_queries={
     'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
-    'SampleID':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))]
+    'Sample':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))]
 }
+
+#by default the user has no control over these parameters, if this was desired then these queries would need to be specified in 'adjust_fields' above and the unique id would need to be specified in session_params (e.g. core.customize_query(etc, etc, session_params=lambda x: [['gene_score']])
+#assuming gene_score was the unique key in 'adjust_fields'
+
+
+for i in data_types['seeds']+[data_types['target']]:
+    node_queries['Gene'].append(core.customize_query(eval(i), query=lambda x: x.replace("{GENE}", "{name}").replace("{SAMPLE}", "{"+i+"}")))
+
 
 #node_queries = {
 #    'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}")),
