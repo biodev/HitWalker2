@@ -488,9 +488,47 @@ def handle_gene_hits(res_list, nodes, request):
             gene_score = BasicGeneChild(nodes.getNode(use_i[0][0]), gene_list, list(use_vars)[0])
             nodes.addChild(use_i[0][0], gene_score)
     
-    
+
+class TargetChildNode(Node):
+    def __init__(self,gene_node,var_name, samp_list):
+        self.node_dict = {'id':gene_node.id+'_'+var_name, 'display_name':var_name, 'attributes':{'node_type':'Variants', 'other_nodes':samp_list,'meta':{'node_cat':'Assay Result', 'is_hit':[True]*len(samp_list)}}, 'children':NodeList()}
+        self.id = gene_node.id+'_'+var_name
+        self.display_name = var_name
+        
+    def todict(self):
+        return super(TargetChildNode, self).todict()
+
 def handle_gene_targets(res_list, nodes, request):
     print res_list
+    
+    seed_header = cypherHeader(res_list)
+    
+    print seed_header
+    
+    var_name = seed_header.index('query_ind')
+    samp_name = seed_header.index('Sample')
+    gene_name = seed_header.index('gene_ind')
+    
+    print var_name, samp_name, gene_name
+    
+    for i in BasicResultsIterable(res_list):
+        
+        if len(i) > 0:
+        
+            if isinstance(i[0], tuple):
+                use_i = i[:]
+            else:
+                use_i = [i[:]]
+            #[(u'g.chr17:7578217G>A', u'uc002gim.2', u'7157', u'TP53', 157, 41, u'', u'Missense_Mutation', u'p.T211I', 0, 2, u'g.chr17:7578217G>A_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM'), (u'g.chr17:7577093C>T', u'uc002gim.2', u'7157', u'TP53', 5, 21, u'', u'Missense_Mutation', u'p.R282Q', 0, 2, u'g.chr17:7577093C>T_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM')]
+            
+            gene_list = collections.defaultdict(list)
+            for j in use_i:
+                gene_list[j[j[var_name]]].append(j[samp_name])
+            
+            cur_gene = nodes.getNode(use_i[0][use_i[0][gene_name]])
+            for k in gene_list.items():
+                variant = TargetChildNode(cur_gene, k[0], k[1])
+                nodes.addChild(cur_gene.id, variant)
 
 def make_sample_table (node, context, sample_link=""):
     

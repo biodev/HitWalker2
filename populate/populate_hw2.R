@@ -162,6 +162,7 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="/Users/bo
     #Add in the base queries for the seeds and target as well
     
     base.queries <- character()
+    templ.queries <- character()
     
     for(i in unlist(obj@data.types))
     {
@@ -174,12 +175,10 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="/Users/bo
         
         temp.query <- paste0(i,"= {'query':'", gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T), "', 'handler':",handler,", 'session_params':None", "}")
         base.queries <- append(base.queries, temp.query)
+        templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T), "', 'handler':None, 'session_params':None", "}"))
     }
     
-    rep.query <- paste0("{'", obj@data.types$target, "':[{'query':'", gsub("\n\\s+", " ", obj@data.list[[obj@data.types$target]]@report.query, perl=T)  ,"', 'handler':core.handle_query_prior, 'session_params':None}]}")
-    
-    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
-                     REPORT_QUERY=rep.query)
+    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"), TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"))
     
     copySubstitute(src=src.files, dest=dest.dir, symbolValues=sub.list, symbolDelimiter="@", recursive=T)
     
@@ -325,12 +324,16 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path,gene.model=c
 
 #MAF class utils
 
-setClass(Class="CCLEMaf", representation=list(maf="data.frame", base.query="character", report.query="character"), contains="NeoData",
-         prototype=list(base.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}}) WHERE n.name IN {SAMPLE} RETURN *',
-                        report.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene)-[:REFFERED_TO]-(symb) WHERE n.name IN {name}
+setClass(Class="CCLEMaf", representation=list(maf="data.frame", base.query="character", template.query="character"), contains="NeoData",
+         prototype=list(
+                        base.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFFERED_TO]-(symb) WHERE n.name IN {SAMPLE}
                             RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
                             r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,
-                            r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id '))
+                            r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id, n.name AS Sample ',
+                        
+                        template.query='MATCH (sample:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE $$lower_coll_type$$.name IN {$$coll_type$$}
+                        WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'
+                        ))
 
 readMAF.ccle <- function(file.name, sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation")
 {
@@ -392,10 +395,16 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, gene.model="en
 
 #Drug class utils
 
-setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame", base.query="character"), contains="NeoData",
+setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame", base.query="character", template.query="character"), contains="NeoData",
          prototype=list(base.query='MATCH (n:Sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE n.name IN {SAMPLE}
                         WITH n, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
-                        RETURN o.name AS gene, n.name AS sample, "GeneScore" AS var, effect_score AS score, effect_score > 0 AS is_hit;'))
+                        RETURN o.name AS gene, n.name AS sample, "GeneScore" AS var, effect_score AS score, effect_score > 0 AS is_hit;',
+                        
+                        template.query='MATCH (sample:Sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(gene:EntrezID) WITH sample, gene,
+                        SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score WHERE effect_score > 0 AND
+                        $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll
+                        WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'
+                        ))
 
 setMethod("getMatrix", signature("DrugMatrix"), function(obj)
           {

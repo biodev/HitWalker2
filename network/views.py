@@ -673,8 +673,10 @@ def fullfill_node_query(request):
     session = cypher.Session()
     tx = session.create_transaction()
     
+    use_query = query_info['query']
+    
     for var_elem in request.session['where_vars']:
-        use_query = core.add_where_input_query(query_info['query'], var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+        use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
     
     #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
     tx.append(use_query, node_queries)

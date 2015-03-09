@@ -229,6 +229,30 @@ def get_subject (res_list, nodes, request):
     for i in core.BasicResultsIterable(res_list):
         if len(i) > 0:
             nodes.add(core.SubjectNode(i))
+            
+def get_pathway(res_list, nodes, request):
+    
+    gene_names = []
+    path_name = []
+    
+    for i in core.BasicResultsIterable(res_list):
+        if len(i) > 0:
+            if isinstance(i[0], tuple):
+                use_i = i[:]
+            else:
+                use_i = [i[:]]
+            
+            for j in use_i:
+                path_name.append(j[0])
+                gene_names.extend(j[1])
+    
+    #as pathways are currently only produced from the copy_nodes interface
+    import config
+    
+    gene_nl = core.get_nodes(gene_names, 'Gene', request, config_struct=config.edge_queries['nodes'], missing_param="skip")
+    
+    #a pathway in this context is a special metanode
+    nodes.extend(gene_nl)
 
 def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
     from_node_dict = from_node.todict()
@@ -265,7 +289,34 @@ def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
             return {'type':'Unknown'}#'rank':1000000}
     else:
         return {'type':'Unknown'}#'rank':1000000}
+
+
+def no_rels(query, subj, request, config_struct_nodes, cur_graph):
+    return cur_graph
+
+def gene_to_sample (genes, labids, request, config_struct_nodes, cur_graph):
     
+    #as the genes have a dependency on labids, retrieve the nodes again as well as the children (a little wasteful but direct for now...)
+   
+    #where labids should be a list of labIDs that will get directly substituted into the query
+    param_list = [{'LABID':list(labids)}]
+    
+    gene_nodes = core.get_nodes(list(genes), 'Gene', request, config_struct=config_struct_nodes, param_list=param_list)
+    
+    #for each of the genes, examine their children and record an edge corresponding the the child type and labid
+    #use this list and the specified labids to determine if edges are appropriate
+    
+    for i in gene_nodes:
+        for j in i.children():
+            #add children to existing nodes
+            cur_graph["nodes"].addChild(i.id, j)
+            #add links
+            child_dict = j.todict()
+            #print j.id
+            for k_ind, k in enumerate(child_dict["attributes"]["other_nodes"]):
+                #print k
+                cur_graph['links'].append({'source':cur_graph["nodes"].nodeIndex(k), 'target':cur_graph["nodes"].nodeIndex(i.id), 'attributes':get_link_atts(request, cur_graph["nodes"].getNode(k) , cur_graph["nodes"].getNode(i.id) , child_dict["attributes"]["node_type"], {}, child_dict["attributes"]["meta"]["is_hit"][k_ind])})
+    return cur_graph
 
 def get_shortest_paths (request, request_post):
     
