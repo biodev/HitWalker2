@@ -282,6 +282,17 @@ class GeneNode(Node):
     def children(self):
         return super(GeneNode, self).children()
 
+class MetaNode(Node):
+    def __init__(self, sample_nl):
+        nl_types = sample_nl.types()
+        type_count = collections.Counter(nl_types)
+        disp_name = string.joinfields(map(lambda x: str(x[0]) + ' ('+ str(x[1]) + ')', type_count.items()), ',')
+        self.node_dict = {'id':'meta_node_1', 'display_name':disp_name, 'attributes':{'node_type':'MetaNode', 'indexed_name':'name', 'meta':{}}, 'children':sample_nl}
+        self.id = 'meta_node_1'
+        self.display_name = disp_name
+    def todict(self):
+        return super(MetaNode, self).todict()
+
 class BasicSubjectChild(Node):
     #where cur_prop is a tuple of length 2
     def __init__(self, cur_prop):
@@ -501,34 +512,38 @@ class TargetChildNode(Node):
 def handle_gene_targets(res_list, nodes, request):
     print res_list
     
-    seed_header = cypherHeader(res_list)
+    if len(res_list) > 0:
     
-    print seed_header
-    
-    var_name = seed_header.index('query_ind')
-    samp_name = seed_header.index('Sample')
-    gene_name = seed_header.index('gene_ind')
-    
-    print var_name, samp_name, gene_name
-    
-    for i in BasicResultsIterable(res_list):
+        seed_header = cypherHeader(res_list)
         
-        if len(i) > 0:
+        print seed_header
         
-            if isinstance(i[0], tuple):
-                use_i = i[:]
-            else:
-                use_i = [i[:]]
-            #[(u'g.chr17:7578217G>A', u'uc002gim.2', u'7157', u'TP53', 157, 41, u'', u'Missense_Mutation', u'p.T211I', 0, 2, u'g.chr17:7578217G>A_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM'), (u'g.chr17:7577093C>T', u'uc002gim.2', u'7157', u'TP53', 5, 21, u'', u'Missense_Mutation', u'p.R282Q', 0, 2, u'g.chr17:7577093C>T_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM')]
+        if len(seed_header) > 0:
+        
+            var_name = seed_header.index('query_ind')
+            samp_name = seed_header.index('Sample')
+            gene_name = seed_header.index('gene_ind')
             
-            gene_list = collections.defaultdict(list)
-            for j in use_i:
-                gene_list[j[j[var_name]]].append(j[samp_name])
+            print var_name, samp_name, gene_name
             
-            cur_gene = nodes.getNode(use_i[0][use_i[0][gene_name]])
-            for k in gene_list.items():
-                variant = TargetChildNode(cur_gene, k[0], k[1])
-                nodes.addChild(cur_gene.id, variant)
+            for i in BasicResultsIterable(res_list):
+                
+                if len(i) > 0:
+                
+                    if isinstance(i[0], tuple):
+                        use_i = i[:]
+                    else:
+                        use_i = [i[:]]
+                    #[(u'g.chr17:7578217G>A', u'uc002gim.2', u'7157', u'TP53', 157, 41, u'', u'Missense_Mutation', u'p.T211I', 0, 2, u'g.chr17:7578217G>A_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM'), (u'g.chr17:7577093C>T', u'uc002gim.2', u'7157', u'TP53', 5, 21, u'', u'Missense_Mutation', u'p.R282Q', 0, 2, u'g.chr17:7577093C>T_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM')]
+                    
+                    gene_list = collections.defaultdict(list)
+                    for j in use_i:
+                        gene_list[j[j[var_name]]].append(j[samp_name])
+                    
+                    cur_gene = nodes.getNode(use_i[0][use_i[0][gene_name]])
+                    for k in gene_list.items():
+                        variant = TargetChildNode(cur_gene, k[0], k[1])
+                        nodes.addChild(cur_gene.id, variant)
 
 def make_sample_table (node, context, sample_link=""):
     
@@ -1034,7 +1049,6 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False)
 def apply_grouping2(cur_graph, query_nodes, never_group=False):
     import config
     import sys
-    from custom_functions import MetaNode
     
     new_graph = {'nodes':NodeList(), 'links':copy.deepcopy(cur_graph['links'])}
     #

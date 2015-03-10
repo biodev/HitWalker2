@@ -57,8 +57,9 @@ adjust_fields = {
 
 gene_names = {'query':'MATCH (n:EntrezID{name:{GENE}})-[r:REFFERED_TO]-(m) RETURN n.name,m.name, []', 'handler':custom_functions.get_gene_names, 'session_params':None}
 
-#gene_rels = {'query':'MATCH (gene:Gene{name:{FROM_GENE}})-[:EXTERNAL_ID]-()-[:MAPPED_TO]-(string_from)-[r:ASSOC]-(string_to)-[:MAPPED_TO]-()-[:EXTERNAL_ID]-(gene_to) WHERE gene_to.name IN {TO_GENES} AND HAS(r.score) AND r.score > ({string_conf}*1000) RETURN gene.name,gene_to.name, MAX(r.score)', 'handler':None, 'session_params':[['string_conf']]}
-#
+#used for the network view
+gene_rels = {'query':'MATCH (gene:EntrezID{name:{FROM_GENE}})-[:MAPPED_TO]-(string_from)-[r:ASSOC]-(string_to)-[:MAPPED_TO]-(gene_to) WHERE gene_to.name IN {TO_GENES} AND HAS(r.score) AND r.score > ({string_conf}*1000) RETURN gene.name,gene_to.name, MAX(r.score)', 'handler':None, 'session_params':[['string_conf']]}
+
 
 subject = {'query':'MATCH (n:@SUBJECT@{name:{SUBJECTID}}) RETURN n', 'handler':custom_functions.get_subject, 'session_params':None}
 
@@ -89,7 +90,7 @@ sample_rels_type = 'hierarchical'
 
 ##This specifies the functions to be used for searching on genes, pathways and samples
 matchers = {
-    #'pathway':custom_functions.match_pathway,
+    'pathway':custom_functions.match_pathway,
     'gene':custom_functions.match_gene,
     'sample':custom_functions.match_sample
 }
@@ -203,6 +204,6 @@ edge_abbreviations = {}
 
 graph_initializers = {
     'panel':custom_functions.get_shortest_paths,
-#    'image':custom_functions.get_pathways_sample
+    'image':custom_functions.get_pathways_sample
 }
 #
