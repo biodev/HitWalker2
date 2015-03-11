@@ -24,7 +24,9 @@ setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 
-setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character"))
+setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character", base.query="character", template.query="character"))
+
+setClass(Class="HwHit", representation=list(default="numeric", direction="character", range="numeric", display_name="character"))
 
 setMethod("nodeName", signature("NeoData"), function(obj){
     return(obj@node.name)
@@ -132,7 +134,9 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL)
     
 })
 
-setMethod("configure", signature("HW2Config"), function(obj, dest.dir="/Users/bottomly/Desktop/github_projects/HitWalker2/network/"){
+
+
+setMethod("configure", signature("HW2Config"), function(obj, base.dir="/Users/bottomly/Desktop/github_projects/HitWalker2/populate/",dest.dir="/Users/bottomly/Desktop/github_projects/HitWalker2/network/"){
     #copySubstitute() --which is part of Biobase
     
     if (file.exists(dest.dir) == F)
@@ -140,7 +144,7 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="/Users/bo
         dir.create(dest.dir)
     }
     
-    src.files <- paste0("/Users/bottomly/Desktop/github_projects/HitWalker2/populate/", c("tmpl_config.py", "tmpl_custom_functions.py"))
+    src.files <- file.path(base.dir, c("tmpl_config.py", "tmpl_custom_functions.py"))
     
     #make sure the seeds are added to the configure file as a list
     obj@data.types$seeds <- as.list(obj@data.types$seeds)
@@ -157,28 +161,36 @@ setMethod("configure", signature("HW2Config"), function(obj, dest.dir="/Users/bo
     }
     
     base.query <- append(base.query, paste0(' WHERE ', paste(paste0(dataTypes(obj), ' > 0'), collapse=" OR "), ' RETURN subject.name AS ',subj.name,', subject.',obj@subject@type, ' AS Type, sample.name AS Sample, ',
-                                            paste(dataTypes(obj), collapse=" , "), ', CASE WHEN ', paste(paste0(obj@data.types$seeds, ' > 0'), collapse=" AND "), ' THEN 1 ELSE 0 END AS required_data'))
+                                            paste(dataTypes(obj), collapse=" , "), ', CASE WHEN ', paste(paste0(unlist(obj@data.types), ' > 0'), collapse=" AND "), ' THEN 1 ELSE 0 END AS required_data'))
     
     #Add in the base queries for the seeds and target as well
     
     base.queries <- character()
     templ.queries <- character()
-    
-    for(i in unlist(obj@data.types))
+    hit.params <- ""
+    #'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}
+    for(i in dataTypes(obj))
     {
-        if (i %in% obj@data.types$seeds)
+        if (inherits(obj@data.list[[i]], "HwHit"))
         {
             handler <- 'core.handle_gene_hits'
+            use.params <- paste0("[['",tolower(i),"']]")
+            cur.obj <- obj@data.list[[i]]
+            hit.params <- append(hit.params, paste0("'",tolower(i),"':{'type':'numeric', 'default':'",cur.obj@default, "' , 'range':[",paste(cur.obj@range, collapse=","),"], 'comparison':'",cur.obj@direction,
+                                                    "' , 'name':'",cur.obj@display_name,"'}"))
+            
         }else{
             handler <- 'core.handle_gene_targets'
+            use.params <- "None"
         }
         
-        temp.query <- paste0(i,"= {'query':'", gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T), "', 'handler':",handler,", 'session_params':None", "}")
+        temp.query <- paste0(i,"= {'query':'", gsub("$PAR_NAME$", paste0("{", tolower(i), "}"), gsub("$DATA_NAME$", i, gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T), fixed=T), fixed=T), "', 'handler':",handler,", 'session_params':",use.params, "}")
         base.queries <- append(base.queries, temp.query)
-        templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T), "', 'handler':None, 'session_params':None", "}"))
+        templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", gsub("$PAR_NAME$", paste0("{", tolower(i), "}"), gsub("$DATA_NAME$", i, gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T), fixed=T), fixed=T), "', 'handler':None, 'session_params':",use.params, "}"))
     }
     
-    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"), TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"))
+    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
+                     TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=paste(hit.params, collapse=",\n"))
     
     copySubstitute(src=src.files, dest=dest.dir, symbolValues=sub.list, symbolDelimiter="@", recursive=T)
     
@@ -263,7 +275,15 @@ Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
 
 #expression utils, affy for now...
 
-setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains="NeoData")
+setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains=c("NeoData", "HwHit"),
+         prototype=list(sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet",
+                        default=.75, direction=">", range=c(0,1), display_name="Expression (Hit) Threshold",
+                        base.query='MATCH(n:Subject)-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE HAS(r.score) AND n.name IN {SAMPLE}
+                        RETURN m.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, ANY(x IN COLLECT(r.score) WHERE x > $PAR_NAME$) AS is_hit',
+                        
+                        template.query="MATCH(sample:Subject)-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WITH sample, gene, MAX(r.score) AS max_score
+                        WHERE max_score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type,
+                        COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type"))
 
 HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet"){
     
@@ -324,14 +344,14 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path,gene.model=c
 
 #MAF class utils
 
-setClass(Class="CCLEMaf", representation=list(maf="data.frame", base.query="character", template.query="character"), contains="NeoData",
+setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData",
          prototype=list(
-                        base.query='MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFFERED_TO]-(symb) WHERE n.name IN {SAMPLE}
+                        base.query='MATCH (n:Subject)-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFFERED_TO]-(symb) WHERE n.name IN {SAMPLE}
                             RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
                             r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,
                             r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id, n.name AS Sample ',
                         
-                        template.query='MATCH (sample:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE $$lower_coll_type$$.name IN {$$coll_type$$}
+                        template.query='MATCH (sample:Subject)-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE $$lower_coll_type$$.name IN {$$coll_type$$}
                         WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'
                         ))
 
@@ -395,16 +415,19 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, gene.model="en
 
 #Drug class utils
 
-setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame", base.query="character", template.query="character"), contains="NeoData",
-         prototype=list(base.query='MATCH (n:Sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE n.name IN {SAMPLE}
+setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains=c("NeoData", "HwHit"),
+         prototype=list(base.query='MATCH (n:Subject)-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE n.name IN {SAMPLE}
                         WITH n, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
-                        RETURN o.name AS gene, n.name AS sample, "GeneScore" AS var, effect_score AS score, effect_score > 0 AS is_hit;',
+                        RETURN o.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, effect_score AS score, effect_score > $PAR_NAME$ AS is_hit;',
                         
-                        template.query='MATCH (sample:Sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(gene:EntrezID) WITH sample, gene,
-                        SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score WHERE effect_score > 0 AND
+                        template.query='MATCH (sample:Subject)-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(gene:EntrezID) WITH sample, gene,
+                        SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score WHERE effect_score > $PAR_NAME$ AND
                         $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll
-                        WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'
-                        ))
+                        WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type',
+                        
+                        sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug",
+                        
+                        default=0, direction=">", range=c(-100, 100), display_name="GeneScore (Hit) Threshold"))
 
 setMethod("getMatrix", signature("DrugMatrix"), function(obj)
           {

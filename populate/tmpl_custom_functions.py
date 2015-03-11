@@ -4,7 +4,7 @@ import collections
 import string
 import itertools
 import json
-
+import copy
 
 def match_sample(query):
     
@@ -14,10 +14,10 @@ def match_sample(query):
     
     query_list = []
     
-    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@) WHERE n.name =~ "'+query+'.*' +'" UNWIND [n.name] + n.alias AS name_alias WITH n, name_alias RETURN ID(n), name_alias')
+    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@) UNWIND [n.name] + n.alias AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(n.name)')
     
     for i in sample_query.execute().data:
-        query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':[i.values[1]]})
+        query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':i.values[2]})
     
     return query, query_list
 
@@ -29,7 +29,7 @@ def match_gene(query):
     graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
     query_list = []
     
-    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:Symbol)<-[r:REFFERED_TO]-(m) UNWIND [n.name] + r.synonyms AS name_syns WITH n,m,name_syns WHERE name_syns =~"'+query+'.*"  RETURN m.name, name_syns, COLLECT(m.name) ')
+    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:Symbol)<-[r:REFFERED_TO]-(m) UNWIND [n.name] + r.synonyms AS name_syns WITH n,m,name_syns WHERE name_syns =~"'+query+'.*"  RETURN m.name+name_syns, name_syns, COLLECT(m.name) ')
     
     search_res = []
     
@@ -272,7 +272,8 @@ def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
                 
                 if request.session.has_key('hitwalker_score') and request.session['hitwalker_score'].nodeList().hasNode(to_node_dict["id"]) == True and from_node_dict['id'] == request.session['query_samples']['SampleID'][config.data_types['target']]:
                     temp_rel_name = "Ranked_" + temp_rel_name
-                
+                else:
+                    temp_rel_name = "Observed_" + temp_rel_name
             else:
             
                 if is_hit == True:

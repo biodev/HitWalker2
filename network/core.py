@@ -510,37 +510,32 @@ class TargetChildNode(Node):
         return super(TargetChildNode, self).todict()
 
 def handle_gene_targets(res_list, nodes, request):
-    print res_list
     
     if len(res_list) > 0:
-    
-        seed_header = cypherHeader(res_list)
         
-        print seed_header
-        
-        if len(seed_header) > 0:
-        
-            var_name = seed_header.index('query_ind')
-            samp_name = seed_header.index('Sample')
-            gene_name = seed_header.index('gene_ind')
+        for i in res_list:
             
-            print var_name, samp_name, gene_name
-            
-            for i in BasicResultsIterable(res_list):
+            if len(i) > 0:
                 
-                if len(i) > 0:
+                seed_header = cypherHeader(i)
                 
-                    if isinstance(i[0], tuple):
-                        use_i = i[:]
+                var_name = seed_header.index('query_ind')
+                samp_name = seed_header.index('Sample')
+                gene_name = seed_header.index('gene_ind')
+                
+                for j in BasicResultsIterable([i]):
+                    if isinstance(j[0], tuple):
+                        use_j = j[:]
                     else:
-                        use_i = [i[:]]
+                        use_j = [j[:]]
+                
                     #[(u'g.chr17:7578217G>A', u'uc002gim.2', u'7157', u'TP53', 157, 41, u'', u'Missense_Mutation', u'p.T211I', 0, 2, u'g.chr17:7578217G>A_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM'), (u'g.chr17:7577093C>T', u'uc002gim.2', u'7157', u'TP53', 5, 21, u'', u'Missense_Mutation', u'p.R282Q', 0, 2, u'g.chr17:7577093C>T_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM')]
-                    
+                
                     gene_list = collections.defaultdict(list)
-                    for j in use_i:
-                        gene_list[j[j[var_name]]].append(j[samp_name])
+                    for k in use_j:
+                        gene_list[k[k[var_name]]].append(k[samp_name])
                     
-                    cur_gene = nodes.getNode(use_i[0][use_i[0][gene_name]])
+                    cur_gene = nodes.getNode(use_j[0][use_j[0][gene_name]])
                     for k in gene_list.items():
                         variant = TargetChildNode(cur_gene, k[0], k[1])
                         nodes.addChild(cur_gene.id, variant)
