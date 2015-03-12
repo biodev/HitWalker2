@@ -530,7 +530,9 @@ def handle_gene_targets(res_list, nodes, request):
                         use_j = [j[:]]
                 
                     #[(u'g.chr17:7578217G>A', u'uc002gim.2', u'7157', u'TP53', 157, 41, u'', u'Missense_Mutation', u'p.T211I', 0, 2, u'g.chr17:7578217G>A_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM'), (u'g.chr17:7577093C>T', u'uc002gim.2', u'7157', u'TP53', 5, 21, u'', u'Missense_Mutation', u'p.R282Q', 0, 2, u'g.chr17:7577093C>T_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM')]
-                
+                    
+                    print use_j
+                    
                     gene_list = collections.defaultdict(list)
                     for k in use_j:
                         gene_list[k[k[var_name]]].append(k[samp_name])

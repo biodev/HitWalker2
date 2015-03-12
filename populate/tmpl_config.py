@@ -45,8 +45,7 @@ adjust_fields = {
                                 'res_prob':{'type':'numeric', 'default':.3, 'range':[0,1], 'comparison':'=', 'name':'Restart Probability'},
                                 'max_iter':{'type':'numeric', 'default':100, 'range':[0, 10000], 'comparison':'=', 'name':'Max Iterations'},
                                 'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}@HIT_PARAMS@
-                                },
-                            }   
+                                }, 
                         }
 }
 
@@ -182,11 +181,13 @@ node_group_content={
               }
 }
 
-for i in data_types['seeds']+[data_types['target']]:
-    group_key_set = set(node_group_content.keys())
-    assert len(group_key_set) == 2
-    for j in group_key_set:
-        node_group_content[j]['options'].append(core.specify_type_query_tmp(eval(i+"_tmpl"), ret_type=j, coll_type=list(group_key_set.difference(j))[0]))
+group_key_set = set(node_group_content.keys())
+assert len(group_key_set) == 2
+
+for i in group_key_set:
+    for j in data_types['seeds']+[data_types['target']]:
+        node_group_content[i]['options'].append(core.specify_type_query_tmp(eval(j+"_tmpl"), ret_type=list(group_key_set.difference(set([i])))[0], coll_type=i))
+
     
 
 ## Need to work on this for Sample... {'text':'Variant', 'query':'', 'handler':'', 'session_params':None},

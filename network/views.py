@@ -678,6 +678,8 @@ def fullfill_node_query(request):
     for var_elem in request.session['where_vars']:
         use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
     
+    print use_query, node_queries
+    
     #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
     tx.append(use_query, node_queries)
     res_list = tx.commit()
