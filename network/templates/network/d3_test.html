@@ -1379,6 +1379,8 @@
                                     query_nodes.push({id:d, display_name:node_label,attributes:{node_type:type}});
                               })
             
+            console.log(JSON.stringify(query_nodes))
+            
             copy_nodes(query_nodes, subj_nodes, use_panel);
             
             delete_popover();

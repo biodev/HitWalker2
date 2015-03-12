@@ -48,6 +48,8 @@ target/
 #HitWalker2 specific files
 network/config.py
 network/custom_functions.py
+network/tmpl_config.py
+network/tmpl_custom_functions.py
 network/static/network/css/HitWalker2_*.css
 #latex intermediary files
 *.aux

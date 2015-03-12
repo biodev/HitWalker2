@@ -396,36 +396,45 @@ def table(request):
         
         valid_hit_genes = core.get_valid_hits(request, config.hit_session_dict)
         
-        valid_query_res = core.get_valid_querys(request, config.query_prior_dict)
+        if len(valid_hit_genes) > 0:
         
-        comb_gene_hits = config.score_hits(request, valid_hit_genes)
-        
-        print comb_gene_hits.todict()
-        
-        conv_prot_hits = config.convert_ids_to(request, comb_gene_hits)
-        
-        prior_prot_hits = config.prioritization_func['function'](request, conv_prot_hits, **config.prioritization_func['args'])
-        
-        #subset to only those genes which are seeds or queries
-        
-        limit_list = comb_gene_hits.nodeList().ids()
-        query_only_ids = map(lambda x: x.getAttr(['attributes', 'gene']),valid_query_res)
-        
-        limit_list.extend(query_only_ids)
-        
-        query_results = config.convert_ids_from(request, prior_prot_hits, limit_list)
-        
-        seed_list = config.get_seed_list(comb_gene_hits)
-        
-        temp_query = copy.deepcopy(query_results)
-        temp_query.subset(query_only_ids)
-        
-        query_list = config.get_query_list(temp_query)
-        
-        #make the results table
-        
-        rels, rels_header = core.make_results_table(valid_query_res, valid_hit_genes, query_results)
-        
+            valid_query_res = core.get_valid_querys(request, config.query_prior_dict)
+            
+            comb_gene_hits = config.score_hits(request, valid_hit_genes)
+            
+            conv_prot_hits = config.convert_ids_to(request, comb_gene_hits)
+            
+            prior_prot_hits = config.prioritization_func['function'](request, conv_prot_hits, **config.prioritization_func['args'])
+            
+            #subset to only those genes which are seeds or queries
+            
+            limit_list = comb_gene_hits.nodeList().ids()
+            query_only_ids = map(lambda x: x.getAttr(['attributes', 'gene']),valid_query_res)
+            
+            limit_list.extend(query_only_ids)
+            
+            query_results = config.convert_ids_from(request, prior_prot_hits, limit_list)
+            
+            seed_list = config.get_seed_list(comb_gene_hits)
+            
+            temp_query = copy.deepcopy(query_results)
+            temp_query.subset(query_only_ids)
+            
+            query_list = config.get_query_list(temp_query)
+            
+            #make the results table
+            
+            rels, rels_header = core.make_results_table(valid_query_res, valid_hit_genes, query_results)
+            
+            
+        else:
+            
+            rels = []
+            rels_header = []
+            seed_list = []
+            query_list = []
+            query_results = core.SeedList(core.NodeList())
+            
         request.session['hitwalker_score'] = query_results
         request.session['seed_list'] = seed_list
         request.session['query_list'] = query_list
@@ -444,62 +453,13 @@ def table(request):
         
         for i in where_vars:
             cur_filts[i['name']] = i['pretty_where']
-        
-        
+            
         return render(request, 'network/res_table.html', {'res_table':rels, 'res_header':rels_header, 'sample_display_name':request.session['query_samples']['SampleID'],
-                                                        'cur_filts':json.dumps(cur_filts), 'cur_param':json.dumps(cur_param), 'seeds':json.dumps(seed_list[:50]), 'queries':json.dumps(query_list[:50]), 'prog_type':prog_type,
-                                                        'username':request.user})
+                                                    'cur_filts':json.dumps(cur_filts), 'cur_param':json.dumps(cur_param), 'seeds':json.dumps(seed_list[:50]), 'queries':json.dumps(query_list[:50]), 'prog_type':prog_type,
+                                                    'username':request.user})
+            
         
         
-        sys.exit()
-        
-        ###remaining stuff to do...
-        #add_scores_to_genes(request, graph_db, gene_assoc_dict, "HitWalker")
-        
-        #sample_name = cur_samp[cur_samp['indexed_name']]
-        #sample_index_name = cur_samp['indexed_name']
-        #sample_info = {"node_type":"LabID", "name":}
-        
-        #hitwalker_score = custom_functions.get_hitwalker_score_from_table(rels, rels_header, score_col="HitWalkerScore", gene_col="Gene_name", rank_col="HitWalkerRank")
-        
-        #r_hit_dict = custom_functions.make_ranked_hit_dict(hit_dict)
-        
-        #seed_list = custom_functions.make_seed_list(graph_db, hit_dict)
-        
-        #request.session['seed_list'] = seed_list
-        #request.session['hitwalker_score'] = hitwalker_score
-        #request.session['hit_dict'] = r_hit_dict
-        #request.session['alias_node'] = ret_samp[0][1]._id
-        #request.session['sample_info'] = {"node_type":"Sample", "name":sample_name ,"indexed_name":sample_index_name, 'display_name':ret_samp[0][1][ret_samp[0][1]['indexed_name']]}
-        #request.session['rels'] = rels
-        #moved this to index
-        #request.session['graph_struct'] = graph_struct
-        #request.session['seed_dict'] = seed_dict
-        
-        #left off here, need to ensure integration with where_vars above where the user's choices are added to the exported CSV file...
-        #index_field_dict = core.add_user_input_to_dict(config.field_dict, request)
-        
-        #cur_filts = re.sub("\$\$[\w_\d]+\$\$", "", where_template)
-        
-        #for i in index_field_dict['fields'].keys():
-        #    cur_filts = re.sub("\."+index_field_dict['fields'][i]['var_name'], index_field_dict['fields'][i]['name'], cur_filts)
-        
-        #'sample_info':'{"node_type":"Sample", "name":"' + sample_name  + '","indexed_name":"' +  sample_index_name + '"}',
-        
-        #return render(request, 'network/res_table.html', {'res_table':rels, 'res_header':rels_header, 'sample_display_name':request.session['query_samples']['LabID'],
-        #                                                'cur_filts':cur_filts, 'cur_param':json.dumps(index_field_dict['parameters']), 'seeds':json.dumps(seed_list), 'prog_type':prog_type, 'username':request.user})
-        
-        #import pickle
-        #pickle_outp = open("/Users/bottomly/Desktop/HitWalker2_viz/HitWalker2/network/static/network/text_files/test_table_request.pickle", "w")
-        #pickle.dump(request.POST, pickle_outp)
-        #print request.POST
-        #sys.exit()
-        #
-        ###need to set: request_post = dict(request.POST.iterlists())
-        #
-        #pickle_inp = open("/Users/bottomly/Desktop/HitWalker2_viz/HitWalker2/network/static/network/text_files/test_table_request.pickle", "r")
-        #request_post = dict(pickle.load(pickle_inp).iterlists())
-        #pickle_inp.close()
         
         
 
@@ -715,8 +675,12 @@ def fullfill_node_query(request):
     session = cypher.Session()
     tx = session.create_transaction()
     
+    use_query = query_info['query']
+    
     for var_elem in request.session['where_vars']:
-        use_query = core.add_where_input_query(query_info['query'], var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+        use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+    
+    print use_query, node_queries
     
     #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
     tx.append(use_query, node_queries)

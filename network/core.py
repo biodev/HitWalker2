@@ -282,6 +282,59 @@ class GeneNode(Node):
     def children(self):
         return super(GeneNode, self).children()
 
+class MetaNode(Node):
+    def __init__(self, sample_nl):
+        nl_types = sample_nl.types()
+        type_count = collections.Counter(nl_types)
+        disp_name = string.joinfields(map(lambda x: str(x[0]) + ' ('+ str(x[1]) + ')', type_count.items()), ',')
+        self.node_dict = {'id':'meta_node_1', 'display_name':disp_name, 'attributes':{'node_type':'MetaNode', 'indexed_name':'name', 'meta':{}}, 'children':sample_nl}
+        self.id = 'meta_node_1'
+        self.display_name = disp_name
+    def todict(self):
+        return super(MetaNode, self).todict()
+
+class BasicSubjectChild(Node):
+    #where cur_prop is a tuple of length 2
+    def __init__(self, cur_prop):
+        self.node_dict = {'id':string.joinfields(cur_prop), 'display_name':cur_prop[1], 'attributes':{'node_type':cur_prop[1], 'other_nodes':[], 'indexed_name':'name', 'meta':{'node_cat':cur_prop[0]}}, 'children':NodeList()}
+        self.id = string.joinfields(cur_prop)
+        self.display_name = cur_prop[1]
+    def todict(self):
+        return super(BasicSubjectChild, self).todict()
+        
+class SubjectNode(Node):
+    
+    def __init__(self, cypher_res):
+        
+        cypher_props = cypher_res[0].get_properties()
+        
+        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Sample', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}
+        
+        for i in cypher_props.items():
+            if (i[0] in set(['name', 'alias'])) == False:
+                self.node_dict['children'].add(BasicSubjectChild(i))
+        
+        self.id = cypher_props["name"]
+        self.display_name = cypher_props["name"]
+                
+    def todict (self):
+        return super(SubjectNode, self).todict()
+    
+
+class BasicGeneChild(Node):
+    def __init__(self,gene_node, samp_dict, var):
+        self.node_dict = {'id':gene_node.id +'_' + var, 'display_name':gene_node.display_name + '_' + var, 'attributes':{'node_type':var, 'other_nodes':[], 'meta':{'node_cat':'Assay Result', 'type':[], 'score':[], 'is_hit':[]}}, 'children':NodeList()}
+        for i in samp_dict.items():
+            self.node_dict['attributes']['other_nodes'].append(i[0])
+            self.node_dict['attributes']['meta']['score'].append(i[1][0][0])
+            self.node_dict['attributes']['meta']['is_hit'].append(i[1][0][1])
+        if any(self.node_dict['attributes']['meta']['is_hit']):
+            self.node_dict['attributes']['node_type'] += '_Hit'
+        self.id = gene_node.id +'_' + var
+        self.display_name = gene_node.display_name + '_' + var
+    def todict (self):
+        return super(BasicGeneChild, self).todict()
+
 class BasicChild(Node):
     
     def __init__(self,res_list):
@@ -349,6 +402,145 @@ class BasicResultsIterable:
             return list(cur_val[0].values)
         else:
             return map(lambda x: x.values, cur_val)
+
+
+#need to add me to unit tests...
+class RelationshipSet:
+    def __init__(self):
+        self.rel_set = {}
+        self.rel_keys = []
+        self.rel_key_pos = 0
+    
+    def add (self, rel, map_dict=None):
+        if map_dict != None:
+            for i in map(lambda x: x[0] + "." + x[1], itertools.product(map_dict[rel.start_node["name"]], map_dict[rel.end_node["name"]])):
+                if self.rel_set.has_key(i) == False:
+                    self.rel_set[i] = rel.get_properties()
+                    self.rel_keys.append(i)
+                else:
+                    if self.rel_set[i] != rel.get_properties():
+                        raise Exception("Found duplicate, discordant rels")
+                
+        else:
+            raise Exception("Currently unimplemented")
+            #self.rel_set.add(rel.start_node["name"] + "." + rel.end_node["name"])
+            
+    def direct_add (self,i):
+        if len(i) > 0:
+            use_name = str(i[0]) + "." + str(i[1])
+            if self.rel_set.has_key(use_name) == False:
+                self.rel_set[use_name] = {"score":i[2]}
+                self.rel_keys.append(use_name)
+            else:
+                if  self.rel_set[use_name]["score"] != i[2]:
+                     raise Exception("Found duplicate, discordant rels")
+            
+    
+    def check (self, start_node, end_node, undirected=True, map_dict=None):
+        
+        if map_dict != None:
+            if undirected == True:
+                use_set = map(lambda x: str(x[0]) + "." + str(x[1]), itertools.product(map_dict[start_node], map_dict[end_node])) + map(lambda x: str(x[1]) + "." + str(x[0]), itertools.product(map_dict[start_node], map_dict[end_node]))
+            else:
+                use_set = map(lambda x: str(x[0]) + "." + str(x[1]), itertools.product(map_dict[start_node], map_dict[end_node]))
+        else:
+            if undirected == True:
+                use_set = [start_node + "." + end_node, end_node + "." + start_node]
+            else:
+                raise Exception("Currently unimplemented")
+            #    use_set = [[rel.start_node["name"] + "." + rel.end_node["name"]]]
+        
+        return any(map(lambda x: self.rel_set.has_key(x), use_set))
+    
+    def nodes (self):
+        
+        ret_set = set()
+        
+        for i in self.rel_set.keys():
+            for j in i.split("."):
+                ret_set.add(j)
+                
+        return list(ret_set)
+    
+    def __iter__(self):
+        return self
+    
+    def next(self):
+        
+        if self.rel_key_pos != len(self.rel_keys):
+            cur_val = self.rel_set[self.rel_keys[self.rel_key_pos]]
+            split_key = self.rel_keys[self.rel_key_pos].split(".")
+            split_key.append(cur_val)
+            
+            self.rel_key_pos += 1
+            return split_key
+        else:
+            self.rel_key_pos = 0
+            raise StopIteration
+
+def handle_gene_hits(res_list, nodes, request):
+    for i in BasicResultsIterable(res_list):
+        #print i
+        if len(i) > 0:
+            if isinstance(i[0], tuple):
+                use_i = i[:]
+            else:
+                use_i = [i[:]]
+            
+            #[[u'ENSG00000158258', u'07-00112', u'LowExpr', 0.199990661272727, True]]
+            
+            gene_list = collections.defaultdict(list)
+            use_vars = set()
+            
+            for j in use_i:
+                gene_list[j[1]].append([j[3], j[4]])
+                use_vars.add(j[2])
+                
+            gene_score = BasicGeneChild(nodes.getNode(use_i[0][0]), gene_list, list(use_vars)[0])
+            nodes.addChild(use_i[0][0], gene_score)
+    
+
+class TargetChildNode(Node):
+    def __init__(self,gene_node,var_name, samp_list):
+        self.node_dict = {'id':gene_node.id+'_'+var_name, 'display_name':var_name, 'attributes':{'node_type':'Variants', 'other_nodes':samp_list,'meta':{'node_cat':'Assay Result', 'is_hit':[True]*len(samp_list)}}, 'children':NodeList()}
+        self.id = gene_node.id+'_'+var_name
+        self.display_name = var_name
+        
+    def todict(self):
+        return super(TargetChildNode, self).todict()
+
+def handle_gene_targets(res_list, nodes, request):
+    
+    if len(res_list) > 0:
+        
+        for i in res_list:
+            
+            if len(i) > 0:
+                
+                seed_header = cypherHeader(i)
+                
+                var_name = seed_header.index('query_ind')
+                samp_name = seed_header.index('Sample')
+                gene_name = seed_header.index('gene_ind')
+                
+                for j in BasicResultsIterable([i]):
+                    if isinstance(j[0], tuple):
+                        use_j = j[:]
+                    else:
+                        use_j = [j[:]]
+                
+                    #[(u'g.chr17:7578217G>A', u'uc002gim.2', u'7157', u'TP53', 157, 41, u'', u'Missense_Mutation', u'p.T211I', 0, 2, u'g.chr17:7578217G>A_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM'), (u'g.chr17:7577093C>T', u'uc002gim.2', u'7157', u'TP53', 5, 21, u'', u'Missense_Mutation', u'p.R282Q', 0, 2, u'g.chr17:7577093C>T_7157', u'42MGBA_CENTRAL_NERVOUS_SYSTEM')]
+                    
+                    print use_j
+                    
+                    gene_list = collections.defaultdict(list)
+                    for k in use_j:
+                        gene_list[k[k[var_name]]].append(k[samp_name])
+                    
+                    cur_gene = nodes.getNode(use_j[0][use_j[0][gene_name]])
+                    for k in gene_list.items():
+                        variant = TargetChildNode(cur_gene, k[0], k[1])
+                        nodes.addChild(cur_gene.id, variant)
 
 def make_sample_table (node, context, sample_link=""):
     
@@ -854,7 +1046,6 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False)
 def apply_grouping2(cur_graph, query_nodes, never_group=False):
     import config
     import sys
-    from custom_functions import MetaNode
     
     new_graph = {'nodes':NodeList(), 'links':copy.deepcopy(cur_graph['links'])}
     #

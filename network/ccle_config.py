@@ -129,17 +129,17 @@ hit_session_dict = {"DrugScore":[core.customize_query(gene_score, query=lambda x
 
 #Here we also need to have 'query_ind', 'gene_ind' and a unique 'row_id'
 query_prior_dict = {"Variants":[
-                            {'query': ('MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene) WHERE n.name IN {name}' 
-                              'RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene,'
+                            {'query': ('MATCH (n:Sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene)-[:REFFERED_TO]-(symb) WHERE n.name IN {name}' 
+                              'RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,'
                               'r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,'
-                              'r2.variant_classification AS variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 1 AS gene_ind, var.name + "_" + gene.name AS row_id') ,
+                              'r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id') ,
                             'handler':core.handle_query_prior, 'session_params':None}]}
 
 score_hits=core.no_combining
-#convert_ids_to=custom_functions.gene_seed_list_to_protein
-#convert_ids_from=custom_functions.protein_seed_list_to_gene
-#get_seed_list=custom_functions.make_seed_list
-#get_query_list = custom_functions.make_seed_list
+convert_ids_to=custom_functions.gene_seed_list_to_protein
+convert_ids_from=custom_functions.protein_seed_list_to_gene
+get_seed_list=custom_functions.make_seed_list
+get_query_list=custom_functions.make_seed_list
 #
 ##Need to ensure that the query can find the appropriate parameters in the session and that the sample is refered to as '{name}'
 prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_graph_file":"/var/www/hitwalker_2_inst/protein.links.detailed.v9.05.9606.mm.mtx",
@@ -220,22 +220,9 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 #
 ## Need to work on this for Sample... {'text':'Variant', 'query':'', 'handler':'', 'session_params':None},
 #
-#node_abbreviations = {
-#    'MYELOPROLIFERATIVE NEOPLASMS':'MPN',
-#    'PRECURSOR LYMPHOID NEOPLASMS':'PLN',
-#    'ACUTE MYELOID LEUKAEMIA (AML) AND RELATED PRECURSOR NEOPLASMS': 'AML',
-#    'MYELODYSPLASTIC SYNDROMES':'MDS',
-#    'MYELODYSPLASTIC/MYELOPROLIFERATIVE NEOPLASMS':'MDS/MPN',
-#    'MATURE B-CELL NEOPLASMS':'MBCN',
-#    'HighExpr':'Expression',
-#    'HighExpr_Hit':'HighExpression'
-#}
+node_abbreviations = {}
 #
-#edge_abbreviations = {
-#    'Possible_HighExpr':'Expression_Collected',
-#    'Observed_HighExpr':'Observed_HighExpression',
-#    
-#}
+edge_abbreviations = {}
 #
 
 #
@@ -243,8 +230,9 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 #    'siRNA':custom_functions.get_sirna_data
 #}
 #
-#graph_initializers = {
-#    'panel':custom_functions.get_shortest_paths,
+
+graph_initializers = {
+    'panel':custom_functions.get_shortest_paths,
 #    'image':custom_functions.get_pathways_sample
-#}
+}
 #

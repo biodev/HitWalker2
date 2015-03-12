@@ -1,6 +1,10 @@
 from py2neo import neo4j, cypher
 import core
 import collections
+import string
+import itertools
+import json
+import copy
 
 def match_sample(query):
     
@@ -10,11 +14,49 @@ def match_sample(query):
     
     query_list = []
     
-    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:CellLine) WHERE n.name =~ "'+query+'.*' +'"UNWIND [n.name] + n.alias AS name_alias WITH n, name_alias RETURN ID(n), name_alias')
+    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@) UNWIND [n.name] + n.alias AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(n.name)')
     
     for i in sample_query.execute().data:
-        query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':[i.values[1]]})
+        query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':i.values[2]})
     
+    return query, query_list
+
+
+def match_gene(query):
+    
+    from config import cypher_session
+    
+    graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
+    query_list = []
+    
+    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:Symbol)<-[r:REFFERED_TO]-(m) UNWIND [n.name] + r.synonyms AS name_syns WITH n,m,name_syns WHERE name_syns =~"'+query+'.*"  RETURN m.name+name_syns, name_syns, COLLECT(m.name) ')
+    
+    search_res = []
+    
+    for i in sample_query.execute().data:
+        
+        query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':i.values[2]})
+    
+    return query, query_list
+
+def match_pathway(query):
+    
+    query = json.loads(query)
+    
+    from config import cypher_session
+    
+    graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
+    
+    query_list = [] 
+    
+    if len(query) == 0:
+        return query, []
+    else:
+        sample_query = neo4j.CypherQuery(graph_db,'MATCH (g:EntrezID)-[:PATHWAY_CONTAINS]-(path) WITH path, COUNT(g) AS g_count WHERE g_count < 200 MATCH (gene:EntrezID)-[r:PATHWAY_CONTAINS]-(path) WHERE ALL(x IN '+str(json.dumps(query))+' WHERE ANY(y in x WHERE gene.name = y)) RETURN DISTINCT ID(path), path.name + " (n=" + g_count + ")"')
+        
+        for i in sample_query.execute().data:
+            query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':[i.values[1]]})
+        
     return query, query_list
 
 
@@ -178,6 +220,148 @@ def netprop_rwr(request, seed_gene_nl, initial_graph_file, string_session_name, 
     
     return core.SeedList(prot_nl)
 
+def get_gene_names(res_list, nodes, request):
+    
+    for i in core.BasicResultsIterable(res_list):
+        if len(i) > 0:
+            nodes.add(core.GeneNode(i))
+
+def get_subject (res_list, nodes, request):
+    for i in core.BasicResultsIterable(res_list):
+        if len(i) > 0:
+            nodes.add(core.SubjectNode(i))
+            
+def get_pathway(res_list, nodes, request):
+    
+    gene_names = []
+    path_name = []
+    
+    for i in core.BasicResultsIterable(res_list):
+        if len(i) > 0:
+            if isinstance(i[0], tuple):
+                use_i = i[:]
+            else:
+                use_i = [i[:]]
+            
+            for j in use_i:
+                path_name.append(j[0])
+                gene_names.extend(j[1])
+    
+    #as pathways are currently only produced from the copy_nodes interface
+    import config
+    
+    gene_nl = core.get_nodes(gene_names, 'Gene', request, config_struct=config.edge_queries['nodes'], missing_param="skip")
+    
+    #a pathway in this context is a special metanode
+    nodes.extend(gene_nl)
+
+def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
+    from_node_dict = from_node.todict()
+    to_node_dict = to_node.todict()
+    
+    import config
+    
+    if from_node_dict['attributes'].has_key('node_type') and to_node_dict['attributes'].has_key('node_type'):
+        
+        if from_node_dict["attributes"]["node_type"] == "Sample" and to_node_dict["attributes"]["node_type"] == "Gene":
+            
+            is_hit = rel_type.endswith("_Hit")
+            temp_rel_name = rel_type.replace("_Hit", "")
+            
+            if temp_rel_name == config.data_types['target']:
+                
+                if request.session.has_key('hitwalker_score') and request.session['hitwalker_score'].nodeList().hasNode(to_node_dict["id"]) == True and from_node_dict['id'] == request.session['query_samples']['SampleID'][config.data_types['target']]:
+                    temp_rel_name = "Ranked_" + temp_rel_name
+                else:
+                    temp_rel_name = "Observed_" + temp_rel_name
+            else:
+            
+                if is_hit == True:
+                    temp_rel_name = "Observed_" + temp_rel_name
+                else:
+                    temp_rel_name = "Possible_" + temp_rel_name
+            
+            return {'type':temp_rel_name}
+        
+        elif from_node_dict["attributes"]["node_type"] == "Gene" and to_node_dict["attributes"]["node_type"] == "Gene":
+            
+            return {'type':'STRING'}
+        
+        else:
+            return {'type':'Unknown'}#'rank':1000000}
+    else:
+        return {'type':'Unknown'}#'rank':1000000}
+
+
+def no_rels(query, subj, request, config_struct_nodes, cur_graph):
+    return cur_graph
+
+def gene_to_sample (genes, sampleids, request, config_struct_nodes, cur_graph):
+    
+    #as the genes have a dependency on labids, retrieve the nodes again as well as the children (a little wasteful but direct for now...)
+   
+    #where labids should be a list of labIDs that will get directly substituted into the query
+    param_list = [{'SAMPLE':list(sampleids)}]
+    
+    gene_nodes = core.get_nodes(list(genes), 'Gene', request, config_struct=config_struct_nodes, param_list=param_list)
+    
+    #for each of the genes, examine their children and record an edge corresponding the the child type and labid
+    #use this list and the specified labids to determine if edges are appropriate
+    
+    for i in gene_nodes:
+        for j in i.children():
+            #add children to existing nodes
+            cur_graph["nodes"].addChild(i.id, j)
+            #add links
+            child_dict = j.todict()
+            #print j.id
+            for k_ind, k in enumerate(child_dict["attributes"]["other_nodes"]):
+                #print k
+                cur_graph['links'].append({'source':cur_graph["nodes"].nodeIndex(k), 'target':cur_graph["nodes"].nodeIndex(i.id), 'attributes':get_link_atts(request, cur_graph["nodes"].getNode(k) , cur_graph["nodes"].getNode(i.id) , child_dict["attributes"]["node_type"], {}, child_dict["attributes"]["meta"]["is_hit"][k_ind])})
+    return cur_graph
+
+#as gene_to_gene is used for determination of pathways add in the path_conf session variable instead of the standard string_conf
+def gene_to_gene(query_genes, subj_genes, request, config_struct_nodes, cur_graph):
+    
+    import config
+    
+    session = cypher.Session(config.cypher_session)
+    tx = session.create_transaction()
+    
+    print len(query_genes), len(subj_genes)
+    
+    cur_edge_set = core.RelationshipSet()
+    
+    for i in query_genes:
+        tx.append(config.gene_rels['query'], {"FROM_GENE":i, "TO_GENES":subj_genes, "string_conf":core.iterate_dict(request.session, ['path_conf'])})
+    
+    for i in core.BasicResultsIterable(tx.execute()):
+        if len(i) > 0:
+            if isinstance(i[0], tuple):
+                use_i = i[:]
+            else:
+                use_i = [i[:]]
+            for j in use_i:
+                if len(j) > 0 and cur_edge_set.check(j[0], j[1]) == False:
+                    cur_edge_set.direct_add(j)
+                    cur_graph['links'].append({'source':cur_graph["nodes"].nodeIndex(j[0]), 'target':cur_graph["nodes"].nodeIndex(j[1]), 'attributes':get_link_atts(request, cur_graph["nodes"].getNode(j[0]), cur_graph["nodes"].getNode(j[1]), None, {'score':j[2]})})
+    
+    return cur_graph
+
+def get_pathways_sample (request, request_post):
+    
+    import config
+    print request_post
+    subj_nodes = map(lambda x:{'node_type':'Sample', 'id':x}, request_post['sample_name'])
+    query_nodes = map(lambda x:{'node_type':'Pathway', 'id':x}, request_post['pathway_name'])
+    
+    new_edge_queries = copy.deepcopy(config.edge_queries)
+    new_edge_queries['edges']['Gene']['Gene']['handler'] = gene_to_gene
+    
+    cur_graph = core.copy_nodes(subj_nodes, query_nodes, request, new_edge_queries, never_group=True)
+    
+    return cur_graph['nodes'].tolist(), cur_graph['links'], query_nodes[0]['id']
+
 def get_shortest_paths (request, request_post):
     
     from config import cypher_session
@@ -189,7 +373,7 @@ def get_shortest_paths (request, request_post):
         ##if bypassing table I think this would be necessary...
         #simply create a graph with the node(s) requested by the user 
         
-        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'LabID', request)
+        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'Sample', request)
         
         node_names = final_nodes_list.display_names()
         
@@ -197,6 +381,8 @@ def get_shortest_paths (request, request_post):
             title = 'Sample: '+ node_names[0]
         else:
             title = 'Samples: ' + string.joinfields(node_names, ',')
+        
+        print final_nodes_list.tolist()
         
         return final_nodes_list.tolist(), [], title
     else:
@@ -214,10 +400,11 @@ def get_shortest_paths (request, request_post):
         final_nodes_list = core.get_nodes(list(samp_set), 'Sample', request)
         
         sp_query = string.joinfields(['MATCH (n:EntrezID{name:{var_select}})-[:MAPPED_TO]->(np) WITH np MATCH (m:EntrezID{name:{seed_select}})-[:MAPPED_TO]->(mp) WITH mp, np MATCH p=(np)-[:ASSOC*1..2]->(mp)',
-                    'WHERE ALL(x IN NODES(p) WHERE (x)<-[:MAPPED_TO]-()) AND ALL(x IN RELATIONSHIPS(p) WHERE HAS(x.score) AND x.score > {score}) WITH p, REDUCE(val=0, x in RELATIONSHIPS(p)| val+x.score) as use_score,',
+                    'WHERE ALL(x IN NODES(p) WHERE (x)<-[:MAPPED_TO]->()) AND ALL(x IN RELATIONSHIPS(p) WHERE HAS(x.score) AND x.score > {score}) WITH p, REDUCE(val=0, x in RELATIONSHIPS(p)| val+x.score) as use_score,',
                     'LENGTH(RELATIONSHIPS(p)) AS min_len ORDER BY min_len, use_score DESC RETURN p limit 1'], " ")
         
         for var, seed in itertools.product(request_post['var_select'], request_post['seed_select']):
+            print var, seed
             tx.append(sp_query, {'var_select':var, 'seed_select':seed, 'score':int(request.session['string_conf']*1000)})
             
         all_path = tx.execute()
@@ -227,7 +414,7 @@ def get_shortest_paths (request, request_post):
         nodes_to_recon = []
         
         prot_to_gene = string.joinfields([
-                'MATCH (n:StringID{name:{cur_prot}})-[:MAPPED_TO]-()-[:EXTERNAL_ID]-(m) RETURN n.name,m.name'
+                'MATCH (n:StringID{name:{cur_prot}})-[:MAPPED_TO]-(m) RETURN n.name,m.name'
             ], " ")
         
         for i in core.BasicResultsIterable(all_path):
@@ -260,7 +447,7 @@ def get_shortest_paths (request, request_post):
         
         #then figure out whether any of these nodes are connected to one-another
         
-        dp_query = 'MATCH (n:Gene{name:{gene_1}})-[:EXTERNAL_ID]-()-[:MAPPED_TO]-()-[r:ASSOC]->()-[:MAPPED_TO]-()-[:EXTERNAL_ID]-(m:Gene{name:{gene_2}}) WHERE HAS(r.score) AND r.score > {score} WITH n,m, MAX(r.score) AS max_score RETURN n.name,m.name, max_score'
+        dp_query = 'MATCH (n:EntrezID{name:{gene_1}})-[:MAPPED_TO]-()-[r:ASSOC]->()-[:MAPPED_TO]-(m:EntrezID{name:{gene_2}}) WHERE HAS(r.score) AND r.score > {score} WITH n,m, MAX(r.score) AS max_score RETURN n.name,m.name, max_score'
         # 
         for i,j in itertools.combinations(list(cur_node_set), 2):
             tx.append(dp_query, {'gene_1':i, 'gene_2':j, 'score':int(request.session['string_conf']*1000)})
@@ -281,7 +468,7 @@ def get_shortest_paths (request, request_post):
             else:
                 sample_dict[i[0]] = []
         
-        #print cur_node_set
+        print cur_node_set
         
         gene_nodes_list = core.get_nodes(list(cur_node_set), 'Gene', request, param_list=[sample_dict])
         
