@@ -22,6 +22,9 @@ pathway_sizes = {"w":800, "h":800, "legend_offset":200, "history_offset":10}
 #the target is the variable to be ranked (otherwise known as the query)
 data_types=@DATA_TYPES@
 
+#The data_list is simply a list of all data types whether they are used in the prioritization or not
+data_list=@USE_DATA@
+
 #fields part of the 'Adjust' dropdown on the main page that accept user input
 #this input controls which genes get prioritized and how the queries are performed
 #input should be in the form:
@@ -135,7 +138,7 @@ node_queries={
 #assuming gene_score was the unique key in 'adjust_fields'
 
 
-for i in data_types['seeds']+[data_types['target']]:
+for i in data_list:
     node_queries['Gene'].append(core.customize_query(eval(i), query=lambda x: x.replace("{GENE}", "{name}").replace("{SAMPLE}", "{"+i+"}")))
 
 
@@ -159,7 +162,7 @@ edge_queries = {
 
 }
 
-for i in data_types['seeds']+[data_types['target']]:
+for i in data_list:
     edge_queries['nodes']['Gene'].append(core.customize_query(eval(i), query=lambda x: x.replace("{GENE}", "{name}")))
 
 
@@ -185,7 +188,7 @@ group_key_set = set(node_group_content.keys())
 assert len(group_key_set) == 2
 
 for i in group_key_set:
-    for j in data_types['seeds']+[data_types['target']]:
+    for j in data_list:
         node_group_content[i]['options'].append(core.specify_type_query_tmp(eval(j+"_tmpl"), ret_type=list(group_key_set.difference(set([i])))[0], coll_type=i))
 
     

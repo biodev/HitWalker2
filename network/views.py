@@ -140,7 +140,13 @@ def generate_css (user_name):
         edge_type_transl[edge] = {'name':abrev, 'class':None}
     
     #make sure that the seeds and target specified in data_types are represented so the hits can be rendered correctly
-    for node in map(lambda x: x+'_Hit', config.data_types['seeds']) + [config.data_types['target']]:
+    #use the values defined in data_list for the _Hits with the exception of the target
+    
+    temp_hits = set(config.data_list).difference(set([config.data_types['target']]))
+    
+    print temp_hits
+    
+    for node in map(lambda x: x+'_Hit', temp_hits) + [config.data_types['target']]:
         if node_type_transl.has_key(node) == False:
             #choose a default for it
             new_color = default_css_classes.difference(used_defaults).pop()
@@ -148,6 +154,8 @@ def generate_css (user_name):
             used_defaults.add(new_color)
             
             important_defaults.add(new_color)
+    
+    print node_type_transl
     
     #if it is a _Hit or can be translated to one, then add in the appropriate class for the non-hit to hw_css
     #additionally, add in the edges corresponding to hits in a similar fashion
@@ -225,7 +233,8 @@ def generate_css (user_name):
                     dash_str + \
             '}'
         )
-        
+    
+    print hw_css.cssText
     
     #now serialize the new css appropriately in a unique file
     new_css_path = os.path.join(static_storage.location, "network/static/network/css/HitWalker2_"+user_name+".css")

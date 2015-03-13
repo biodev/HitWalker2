@@ -1072,7 +1072,7 @@
             }
             
             
-            var legend_node_map = d3.map();
+            var legend_node_list = [];
             var legend_edge_set = d3.set();
             
             vis_map.values().forEach(function(d)
@@ -1081,10 +1081,8 @@
                                         {
                                             d.graph.nodes.forEach(function(cur_node)
                                                                   {
-                                                                        if (legend_node_map.has(cur_node.id)==false)
-                                                                        {
-                                                                            legend_node_map.set(cur_node.id, cur_node);
-                                                                        }
+                                                                      
+                                                                        legend_node_list.push(cur_node);
                                                                   });
                                             
                                             d.graph.links.forEach(function(cur_edge)
@@ -1096,9 +1094,9 @@
             
             //depricated
             //legend_graph = vis_map.values().reduce(function(previousValue, currentValue, index, array){return (add_to_graph(previousValue.graph, currentValue.graph));})
-            if (legend_node_map.keys().length > 0)
+            if (legend_node_list.length > 0)
             {
-                make_graph_legend(over_vis, legend_node_map.values(), legend_edge_set.values());
+                make_graph_legend(over_vis, legend_node_list, legend_edge_set.values());
             }
                 
             
