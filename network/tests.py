@@ -1,3 +1,6 @@
+from django.test import LiveServerTestCase
+from selenium import webdriver
+
 from django.utils import unittest
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -18,6 +21,59 @@ import re
 from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
+
+class BasicSeleniumTests(LiveServerTestCase):
+    
+    def setUp(self):
+        
+        self.client.login(username=superuser.username, password='superpassword') #Native django test client
+        cookie = self.client.cookies['sessionid']
+        self.browser.get(self.live_server_url + '/HitWalker2')  #selenium will set cookie domain based on current page domain
+        self.browser.add_cookie({'name': 'sessionid', 'value': cookie.value, 'secure': False, 'path': '/'})
+        self.browser.refresh() #need to update page for logged in user
+        self.browser.get(self.live_server_url + '/HitWalker2')
+        
+        #self.driver = webdriver.Firefox()
+        #self.driver.implicitly_wait(1)
+        #self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+        #elem = self.driver.find_element_by_id("id_username")
+        #elem.send_keys("selenium")
+        #elem = self.driver.find_element_by_id("id_password")
+        #elem.send_keys("test")
+        #
+        #self.driver.find_element_by_css_selector("input[type=submit]").click()
+    
+    def test_gene_addition(self):
+    
+        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("07-00112")
+        self.driver.find_element_by_css_selector(".select2-result-label").click()
+        time.sleep(1)
+        self.driver.find_element_by_css_selector("#query").click()
+        
+        #right click on a panel
+        
+        use_panel = self.driver.find_element_by_css_selector("rect.BorderRect")
+        
+        webdriver.ActionChains(self.driver).move_to_element(use_panel).context_click(use_panel).perform()
+        
+        self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
+        
+        self.driver.find_element_by_css_selector("ul li:first-child a").click()
+        
+        #enter the gene name
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        #self.driver.find_element_by_css_selector("input.select2-input").send_keys("CLSTN2")
+        self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
+        self.driver.find_element_by_css_selector(".select2-result-label").click()
+        time.sleep(1)
+        
+        self.driver.find_element_by_xpath("//button[.='OK']").click()
+        
+        
+        time.sleep(10)
+    
 
 ##globally useful functions and classes
 
