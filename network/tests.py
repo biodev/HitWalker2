@@ -18,6 +18,7 @@ import os
 import string
 import collections
 import re
+import time
 from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
@@ -26,12 +27,17 @@ class BasicSeleniumTests(LiveServerTestCase):
     
     def setUp(self):
         
-        self.client.login(username=superuser.username, password='superpassword') #Native django test client
+        self.driver = webdriver.Firefox()
+        # create user
+        self.user = User.objects.create_user(username="selenium",
+                                             email=None,
+                                             password="test")
+        self.client.login(username="selenium", password="test") #Native django test client
         cookie = self.client.cookies['sessionid']
-        self.browser.get(self.live_server_url + '/HitWalker2')  #selenium will set cookie domain based on current page domain
-        self.browser.add_cookie({'name': 'sessionid', 'value': cookie.value, 'secure': False, 'path': '/'})
-        self.browser.refresh() #need to update page for logged in user
-        self.browser.get(self.live_server_url + '/HitWalker2')
+        self.driver.get(self.live_server_url + '/HitWalker2')  #selenium will set cookie domain based on current page domain
+        self.driver.add_cookie({'name': 'sessionid', 'value': cookie.value, 'secure': False, 'path': '/'})
+        self.driver.refresh() #need to update page for logged in user
+        self.driver.get(self.live_server_url + '/HitWalker2')
         
         #self.driver = webdriver.Firefox()
         #self.driver.implicitly_wait(1)
@@ -43,13 +49,16 @@ class BasicSeleniumTests(LiveServerTestCase):
         #
         #self.driver.find_element_by_css_selector("input[type=submit]").click()
     
+    def tearDown(self):
+        self.driver.quit()
+    
     def test_gene_addition(self):
     
         self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("07-00112")
         self.driver.find_element_by_css_selector(".select2-result-label").click()
-        time.sleep(1)
+        time.sleep(5)
         self.driver.find_element_by_css_selector("#query").click()
         
         #right click on a panel
