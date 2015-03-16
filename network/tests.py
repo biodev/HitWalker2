@@ -56,7 +56,7 @@ class BasicSeleniumTests(LiveServerTestCase):
     
         self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
         self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("07-00112")
+        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
         self.driver.find_element_by_css_selector(".select2-result-label").click()
         time.sleep(5)
         self.driver.find_element_by_css_selector("#query").click()
@@ -79,6 +79,8 @@ class BasicSeleniumTests(LiveServerTestCase):
         time.sleep(1)
         
         self.driver.find_element_by_xpath("//button[.='OK']").click()
+        
+        #check the sanity of the result
         
         
         time.sleep(10)

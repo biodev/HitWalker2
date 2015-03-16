@@ -191,14 +191,12 @@ for i in group_key_set:
     for j in data_list:
         node_group_content[i]['options'].append(core.specify_type_query_tmp(eval(j+"_tmpl"), ret_type=list(group_key_set.difference(set([i])))[0], coll_type=i))
 
-    
+#needs to be a list of the form: [(Gene | Sample, value in data_list to disable)]
+disable_node_group_content = []
 
-## Need to work on this for Sample... {'text':'Variant', 'query':'', 'handler':'', 'session_params':None},
-#
 node_abbreviations = {}
-#
+
 edge_abbreviations = {}
-#
 
 #
 #plot_data_types = {
