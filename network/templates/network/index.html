@@ -897,15 +897,19 @@
                     
                     if (sel_sample_dta.length == 1 && sel_sample_dta[0].required_data == 1)
                     {
+			
+			console.log(JSON.stringify(back_nest));
                         //check to see if it is valid, if so then record which datatypes are > 0 and place the lab ID in the appropriate row...
                         for(i=0; i < sel_sample_dta[0].data.length;i++)
                         {
+			    console.log(JSON.stringify(sel_sample_dta[0].data[i]));
                             if (sel_sample_dta[0].data[i].count > 0)
                             {
                                 ids_for_rows.set(sel_sample_dta[0].data[i].name, data.sample_list[0].Sample);
                             }
                             else
                             {
+				//in the case of only one other sample containing the missing data, then use that otherwise N/A out and warn the user to choose...
                                 ids_for_rows.set(sel_sample_dta[0].data[i].name, "N/A");
                             }
                             
