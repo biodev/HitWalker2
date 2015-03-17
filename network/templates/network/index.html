@@ -1082,10 +1082,11 @@
             });
         
         var category_list = [];
-        
+	
+	//The -40 etc simply adds the text labels to the top for the middle label
         legend_labs.append("text")
-                .attr("dx", function(d) { return d.children.length > 0 ? -8 : 8; })
-                .attr("dy", function(d) { return (15) })
+                .attr("dx", function(d) { return d.children.length > 0 ? 0 : 8; })
+                .attr("dy", function(d) { return d.children.length > 0 ? (20 + (-40*(d.depth % 2))) : 15 })
                 .attr("text-anchor", function(d) {
                     if(d.parent == undefined  || d.children.length == 0)
                     {
@@ -1098,7 +1099,7 @@
                 })
                 .style("font-size", "10px")
                 .text(function(d) { return d.name; });
-        
+	
         //var link_legend = vis.append("g").attr("class", "link_legend").attr("transform", "translate(50,100)");
         
         //figure out the distinct X values for all the SVG text and place the values in exp_headers according to the hierarchy
