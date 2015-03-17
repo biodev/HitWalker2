@@ -62,3 +62,139 @@ sudo pip install tinycss cssselect cssutils colour
 sudo pip install pandas gunicorn eventlet
 
 sudo apt-get install git
+
+sudo mkdir -p /var/www/hitwalker2_inst
+
+##install neo4j, as of now v2.1.7
+
+#install java 7
+
+sudo apt-get install openjdk-7-jdk
+
+sudo apt-get install wget
+
+wget -O temp.key http://debian.neo4j.org/neotechnology.gpg.key
+
+sudo apt-key add temp.key
+
+rm temp.key
+
+sudo apt-get install vim
+
+sudo vim /etc/apt/sources.list.d/neo4j.list
+
+#added:
+
+deb http://debian.neo4j.org/repo stable/
+
+ apt-get update
+ 
+ sudo apt-get install neo4j
+ 
+ #may need:
+  service neo4j-service start
+  
+  #remove limit on number of open files:
+  
+  #via: http://neo4j.com/docs/2.1.7/linux-performance-guide.html
+  
+  sudo su -
+ 
+ vim /etc/security/limits.conf
+ 
+ #add:
+ 
+#neo4j   soft    nofile  40000
+#neo4j   hard    nofile  40000
+ 
+ 
+ vim /etc/pam.d/su
+ 
+ #add
+ 
+ #session    required   pam_limits.so
+ 
+ 
+#Add a shared folder--macs, right click on VM box->settings->Shared Folders->e.g. /Users/bottomly/Desktop/hitwalker2_paper
+ 
+ #First install Guest Extensions to support shared folders
+ 
+ sudo apt-get install dkms build-essential linux-headers-generic
+ 
+ #click on the VM window->devices->insert guest additions cd
+ 
+ sudo mount /dev/sr0 /media/cdrom
+ 
+ cd /media/cdrom
+ 
+ sudo sh ./VBoxLinuxAdditions.run
+ 
+cd ..;sudo umoun cdrom
+ 
+ sudo mkdir /mnt/share
+ 
+ sudo mount -t vboxsf hitwalker2_paper /mnt/share
+ 
+ #get the base data
+ 
+ cd /mnt/share
+ 
+ cp -r hitwalker2_base_data /home/hw_user/
+ 
+
+#set the data directory for neo4j to this location
+
+sudo service neo4j-service stop
+
+sudo mv /var/lib/neo4j/data /var/lib/neo4j/data-old
+
+
+sudo ln -s /hom	e/hw_user/hitwalker2_base_data /var/lib/neo4j/data
+
+cd /home/hw_user
+
+#from /var/lib/neo4j
+sudo chown -R neo4j:adm data
+
+#from /home/hw_user
+sudo chown -R neo4j:adm hitwalker2_base_data
+
+sudo service neo4j-service start
+
+
+#does it work:
+neo4j-shell -c 'match (n) return n limit 10'
+
+
+#networking
+
+#shutdown the server
+
+#go to settings->networking and select 'bridged adaptor'
+
+#restart
+
+#Can access machine through the ifconfig ip of the host computer...
+
+
+#Install R in /home as that is where most of the space resides...
+
+wget http://cran.us.r-project.org/src/base/R-3/R-3.1.3.tar.gz
+
+tar -xzvf R-3.1.3.tar.gz
+
+cd R-3.1.3
+
+sudo apt-get install gfortran libreadline-dev
+
+./configure --with-x=no
+
+make
+
+#add to ~/.bash_profile
+
+export /home/hw_user/R-3.1.3/bin:$PATH
+
+#install the following R packages:
+
+
