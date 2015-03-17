@@ -191,10 +191,20 @@ sudo apt-get install gfortran libreadline-dev
 
 make
 
-#add to ~/.bash_profile
+vim ~/.bash_profile
+export PATH=/home/hw_user/R-3.1.3/bin:$PATH
 
-export /home/hw_user/R-3.1.3/bin:$PATH
+R
 
-#install the following R packages:
+source("http://bioconductor.org/biocLite.R")
+
+biocLite(c("igraph", "reshape2", "Biobase", "rjson"))
+
+#install HitWalker2
+
+git clone https://github.com/biodev/HitWalker2.git HitWalker2
+
+#cloned at this point--full clone
+
 
 
