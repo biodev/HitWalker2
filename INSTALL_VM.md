@@ -60,3 +60,5 @@ sudo yum install libxslt-devel.x86_64
 sudo pip install tinycss cssselect cssutils colour
 
 sudo pip install pandas gunicorn eventlet
+
+sudo apt-get install git
