@@ -546,7 +546,10 @@ def make_sample_table (node, context, sample_link=""):
     
     if len(node) > 0:
         
-        ret_str = '<a href="'+sample_link+node["id"]+'" class="list-group-item">Sample Info</a>'
+        if sample_link != "":
+            ret_str = '<a href="'+sample_link+node["id"]+'" class="list-group-item">Sample Info</a>'
+        else:
+            ret_str = ''
         
         ret_str += '<table class="table" style="width:300px">'
         ret_str += '<tbody>'

@@ -858,9 +858,9 @@ function make_graph_legend(vis, node_list, edge_list)
             .text(function(d) {
                if (d.type == "Node")
                {
-                  return (type_translation(d.name, node_transl, 'name').replace("_", " "));
+                  return (type_translation(d.name, node_transl, 'name').replace(/_/g, " "));
                }else{
-                  return (type_translation(d.name, edge_transl, 'name').replace("_", " "));
+                  return (type_translation(d.name, edge_transl, 'name').replace(/_/g, " "));
                 }});
     
     

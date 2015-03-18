@@ -234,8 +234,6 @@ def generate_css (user_name):
             '}'
         )
     
-    print hw_css.cssText
-    
     #now serialize the new css appropriately in a unique file
     new_css_path = os.path.join(static_storage.location, "network/static/network/css/HitWalker2_"+user_name+".css")
     new_css_out = open(new_css_path, "w")
