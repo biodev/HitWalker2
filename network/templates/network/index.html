@@ -910,7 +910,34 @@
                             else
                             {
 				//in the case of only one other sample containing the missing data, then use that otherwise N/A out and warn the user to choose...
-                                ids_for_rows.set(sel_sample_dta[0].data[i].name, "N/A");
+				
+				var possib_samps = [];
+				
+                                back_nest.forEach(function(k,v)
+						  {
+							if (k != data.sample_list[0].Sample)
+							{
+							    v.forEach(function(o){
+								o.data.forEach(function(p){
+								    if (p.name == sel_sample_dta[0].data[i].name && p.count > 0)
+								    {
+									possib_samps.push(k);
+								    }
+								});
+							    });
+							    
+							}
+						  });
+				
+				if (possib_samps.length > 0)
+				{
+				    ids_for_rows.set(sel_sample_dta[0].data[i].name, possib_samps[0]);
+				    
+				}else{
+				    ids_for_rows.set(sel_sample_dta[0].data[i].name, "N/A");
+				}
+				
+				
                             }
                             
                         }
