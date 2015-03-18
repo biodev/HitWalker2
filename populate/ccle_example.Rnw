@@ -18,7 +18,7 @@ The first step is to download the necessary files from the Cancer Cell Line Ency
 
 cell\_line\_annotations.txt
 CCLE\_hybrid\_capture1650\_hg19\_NoCommonSNPs\_NoNeutralVariants\_CDS\_2012.05.07.maf.gz
-CCLE\_NP24.2009\_Drug\_datawarning_2012.02.20.csv
+CCLE\_NP24.2009\_Drug\_data\_2012.02.20.csv	
 CCLE\_Expression.Arrays.sif\_2012-10-18.txt
 CCLE\_Expression.Arrays\_2013-03-18.tar.gz
 
@@ -50,8 +50,8 @@ example below we will use gender as well as the 'primary site' as our metadata.
 cell.annots <- read.delim("cell_line_annotations.txt", sep="\t", header=T, stringsAsFactors=F)
 
 cell.annots$alias <- ifelse(cell.annots$Cell.line.aliase == "", cell.annots$Cell.line.primary.name, paste(cell.annots$Cell.line.primary.name, cell.annots$Cell.line.aliases, sep=" | "))
-any(grepl("&", subject.dta))
-subject.dta$alias <- gsub("\\s+\\|\\s+", "&", subject.dta$alias)
+any(grepl("&", cell.annots))
+cell.annots$alias <- gsub("\\s+\\|\\s+", "&", cell.annots$alias)
 
 @
 
@@ -103,7 +103,7 @@ between drug and gene.  The dowloaded file contains this information, though we 
 
 <<echo=TRUE, eval=TRUE>>=
 
-drug.dta <- read.csv("CCLE_NP24.2009_Drug_datawarning_2012.02.20.csv", stringsAsFactors=F)
+drug.dta <- read.csv("CCLE_NP24.2009_Drug_data_2012.02.20.csv", stringsAsFactors=F)
 
 library(Entrez)
 
@@ -248,15 +248,19 @@ length(intersect(samps.w.hits, sampleNames(maf.obj)))
 
 So as an example we will process and load expression for the first 20 of these.
 
+<<eval=TRUE, echo=TRUE>>=
+
+sif <- read.delim("CCLE_Expression.Arrays.sif_2012-10-18.txt", sep="\t", header=T, stringsAsFactors=F)
+
+sub.sif <- sif[sif$CCLE.name %in% intersect(samps.w.hits, sampleNames(maf.obj)),][1:20,]
+
+@
+
 <<eval=FALSE, echo=TRUE>>=
 
 #process only a subset of the CEL files
 
 dir.create("ccle_cel_file_subset")
-
-sif <- read.delim("CCLE_Expression.Arrays.sif_2012-10-18.txt", sep="\t", header=T, stringsAsFactors=F)
-
-sub.sif <- sif[sif$CCLE.name %in% intersect(samps.w.hits, sampleNames(maf.obj)),][1:20,]
 
 all(sub.sif$Batch == 1)#TRUE, so won't do batch correction here
 
@@ -311,7 +315,7 @@ We can then populate the database and create the configuration files.
 
 hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez", data.types=list(seeds="GeneScore", target="Variants"), Expression=HW2exprSet(upc.eset), GeneScore=drug, Variants=maf.obj)
 
-populate(hw2.conf)
+populate(hw2.conf, neo.path=normalizePath("neo4j-community-2.1.6/"))
 
 #you can then check the graph for sanity:
 
@@ -324,10 +328,31 @@ Finally we provide utilities to gain information on the Neo4j graph structure th
 
 <<eval=TRUE, echo=TRUE>>=
 
-ccle.graph <- compute.graph.structure()
+ccle.graph <- compute.graph.structure(neo.path=normalizePath("neo4j-community-2.1.6/"))
 
 plot(ccle.graph)
+
+@
+
+\section{Additional Customization}
+
+Note that addition info can be added to the config and custom_functions files manually, for instance for the CCLE data one can add in a link to the CCLE website on the sample node right click by specifying:
+
+node_content['Sample']['args']['sample\_link'] = 'http://www.broadinstitute.org/ccle/cell lines/'
+
+Additionally, node and edge abbreviations can be specified by adding in dictionaries in the form: node_abbreviations={'current\_name':'desired\_name'}
+
+Similarly colors can be manually added:
+
+node_colors = {
+    "node\_name":"Green"}
+
+These node names should correspond to the node types or the values in node_abbreviations, note that only node *\_Hits and metadata/attributes should be specified here.
+
+<<eval=TRUE, echo=TRUE>>=
 
 sessionInfo()
 
 @
+
+\end{document}
