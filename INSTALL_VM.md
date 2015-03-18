@@ -206,5 +206,24 @@ git clone https://github.com/biodev/HitWalker2.git HitWalker2
 
 #cloned at this point--full clone
 
+#started hitwalker_2_test_image
+
+#also need to install a few additional packages for ccle
+
+sudo apt-get install libxml2-dev libcurl4-dev
+
+source("http://bioconductor.org/biocLite.R")
+
+biocLite(c("SCAN.UPC","hgu133plus2.db" ))
+
+#back to bash
+
+git clone https://github.com/mlbernauer/Entrez.git
+
+install.packages("tm")
+
+R CMD INSTALL Entrez
+
+
 
 
