@@ -14,13 +14,15 @@
 
 \section{Prerequisites}
 
-The first step is to download the necessary files from the Cancer Cell Line Encyclopedia ().  For the purpose of the HitWalker2 instance we will use the following files:
+The first step is to download the necessary files from the Cancer Cell Line Encyclopedia (URL HERE...).  For the purpose of the HitWalker2 instance we will use the following files:
 
-cell\_line\_annotations.txt
-CCLE\_hybrid\_capture1650\_hg19\_NoCommonSNPs\_NoNeutralVariants\_CDS\_2012.05.07.maf.gz
-CCLE\_NP24.2009\_Drug\_data\_2012.02.20.csv	
-CCLE\_Expression.Arrays.sif\_2012-10-18.txt
-CCLE\_Expression.Arrays\_2013-03-18.tar.gz
+\begin{verbatim}
+cell_line_annotations.txt
+CCLE_hybrid_capture1650_hg19_NoCommonSNPs_NoNeutralVariants_CDS_2012.05.07.maf.gz
+CCLE_NP24.2009_Drug_data_2012.02.20.csv	
+CCLE_Expression.Arrays.sif_2012-10-18.txt
+CCLE_Expression.Arrays_2013-03-18.tar.gz
+\end{verbatim}
 
 <<echo=TRUE, eval=TRUE>>=
 
@@ -49,13 +51,14 @@ example below we will use gender as well as the 'primary site' as our metadata.
     
 cell.annots <- read.delim("cell_line_annotations.txt", sep="\t", header=T, stringsAsFactors=F)
 
-cell.annots$alias <- ifelse(cell.annots$Cell.line.aliase == "", cell.annots$Cell.line.primary.name, paste(cell.annots$Cell.line.primary.name, cell.annots$Cell.line.aliases, sep=" | "))
+cell.annots$alias <- ifelse(cell.annots$Cell.line.aliase == "", cell.annots$Cell.line.primary.name,
+    paste(cell.annots$Cell.line.primary.name, cell.annots$Cell.line.aliases, sep=" | "))
 any(grepl("&", cell.annots))
 cell.annots$alias <- gsub("\\s+\\|\\s+", "&", cell.annots$alias)
 
 @
 
-Here we created an 'alias' column which will allow the end user's to search on the subject name as well as the aliases.  The aliases should be delimited by '&' which is the default delimiter
+Here we created an 'alias' column which will allow the end user's to search on the subject name as well as the aliases.  The aliases should be delimited by '\&' which is the default delimiter
 understood by \texttt{load.neo4j}--the internal function that loads these data into Neo4j.
 
 Similarly we can keep/add additional columns which represent the metadata for these subjects.  It is at this point that these data should be recoded and made user-digestable.  Spaces should be
@@ -80,11 +83,13 @@ subj <- Subject(subject.info=subject.dta, type="primary_site")
 Variant data can come in several forms.  For cancer next generation DNA sequencing experiments such as this one, the mutation annotation format (MAF) is a common way to summarize the variant
 data.  Currently we provide parsing support for this CCLE MAF file though as MAF files are roughly standardized, this should be applicable to other variants as well.
 
-Note the use of the \texttt{addSamples} method which is used to automatically add 'Subject' \-> 'Sample' mapping for this object.
+Note the use of the \texttt{addSamples} method which is used to automatically add 'Subject' -> 'Sample' mapping for this object.
 
 <<echo=TRUE, eval=TRUE>>=
 
-maf.obj <- readMAF.ccle("CCLE_hybrid_capture1650_hg19_NoCommonSNPs_NoNeutralVariants_CDS_2012.05.07.maf.gz")
+maf.file <- "CCLE_hybrid_capture1650_hg19_NoCommonSNPs_NoNeutralVariants_CDS_2012.05.07.maf.gz"
+
+maf.obj <- readMAF.ccle(maf.file)
 
 #add in these sample annotations to the Subject object
 
@@ -138,9 +143,9 @@ names(ret.list) <- unique(drug.dta$Target)
 #$TOP1
 #[1] "7150"
 #$GS
-#[1] "324"  "2752" --unsure will wait them 50/50
+#[1] "324"  "2752" --unsure will weight them 50/50
 #$XIAP
-#[1] "331"                                   "This record was replaced with Gene331" "8257" --will go with 331             
+#[1] "331"  "This record was replaced with Gene331" "8257" --will go with 331             
 #$MDM2
 #[1] "4193"
 #$CDK4
@@ -192,14 +197,14 @@ drug <- DrugMatrix(mat=drug.mat, mapping=drug.genes.merge)
 
 @
 
-Note the use of the 'weight' column to represent ambiguity in the 'drug' \-> 'gene' assignments.  The 'GeneScore' algorithm used internally by HitWalker2 is
+Note the use of the 'weight' column to represent ambiguity in the 'drug' -> 'gene' assignments.  The 'GeneScore' algorithm used internally by HitWalker2 is
 based off of the algorithm of (XXX) and these weights are used internally as part of the summations.  An R based example of this calculation is given below.
 
-We can also check the implicit 'subject' \-> 'drug' sample mapping
+We can also check the implicit 'subject' -> 'drug' sample mapping
 
-<<echo=TRUE, eval=FALSE>>=
+<<echo=TRUE, eval=TRUE>>=
 
-all(sampleNames(drug) %in% cell.annots$CCLE.name)#F
+all(sampleNames(drug) %in% cell.annots$CCLE.name)
 setdiff(sampleNames(drug), cell.annots$CCLE.name)
 
 @
@@ -213,8 +218,10 @@ addSamples(subj, type="Drug_Assay") <- drug
 
 Implies this:
 
-<<eval=FALSE, echo=FALSE>>=
-addSamples(subj) <- data.frame(cellLine=intersect(sampleNames(drug), subject.sample.names), sample=intersect(sampleNames(drug), subject.sample.names), type="Drug_Assay", stringsAsFactors=F)
+<<eval=FALSE, echo=TRUE>>=
+addSamples(subj) <- data.frame(cellLine=intersect(sampleNames(drug), subject.sample.names),
+                                sample=intersect(sampleNames(drug), subject.sample.names),
+                                type="Drug_Assay", stringsAsFactors=F)
 @
 
 \section{Picking Expression samples}
@@ -250,7 +257,8 @@ So as an example we will process and load expression for the first 20 of these.
 
 <<eval=TRUE, echo=TRUE>>=
 
-sif <- read.delim("CCLE_Expression.Arrays.sif_2012-10-18.txt", sep="\t", header=T, stringsAsFactors=F)
+sif <- read.delim("CCLE_Expression.Arrays.sif_2012-10-18.txt",
+    sep="\t", header=T, stringsAsFactors=F)
 
 sub.sif <- sif[sif$CCLE.name %in% intersect(samps.w.hits, sampleNames(maf.obj)),][1:20,]
 
@@ -268,8 +276,9 @@ use.cels <- paste0(file.path("CCLE_Expression.Arrays_2013-03-18", sub.sif$ID), "
 
 all(file.copy(from=use.cels, to="ccle_cel_file_subset"))
 
-upc.eset <- UPC(celFilePattern="ccle_cel_file_subset/*CEL", outFilePath = NA, convThreshold = 0.01, annotationPackageName = NA, probeSummaryPackage = NA,
-      probeLevelOutDirPath = NA, exonArrayTarget = NA, modelType="nn", verbose = TRUE)
+upc.eset <- UPC(celFilePattern="ccle_cel_file_subset/*CEL", outFilePath = NA, convThreshold = 0.01,
+    annotationPackageName = NA, probeSummaryPackage = NA, probeLevelOutDirPath = NA, exonArrayTarget = NA,
+    modelType="nn", verbose = TRUE)
 
 annotation(upc.eset) <- "hgu133plus2.db"
 
@@ -282,7 +291,7 @@ save(upc.eset, file="ccle_upc.RData")
 data(ccle_upc)
 @
 
-For expression, 'probeset'\->'gene' mapping info doesn't need to be supplied by an \texttt{ExpressionSet} as it can be populated using Bioconductors annotation mechanism.
+For expression, 'probeset'->'gene' mapping info doesn't need to be supplied by an \texttt{ExpressionSet} as it can be populated using Bioconductors annotation mechanism.
 As this object doesn't have an annotation package specified, we will manually add it.
 
 As before we still need to supply the mapping between the CEL file names and the subject names and we will do this base on the SIF file.  Instead of supplying \texttt{addSamples}
@@ -292,8 +301,8 @@ an object, we will supply it a \texttt{data.frame} with the mapping info as belo
 
 sub.sif$ID <- paste0(sub.sif$ID, ".CEL")
 
-all(sub.sif$ID %in% sampleNames(upc.eset))#T
-all(sub.sif$CCLE.name %in% subj@subject.info$cellLine)#T
+all(sub.sif$ID %in% sampleNames(upc.eset))
+all(sub.sif$CCLE.name %in% subj@subject.info$cellLine)
 
 expr.annot <- sub.sif[,c("CCLE.name", "ID")]
 names(expr.annot) <- c("cellLine","sample")
@@ -313,7 +322,9 @@ We can then populate the database and create the configuration files.
 
 <<eval=TRUE, echo=TRUE>>=
 
-hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez", data.types=list(seeds="GeneScore", target="Variants"), Expression=HW2exprSet(upc.eset), GeneScore=drug, Variants=maf.obj)
+hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez",
+        data.types=list(seeds="GeneScore", target="Variants"),
+        Expression=HW2exprSet(upc.eset), GeneScore=drug, Variants=maf.obj)
 
 populate(hw2.conf, neo.path=normalizePath("neo4j-community-2.1.6/"))
 
@@ -336,18 +347,29 @@ plot(ccle.graph)
 
 \section{Additional Customization}
 
-Note that addition info can be added to the config and custom_functions files manually, for instance for the CCLE data one can add in a link to the CCLE website on the sample node right click by specifying:
+Note that addition info can be added to the config and custom\_functions files manually, for instance for the CCLE data one can add in a link to the CCLE website on the sample node right click by specifying:
 
-node_content['Sample']['args']['sample\_link'] = 'http://www.broadinstitute.org/ccle/cell lines/'
+node\_content['Sample']['args']['sample\_link'] = 'http://www.broadinstitute.org/ccle/cell lines/'
 
-Additionally, node and edge abbreviations can be specified by adding in dictionaries in the form: node_abbreviations={'current\_name':'desired\_name'}
+Additionally, node and edge abbreviations can be specified by adding in dictionaries in the form:
+
+\begin{verbatim}
+node_abbreviations={
+    'current_name':'desired_name'
+    }
+\end{verbatim}
+
 
 Similarly colors can be manually added:
 
-node_colors = {
-    "node\_name":"Green"}
+\begin{verbatim}
 
-These node names should correspond to the node types or the values in node_abbreviations, note that only node *\_Hits and metadata/attributes should be specified here.
+node_colors = {
+    node_name':'Green'}
+
+\end{verbatim}
+
+These node names should correspond to the node types or the values in node\_abbreviations, note that only node *\_Hits and metadata/attributes should be specified here.
 
 <<eval=TRUE, echo=TRUE>>=
 
