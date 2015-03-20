@@ -276,3 +276,6 @@ sudo ln -s /etc/nginx/sites-available/default-nginx /etc/nginx/sites-enabled/hw2
 
 sudo mount -t vboxsf ccle_data /mnt/share
 
+#From /home/hw_user/HitWalker2/populate/
+
+sudo cp -r ccle_example.Rnw /mnt/share/
