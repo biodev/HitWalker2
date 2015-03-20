@@ -265,3 +265,14 @@ openssl rsa -in server.key.org -out server.key
 
 openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
 
+#from /home/hw_user/HitWalker2
+
+sudo cp default-nginx /etc/nginx/sites-available/
+
+sudo ln -s /etc/nginx/sites-available/default-nginx /etc/nginx/sites-enabled/hw2
+
+
+##mounting shared drive
+
+sudo mount -t vboxsf ccle_data /mnt/share
+
