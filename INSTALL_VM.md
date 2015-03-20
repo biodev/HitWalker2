@@ -225,5 +225,43 @@ install.packages("tm")
 R CMD INSTALL Entrez
 
 
+#set up upstart for unicorn
 
+in file: /etc/init/HitWalker2.conf
+
+description "HitWalker2"
+
+start on (filesystem)
+stop on runlevel [016]
+
+respawn
+setuid hw_user
+setgid hw_user
+chdir /home/hw_user/HItWalker2
+
+exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
+
+from /home/hw_user/HitWalker2
+
+#probably not the best approach...
+sudo chmod -R 777 /var/www
+
+python manage.py collectstatic
+
+sudo mkdir /etc/nginx/ssl
+
+cd /etc/nginx/ssl
+
+sudo openssl genrsa -des3 -out server.key 1024
+
+passphrase hw_user
+
+openssl req -new -key server.key -out server.csr
+
+#this removes the need for the password on startup
+
+cp server.key server.key.org
+openssl rsa -in server.key.org -out server.key
+
+openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
 
