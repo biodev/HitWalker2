@@ -646,12 +646,19 @@ def multi_node_query(request):
     
     return HttpResponse(json.dumps({"content":header}), mimetype="application/json")
 
+def download(request):
+    
+    
+    print 'hello'
+    #response = HttpResponse(cairosvg.svg2svg(url=temp_file), content_type='image/svg+xml')
+    #response['Content-Disposition'] = 'attachment; filename="HitWalker2.svg"'
+    
+    #response['Content-Disposition'] = 'attachment; filename=%s' % smart_str(file_name)
+
 def fullfill_node_query(request):
     
     node_req = request.POST["choice"]
     ret_node_queries = json.loads(request.POST["nodes"])
-    
-    print ret_node_queries
     
     #also add in the number of input genes if the queries need it
     
@@ -698,28 +705,74 @@ def fullfill_node_query(request):
     for i in res_list[0]:
         temp_node_list.append(i.values[0])
     
-    #convert the IDs to nodes
-    
-    ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
-    
-    ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
-    
-    if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
-        if len(ret_node_queries['Gene']) > 3:
-            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
-        else:
-            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
-    elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Sample'):
-        if len(ret_node_queries['Sample']) > 3:
-            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Sample'][0]['display_name'] + '...' + ret_node_queries['Sample'][-1]['display_name'])
-        else:
-            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Sample']), ','))
+    #too many nodes to render efficiently, will allow user to download csv file...
+    if len(temp_node_list) > 2:
+        
+        subj_nodes = []
+        query_nodes = []
+        
+        for i in ret_node_queries.keys():
+            for j in ret_node_queries[i]:
+                subj_nodes.append({'id':j['id'], 'node_type':i})
+        
+        for i in temp_node_list:
+            query_nodes.append({'id':i, 'node_type':query_type['returned_node_type']})
+        
+        node_graph = core.copy_nodes(subj_nodes, query_nodes, request, config.edge_queries, never_group=True)
+        
+        tmp_file = tempfile.mktemp()
+        
+        out_p = open(tmp_file, "w")
+        
+        header = ['id', 'display_name'] + map(lambda x: x['id'], subj_nodes)
+        
+        out_p.write(string.joinfields(header, ","))
+        
+        for i in node_graph['nodes'].tolist():
+            temp_ln = []
+            if i['attributes']['node_type'] == query_type['returned_node_type']:
+                temp_ln.extend([i['id'], i['display_name']] + [None]*(len(header)-2))
+                for j in i['children']:
+                    if j['attributes']['node_type'].replace('_Hit', '') == query_info['text']:
+                        for k_ind, k in enumerate(j['attributes']['other_nodes']):
+                            val_loc = header.index(k)
+                            if val_loc == -1:
+                                raise Exception("unexpected node found")
+                            else:
+                                if j['attributes']['meta'].has_key('score'):
+                                    temp_ln[val_loc] = j['attributes']['meta']['score'][k_ind]
+                                else:
+                                    temp_ln[val_loc] = 1
+                out_p.write(string.joinfields(map(str, temp_ln), ","))
+                            
+        out_p.close()
+        
+        request.session['use_tmp'] = tmp_file
+        
+        ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a textual version.'}
+        
     else:
-        use_title = 'ERROR: Unknown title...'
+        
+        #convert the IDs to nodes
+        
+        ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
     
-    ret_dict = {'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
+        ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
+        
+        if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
+            if len(ret_node_queries['Gene']) > 3:
+                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
+            else:
+                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
+        elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Sample'):
+            if len(ret_node_queries['Sample']) > 3:
+                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Sample'][0]['display_name'] + '...' + ret_node_queries['Sample'][-1]['display_name'])
+            else:
+                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Sample']), ','))
+        else:
+            use_title = 'ERROR: Unknown title...'
     
-    #fill in the direct connections
+        ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
     
     return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
 
@@ -824,9 +877,9 @@ def network(request):
             import cssselect
         
             #from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
-            static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
+            #static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
             
-            cur_dir = tempfile.tempdir
+            #cur_dir = tempfile.tempdir
             
             #css_path = os.path.relpath(os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css"), cur_dir)
            
