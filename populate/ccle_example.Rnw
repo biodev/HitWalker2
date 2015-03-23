@@ -337,9 +337,9 @@ configure(hw2.conf)
 
 Finally we provide utilities to gain information on the Neo4j graph structure that was created
 
-<<eval=TRUE, echo=TRUE>>=
+<<eval=TRUE, echo=TRUE, fig=TRUE>>=
 
-ccle.graph <- compute.graph.structure(neo.path=normalizePath("neo4j-community-2.1.6/"))
+ccle.graph <- compute.graph.structure()
 
 plot(ccle.graph)
 

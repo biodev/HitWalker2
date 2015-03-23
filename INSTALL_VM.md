@@ -274,8 +274,12 @@ sudo ln -s /etc/nginx/sites-available/default-nginx /etc/nginx/sites-enabled/hw2
 
 ##mounting shared drive
 
-sudo mount -t vboxsf ccle_data /mnt/share
+sudo mount -t vboxsf -o uid=1000,gid=1000 ccle_data /mnt/share 
 
 #From /home/hw_user/HitWalker2/populate/
 
-sudo cp -r ccle_example.Rnw /mnt/share/
+ cp -r ccle_example.Rnw /mnt/share/
+ 
+ #from /mnt/share
+ 
+ R CMD Sweave --pdf ccle_example.Rnw
