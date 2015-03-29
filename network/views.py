@@ -28,6 +28,7 @@ import custom_functions
 import core
 import collections
 import socket
+import csv
 
 #optionally need tinycss, cssselect, lxml, cairosvg
 
@@ -648,12 +649,44 @@ def multi_node_query(request):
 
 def download(request):
     
+    use_file = request.session['tmp_file']
     
-    print 'hello'
-    #response = HttpResponse(cairosvg.svg2svg(url=temp_file), content_type='image/svg+xml')
-    #response['Content-Disposition'] = 'attachment; filename="HitWalker2.svg"'
+    resp_file_name = 'query_result.csv'
     
-    #response['Content-Disposition'] = 'attachment; filename=%s' % smart_str(file_name)
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="'+resp_file_name+'"'
+    
+    writer = csv.writer(response)
+    
+    file_inp = open(use_file, 'r')
+    
+    #write the parameter info
+    
+    inp_params = request.session['inp_params']
+    where_vars = request.session['where_vars']
+    
+    for key,val in inp_params.items():
+        if val['type'] == 'standard':
+            writer.writerow([key])
+            for i,j in val['fields'].items():
+                writer.writerow([j['name'] + " " + j['comparison'] + " " + str(j['default'])])
+    
+    for i in where_vars:
+        writer.writerow([i['name']])
+        write.writerow([i['pretty_where']])
+    
+    writer.writerow([])
+    writer.writerow([])
+    
+    #write the title
+    
+    writer.writerow(["Title:" + request.session['tmp_title']])
+    writer.writerow([])
+    
+    for i in csv.reader(file_inp):
+        writer.writerow(i)
+    
+    return response
 
 def fullfill_node_query(request):
     
@@ -705,8 +738,21 @@ def fullfill_node_query(request):
     for i in res_list[0]:
         temp_node_list.append(i.values[0])
     
+    if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
+        if len(ret_node_queries['Gene']) > 3:
+            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
+        else:
+            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
+    elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Sample'):
+        if len(ret_node_queries['Sample']) > 3:
+            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Sample'][0]['display_name'] + '...' + ret_node_queries['Sample'][-1]['display_name'])
+        else:
+            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Sample']), ','))
+    else:
+        use_title = 'ERROR: Unknown title...'
+    
     #too many nodes to render efficiently, will allow user to download csv file...
-    if len(temp_node_list) > 2:
+    if len(temp_node_list) > 2000:
         
         subj_nodes = []
         query_nodes = []
@@ -726,7 +772,9 @@ def fullfill_node_query(request):
         
         header = ['id', 'display_name'] + map(lambda x: x['id'], subj_nodes)
         
-        out_p.write(string.joinfields(header, ","))
+        writer = csv.writer(out_p)
+        
+        writer.writerow(header)
         
         for i in node_graph['nodes'].tolist():
             temp_ln = []
@@ -743,13 +791,14 @@ def fullfill_node_query(request):
                                     temp_ln[val_loc] = j['attributes']['meta']['score'][k_ind]
                                 else:
                                     temp_ln[val_loc] = 1
-                out_p.write(string.joinfields(map(str, temp_ln), ","))
+                writer.writerow(temp_ln)
                             
         out_p.close()
         
-        request.session['use_tmp'] = tmp_file
+        request.session['tmp_file'] = tmp_file
+        request.session['tmp_title'] = use_title
         
-        ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a textual version.'}
+        ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
         
     else:
         
@@ -758,19 +807,6 @@ def fullfill_node_query(request):
         ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
     
         ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
-        
-        if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
-            if len(ret_node_queries['Gene']) > 3:
-                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
-            else:
-                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
-        elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Sample'):
-            if len(ret_node_queries['Sample']) > 3:
-                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Sample'][0]['display_name'] + '...' + ret_node_queries['Sample'][-1]['display_name'])
-            else:
-                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Sample']), ','))
-        else:
-            use_title = 'ERROR: Unknown title...'
     
         ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
     
