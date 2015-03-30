@@ -19,8 +19,11 @@ Version Ubuntu (64bit)
 Set the recommended memory, will set to 12GB (12288 MB) for now
 
 Create a virtual hard drive now--Fixed size in VDI format, 8GB called HitWalker2_test
+Try: Create HitWalker2_base dynamically allocated 50GB
 
-Select the iso image and it will run.
+Start the machine and click on the little CD icon in the lower right side
+
+Select the iso image, restart if necessary.
 
 Install. Making sure to select minimal virtual machine installation press F4 or fn->F4 on Macs
 
@@ -42,44 +45,39 @@ No proxy and no automatic updates
 
 Basic ubuntu server--for now...
 
-sudo apt-get install nginx
-sudo apt-get install python-pip python-dev build-essential
+sudo apt-get install git
+
+#get HitWalker2
+
+cd ~/hw_user
+
+git clone https://github.com/HitWalker2.git
+
+#install necessary dependencies for python etc
+
+sudo apt-get install emacs24-nox
+
+sudo apt-get install git nginx python-pip python-dev build-essential  python-numpy python-scipy python-cairosvg python-lxml libxml2-devel.x86_64 libxslt-devel.x86_64 wget openjdk-7-jdk vim
+
 sudo pip install --upgrade pip 
 
 sudo pip install Django==1.5.1
 sudo pip install py2neo==1.6.4
 
-sudo apt-get install python-numpy python-scipy
-
-sudo apt-get install python-cairosvg python-lxml
-
-
-sudo yum install libxml2-devel.x86_64
-sudo yum install libxslt-devel.x86_64
-
 sudo pip install tinycss cssselect cssutils colour
 
 sudo pip install pandas gunicorn eventlet
 
-sudo apt-get install git
 
 sudo mkdir -p /var/www/hitwalker2_inst
 
 ##install neo4j, as of now v2.1.7
-
-#install java 7
-
-sudo apt-get install openjdk-7-jdk
-
-sudo apt-get install wget
 
 wget -O temp.key http://debian.neo4j.org/neotechnology.gpg.key
 
 sudo apt-key add temp.key
 
 rm temp.key
-
-sudo apt-get install vim
 
 sudo vim /etc/apt/sources.list.d/neo4j.list
 
