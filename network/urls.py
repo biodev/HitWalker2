@@ -26,5 +26,6 @@ urlpatterns = patterns('',
                         url(r'^save_parameters/$', views.save_parameters, name='save_parameters'),
                         url(r'^load_parameters/$', views.load_parameters, name='load_parameters'),
                         url(r'^password/$', views.password, name='password'),
+                        url(r'^download/$', views.download, name='download'),
                         url(r'^login/$', 'django.contrib.auth.views.login', {'template_name': 'network/login.html', 'extra_context':{'prog_type':views.prog_type, 'username':'Guest'}}),
                         url(r'^logout/$', 'django.contrib.auth.views.logout_then_login', {'login_url': views.prog_type+'/HitWalker2/login/'}))

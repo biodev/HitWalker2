@@ -1076,30 +1076,52 @@ function post_to_fullfill (obj)
                 
                 parsed_data = JSON.parse(data);
                 
-                if (parsed_data.graph.nodes.length == 0)
-                {
-                  
-                  $(obj).siblings('a.list-group-item').each(function()
-                                                            {
-                                                               $(this).popover('destroy');
-                                                            });
-                  
-                  var pop_content = '<p class="text-danger">Sorry, no results were found for this query.</p>';
-                    
-                  $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
-                    
-                  $(obj).popover('show');
-                  
-                  adjust_screen_right(".popover");
-                }
-                else{
-                    add_to_image(parsed_data, 'query', selected_node.keys());
+                console.log(parsed_data.is_graph)
                 
-                    if (popover_ref != null)
-                    {
-                        delete_popover();
-                    }
+                if (parsed_data.is_graph == true)
+                {
+                  if (parsed_data.graph.nodes.length == 0)
+                  {
+                    
+                    $(obj).siblings('a.list-group-item').each(function()
+                                                              {
+                                                                 $(this).popover('destroy');
+                                                              });
+                    
+                    var pop_content = '<p class="text-danger">Sorry, no results were found for this query.</p>';
+                      
+                    $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
+                      
+                    $(obj).popover('show');
+                    
+                    adjust_screen_right(".popover");
+                  }
+                  else{
+                      add_to_image(parsed_data, 'query', selected_node.keys());
+                  
+                      if (popover_ref != null)
+                      {
+                          delete_popover();
+                      }
+                  }
+                }else{
+                  
+                     $(obj).siblings('a.list-group-item').each(function()
+                                                              {
+                                                                 $(this).popover('destroy');
+                                                              });
+                    
+                    var pop_content = '<p class="text-danger">'+parsed_data.title+'</p><a href="/HitWalker2/download/" class="btn btn-default">Download</button>';
+                      
+                    $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
+                      
+                    $(obj).popover('show');
+                    
+                    adjust_screen_right(".popover");
+                  
                 }
+                
+                
                 
                 spinner.stop()
                

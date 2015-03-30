@@ -28,6 +28,7 @@ import custom_functions
 import core
 import collections
 import socket
+import csv
 
 #optionally need tinycss, cssselect, lxml, cairosvg
 
@@ -646,12 +647,51 @@ def multi_node_query(request):
     
     return HttpResponse(json.dumps({"content":header}), mimetype="application/json")
 
+def download(request):
+    
+    use_file = request.session['tmp_file']
+    
+    resp_file_name = 'query_result.csv'
+    
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="'+resp_file_name+'"'
+    
+    writer = csv.writer(response)
+    
+    file_inp = open(use_file, 'r')
+    
+    #write the parameter info
+    
+    inp_params = request.session['inp_params']
+    where_vars = request.session['where_vars']
+    
+    for key,val in inp_params.items():
+        if val['type'] == 'standard':
+            writer.writerow([key])
+            for i,j in val['fields'].items():
+                writer.writerow([j['name'] + " " + j['comparison'] + " " + str(j['default'])])
+    
+    for i in where_vars:
+        writer.writerow([i['name']])
+        write.writerow([i['pretty_where']])
+    
+    writer.writerow([])
+    writer.writerow([])
+    
+    #write the title
+    
+    writer.writerow(["Title:" + request.session['tmp_title']])
+    writer.writerow([])
+    
+    for i in csv.reader(file_inp):
+        writer.writerow(i)
+    
+    return response
+
 def fullfill_node_query(request):
     
     node_req = request.POST["choice"]
     ret_node_queries = json.loads(request.POST["nodes"])
-    
-    print ret_node_queries
     
     #also add in the number of input genes if the queries need it
     
@@ -698,12 +738,6 @@ def fullfill_node_query(request):
     for i in res_list[0]:
         temp_node_list.append(i.values[0])
     
-    #convert the IDs to nodes
-    
-    ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
-    
-    ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
-    
     if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
         if len(ret_node_queries['Gene']) > 3:
             use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
@@ -717,9 +751,64 @@ def fullfill_node_query(request):
     else:
         use_title = 'ERROR: Unknown title...'
     
-    ret_dict = {'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
+    #too many nodes to render efficiently, will allow user to download csv file...
+    if len(temp_node_list) > 2000:
+        
+        subj_nodes = []
+        query_nodes = []
+        
+        for i in ret_node_queries.keys():
+            for j in ret_node_queries[i]:
+                subj_nodes.append({'id':j['id'], 'node_type':i})
+        
+        for i in temp_node_list:
+            query_nodes.append({'id':i, 'node_type':query_type['returned_node_type']})
+        
+        node_graph = core.copy_nodes(subj_nodes, query_nodes, request, config.edge_queries, never_group=True)
+        
+        tmp_file = tempfile.mktemp()
+        
+        out_p = open(tmp_file, "w")
+        
+        header = ['id', 'display_name'] + map(lambda x: x['id'], subj_nodes)
+        
+        writer = csv.writer(out_p)
+        
+        writer.writerow(header)
+        
+        for i in node_graph['nodes'].tolist():
+            temp_ln = []
+            if i['attributes']['node_type'] == query_type['returned_node_type']:
+                temp_ln.extend([i['id'], i['display_name']] + [None]*(len(header)-2))
+                for j in i['children']:
+                    if j['attributes']['node_type'].replace('_Hit', '') == query_info['text']:
+                        for k_ind, k in enumerate(j['attributes']['other_nodes']):
+                            val_loc = header.index(k)
+                            if val_loc == -1:
+                                raise Exception("unexpected node found")
+                            else:
+                                if j['attributes']['meta'].has_key('score'):
+                                    temp_ln[val_loc] = j['attributes']['meta']['score'][k_ind]
+                                else:
+                                    temp_ln[val_loc] = 1
+                writer.writerow(temp_ln)
+                            
+        out_p.close()
+        
+        request.session['tmp_file'] = tmp_file
+        request.session['tmp_title'] = use_title
+        
+        ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
+        
+    else:
+        
+        #convert the IDs to nodes
+        
+        ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
     
-    #fill in the direct connections
+        ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
+    
+        ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
     
     return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
 
@@ -824,9 +913,9 @@ def network(request):
             import cssselect
         
             #from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
-            static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
+            #static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
             
-            cur_dir = tempfile.tempdir
+            #cur_dir = tempfile.tempdir
             
             #css_path = os.path.relpath(os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css"), cur_dir)
            
