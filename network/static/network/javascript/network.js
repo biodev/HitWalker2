@@ -348,58 +348,58 @@ function type_translation(value, transl_type, result_type)
       
          if(typeof(transl_type)==='undefined') transl_type = node_transl;
          
+         var use_val = "";
+         var use_name = "";
+         
+         if (value in transl_type == false || transl_type[value].class == null)
+         {
+            //set to one of the 'default' colors
+            
+            var remaining_defaults = d3.set();
+            
+            default_css.forEach(function(x)
+                                {
+                                    if (used_defaults.has(x) == false)
+                                    {
+                                       remaining_defaults.add(x);
+                                    }
+                                })
+            
+           if (remaining_defaults.size == 0)
+           {
+               //set to the 'Other' class
+               //var use_val = default_css.values()[0];
+               //used_defaults = d3.set([use_val]);
+               use_val = 'Other';
+               use_name = 'Other';
+               
+               
+           }else{
+             //choose the first available one
+               use_val = remaining_defaults.values()[0];
+               used_defaults.add(use_val);
+               use_name = value;
+           }
+           
+           if (value in transl_type == false)
+            {
+                transl_type[value] = {name:use_name, class:use_val}
+            }else{
+                transl_type[value].class = use_val;
+            }
+           
+         }else{
+            
+            use_val = transl_type[value].class;
+            use_name = transl_type[value].name;
+         }
+         
          if (result_type == 'class')
          {
-            if (value in transl_type == false || transl_type[value].class == null)
-            {
-               //set to one of the 'default' colors
-               
-               var remaining_defaults = d3.set();
-               
-               default_css.forEach(function(x)
-                                   {
-                                       if (used_defaults.has(x) == false)
-                                       {
-                                          remaining_defaults.add(x);
-                                       }
-                                   })
-               
-              if (remaining_defaults.size == 0)
-              {
-                  //start over
-                  var use_val = default_css.values()[0];
-                  used_defaults = d3.set([use_val]);
-                  
-                  
-              }else{
-                //choose the first available one
-                  var use_val = remaining_defaults.values()[0];
-                  used_defaults.add(use_val);
-               
-              }
-              
-              if (value in transl_type == false)
-              {
-                  transl_type[value] = {name:value, class:use_val}
-              }else{
-                  transl_type[value].class = use_val;
-              }
-              
-              return(use_val);
-              
-            }else{
-               return (transl_type[value].class)
-            }
+            return (use_val);
             
          }else{
-            if (value in transl_type)
-            {
-                return (transl_type[value].name);
-            }
-            else
-            {
-                return (value);
-            }
+            return (use_name);
          } 
 }
     
