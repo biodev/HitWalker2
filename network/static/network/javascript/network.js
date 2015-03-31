@@ -342,65 +342,76 @@ function rev_type_translation(value)
     
 }
 
+//adapted from http://www.mediacollege.com/internet/javascript/text/case-capitalize.html
+String.prototype.capitalize = function(){
+   return this.replace( /(^|\s)([a-z])/g , function(m,p1,p2){ return p1+p2.toUpperCase(); } );
+  };
+
 function type_translation(value, transl_type, result_type)
 {
-         if(typeof(result_type) === 'undefined') result_type = 'class'
+   if(typeof(result_type) === 'undefined') result_type = 'class'
+
+   if(typeof(transl_type)==='undefined') transl_type = node_transl;
+   
+   var use_val = "";
+   var use_name = "";
+   
+   if (value in transl_type == false || transl_type[value].class == null)
+   {
+      //set to one of the 'default' colors
       
-         if(typeof(transl_type)==='undefined') transl_type = node_transl;
+      var remaining_defaults = d3.set();
+      
+      default_css.forEach(function(x)
+                          {
+                              if (used_defaults.has(x) == false)
+                              {  
+                                 remaining_defaults.add(x);
+                              }
+                          })
+     
+     if (remaining_defaults.values().length == 0)
+     {
+         //set to the 'Other' class
+         use_val = 'Other';
+         use_name = 'Other';
          
-         var use_val = "";
-         var use_name = "";
          
-         if (value in transl_type == false || transl_type[value].class == null)
-         {
-            //set to one of the 'default' colors
-            
-            var remaining_defaults = d3.set();
-            
-            default_css.forEach(function(x)
-                                {
-                                    if (used_defaults.has(x) == false)
-                                    {
-                                       remaining_defaults.add(x);
-                                    }
-                                })
-            
-           if (remaining_defaults.size == 0)
-           {
-               //set to the 'Other' class
-               //var use_val = default_css.values()[0];
-               //used_defaults = d3.set([use_val]);
-               use_val = 'Other';
-               use_name = 'Other';
-               
-               
-           }else{
-             //choose the first available one
-               use_val = remaining_defaults.values()[0];
-               used_defaults.add(use_val);
-               use_name = value;
-           }
-           
-           if (value in transl_type == false)
-            {
-                transl_type[value] = {name:use_name, class:use_val}
-            }else{
-                transl_type[value].class = use_val;
-            }
-           
-         }else{
-            
-            use_val = transl_type[value].class;
-            use_name = transl_type[value].name;
-         }
-         
-         if (result_type == 'class')
-         {
-            return (use_val);
-            
-         }else{
-            return (use_name);
-         } 
+     }else{
+       //choose the first available one
+         use_val = remaining_defaults.values()[0];
+         used_defaults.add(use_val);
+         use_name = value;
+     }
+     
+     if (value in transl_type == false)
+      {
+          transl_type[value] = {name:use_name, class:use_val}
+      }else{
+          transl_type[value].class = use_val;
+      }
+     
+   }else{
+      
+      use_val = transl_type[value].class;
+      use_name = transl_type[value].name;
+   }
+   
+   if (result_type == 'class')
+   {
+      return (use_val);
+      
+   }else{
+      
+      //pretty up the name...
+      
+      if (use_name.length > 15)
+      {
+         use_name = use_name.substring(0, 15) + "..."
+      }
+      
+      return (use_name.replace(/_/g, " ").capitalize());
+   } 
 }
     
 function make_node_map (keep_nodes)
@@ -421,44 +432,6 @@ function make_node_map (keep_nodes)
     
     return(keep_node_map);
 }
-
-//function make_link_map (keep_links)
-//{
-//    var keep_link_map = d3.map();
-//    
-//    for (i = 0; i < keep_links.length;i++)
-//    {
-//        if (keep_link_map.has(keep_links[i].source.id) == false)
-//        {
-//            var temp_source_map = d3.map();
-//            temp_source_map.set(keep_links[i].target.id, keep_links[i]);
-//            keep_link_map.set(keep_links[i].source.id, temp_source_map);
-//        }
-//        else
-//        {
-//            if (keep_link_map.get(keep_links[i].source.id).has(keep_links[i].target.id) == false)
-//            {
-//                keep_link_map.get(keep_links[i].source.id).set(keep_links[i].target.id, keep_links[i]);
-//            }
-//        }
-//        
-//        if (keep_link_map.has(keep_links[i].target.id) == false)
-//        {
-//            var temp_source_map = d3.map();
-//            temp_source_map.set(keep_links[i].source.id, keep_links[i]);
-//            keep_link_map.set(keep_links[i].target.id, temp_source_map);
-//        }
-//        else
-//        {
-//            if (keep_link_map.get(keep_links[i].target.id).has(keep_links[i].source.id) == false)
-//            {
-//                keep_link_map.get(keep_links[i].target.id).set(keep_links[i].source.id, keep_links[i]);
-//            }
-//        }
-//    }
-//    
-//    return(keep_link_map);
-//}
 
 function add_existing_links_to_graph(graph_obj, new_graph)
 {
@@ -712,18 +685,63 @@ function make_graph_legend(vis, node_list, edge_list)
     vis.selectAll("g.legend").data([]).exit().remove();
     vis.selectAll("g.link_legend").data([]).exit().remove();
     
+    //remove duplicated
+    
+   //also create a map to reach the valid classes...kind of a hack
+    var node_class_map = d3.map();
+    
+    var clean_node_list = [];
+    
+     $.each(node_list, function(x_i, x)
+               {
+                   var cur_node = [];
+                   
+                   if (x.attributes.node_type == "MetaNode")
+                   {
+                      cur_node = x.children;
+                      
+                   }else{
+                      cur_node = [x]
+                   }
+                   
+                   $.each(cur_node, function(y_i, y)
+                          {
+                               var child_set = d3.set();
+                            
+                               var cur_name = type_translation(y.attributes.node_type, node_transl, 'name');
+                               var cur_class = type_translation(y.attributes.node_type, node_transl, 'class');
+                               
+                               $.each(y.children, function(z_i, z)
+                               {
+                                  var child_name = type_translation(z.attributes.node_type, node_transl, 'name');
+                                  var child_class = type_translation(z.attributes.node_type, node_transl, 'class');
+                                  child_set.add(child_name);
+                                  node_class_map.set(child_name, child_class);
+                                  
+                               });
+                               
+                               var child_res = $.map(child_set.values(), function(z){
+                                  return({name:z, children:[]})
+                               });
+                               
+                               node_class_map.set(cur_name, cur_class);
+                               
+                               clean_node_list.push({name:cur_name, children:child_res});
+                          });
+                });
+    
     var legend_hier = d3.layout.tree();
     
-    var temp_nodes = {attributes:{node_type:'MetaNode'}, children:JSON.parse(JSON.stringify(node_list))};
+    var temp_nodes = {name:'MetaNode', children:clean_node_list};
     
     var legend_nodes = legend_hier.nodes(temp_nodes);
     
     var legend_links = legend_hier.links(legend_nodes);
     //jQuery.extend(true, {}, 
     
-    var temp_nest = d3.nest().key(function(d) {return d.source.attributes.node_type}).key(function(d) {return d.target.attributes.node_type}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
+    var temp_nest = d3.nest().key(function(d) {return d.source.name}).key(function(d) {return d.target.name}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
     
-    var rev_nest = d3.nest().key(function(d) {return d.target.attributes.node_type}).key(function(d) {return d.source.attributes.node_type}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
+    var rev_nest = d3.nest().key(function(d) {return d.target.name}).key(function(d) {return d.source.name}).rollup(function(d) {return d.length}).map(legend_links, d3.map);
     
     //need to check whether any (which) of the root keys are in the values.  If so organize the hierarchies such that  
     var root_keys = temp_nest.get("MetaNode").keys();
@@ -809,7 +827,7 @@ function make_graph_legend(vis, node_list, edge_list)
     
     child_num = child_counter(legend_map);
     
-    child_num += link_map.values().length;
+    child_num += link_map.values().length + 1;
     
     var legend_tree = d3.layout.tree().size([child_num*15,100]);
     
@@ -858,7 +876,7 @@ function make_graph_legend(vis, node_list, edge_list)
             .text(function(d) {
                if (d.type == "Node")
                {
-                  return (type_translation(d.name, node_transl, 'name').replace(/_/g, " "));
+                  return (d.name);
                }else{
                   return (type_translation(d.name, edge_transl, 'name').replace(/_/g, " "));
                 }});
@@ -869,7 +887,7 @@ function make_graph_legend(vis, node_list, edge_list)
     
     node_labs.append("circle").attr("r", 5).attr("class", function(d)
                                                     {
-                                                       return(type_translation(d.name)); 
+                                                       return(node_class_map.get(d.name)); 
                                                     });
     link_labs.append("line").attr("class", function(d)
                             {
