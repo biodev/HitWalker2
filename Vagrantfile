@@ -68,7 +68,7 @@ Vagrant.configure(2) do |config|
   config.vm.provision "shell", inline: <<-SHELL
       sudo apt-get update
      
-      sudo apt-get install -y git nginx python-pip python-dev build-essential  python-numpy python-scipy python-cairosvg python-lxml wget openjdk-7-jdk
+      sudo apt-get install -y nginx python-pip python-dev build-essential  python-numpy python-scipy python-cairosvg python-lxml wget openjdk-7-jdk 
       sudo pip install --upgrade pip 
 
       sudo pip install Django==1.5.1
@@ -77,7 +77,10 @@ Vagrant.configure(2) do |config|
       sudo pip install tinycss
       sudo pip install colour
       
-      sudo apt-get install -y python-pandas python-cssselect python-cssutils gunicorn python-eventlet
+      sudo apt-get install -y gunicorn python-cssselect python-cssutils
+     
+      sudo pip install pandas==0.15.2
+      sudo pip install eventlet==0.17.1
      
       wget -O - http://debian.neo4j.org/neotechnology.gpg.key| sudo apt-key add -
       
@@ -142,13 +145,15 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
   #this is only for a non-ssl version
   sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
-  sudo ln -s /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/hw2
+  sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
 
   cp -r /vagrant/HitWalker2 /home/vagrant/
   
   sudo chown -R vagrant:vagrant /var/www
   
   python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
+  
+  python /home/vagrant/HitWalker2/manage.py syncdb --noinput
   
    SHELL
   
