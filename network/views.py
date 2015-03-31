@@ -44,9 +44,12 @@ prog_type = config.prog_type
 if prog_type != "":
     prog_type = "/" + prog_type
 
-graph_inp = open(config.graph_struct_file, "r")
-graph_struct = json.load(graph_inp)
-graph_inp.close()
+try:
+    graph_inp = open(config.graph_struct_file, "r")
+    graph_struct = json.load(graph_inp)
+    graph_inp.close()
+except:
+    graph_struct = {}
 
 graph_edge_struct = {}
 
