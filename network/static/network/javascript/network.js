@@ -347,9 +347,11 @@ String.prototype.capitalize = function(){
    return this.replace( /(^|\s)([a-z])/g , function(m,p1,p2){ return p1+p2.toUpperCase(); } );
   };
 
-function type_translation(value, transl_type, result_type)
+function type_translation(value, transl_type, result_type, str_trim_len)
 {
-   if(typeof(result_type) === 'undefined') result_type = 'class'
+   if(typeof(str_trim_len) === 'undefined') str_trim_len = 15;
+   
+   if(typeof(result_type) === 'undefined') result_type = 'class';
 
    if(typeof(transl_type)==='undefined') transl_type = node_transl;
    
@@ -405,9 +407,9 @@ function type_translation(value, transl_type, result_type)
       
       //pretty up the name...
       
-      if (use_name.length > 15)
+      if (use_name.length > str_trim_len)
       {
-         use_name = use_name.substring(0, 15) + "..."
+         use_name = use_name.substring(0, str_trim_len) + "..."
       }
       
       return (use_name.replace(/_/g, " ").capitalize());
@@ -878,7 +880,7 @@ function make_graph_legend(vis, node_list, edge_list)
                {
                   return (d.name);
                }else{
-                  return (type_translation(d.name, edge_transl, 'name').replace(/_/g, " "));
+                  return (type_translation(d.name, edge_transl, 'name', 50).replace(/_/g, " "));
                 }});
     
     
