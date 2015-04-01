@@ -8,7 +8,7 @@ server {
        }
        location /static/ {
         autoindex on;
-        alias /var/www/staticfiles/hitwalker2_inst/static;
+        alias /var/www/hitwalker2_inst/static/;
     }
 }
 

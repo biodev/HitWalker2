@@ -153,8 +153,6 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
   python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
   
-  python /home/vagrant/HitWalker2/manage.py syncdb --noinput
-  
    SHELL
   
   #config.vm.provision "file", source: "~/.gitconfig", destination: ".gitconfig"

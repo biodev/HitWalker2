@@ -1,6 +1,27 @@
 #get VirtualBox
 
+For macs, if there is a conflicting DHCP error message exists you may need to use: VBoxManage dhcpserver remove --netname HostInterfaceNetworking-vboxnet0
 
+in a new folder, put the Vagrantfile, the base HitWalker2 database and the latest version of this code.
+
+Place an unzipped Linux/Mac 2.1.8 version of neo4j from http://neo4j.com/download/other-releases/ in the folder as well
+
+vagrant up
+
+vagrant ssh
+
+The Ip to use for accessing HW2 is found using ifconfig
+
+The person to be the administrator needs to run below and create an admin account to set it up for others (if necessary):
+
+python /home/vagrant/HitWalker2/manage.py syncdb 
+
+Next add in your datafiles...
+
+
+
+
+Deprecated instructions
 
 Following the instructions:
 
