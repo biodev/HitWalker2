@@ -40,6 +40,10 @@
             stroke: Grey;
           }
           
+          .Other{
+            fill: Grey;
+          }
+          
           .Unselected{
             opacity: .3
           }
