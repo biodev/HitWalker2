@@ -82,31 +82,39 @@ Vagrant.configure(2) do |config|
       sudo pip install pandas==0.15.2
       sudo pip install eventlet==0.17.1
      
-      wget -O - http://debian.neo4j.org/neotechnology.gpg.key| sudo apt-key add -
+      cd ~
+     
+      cp /vagrant/neo4j-community-2.1.8-unix.tar.gz ~/
       
-      echo 'deb http://debian.neo4j.org/repo oldstable/' > neo4j.list
-      sudo cp neo4j.list /etc/apt/sources.list.d/
-      rm neo4j.list
+      tar -xzvf neo4j-community-2.1.8-unix.tar.gz
       
-      sudo apt-get update -y # Find out about the files in our repository
-      sudo apt-get install neo4j -y # Install Neo4j, community edition
+      rm neo4j-community-2.1.8-unix.tar.gz
       
+      sudo ln -s ~/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
       
-      sudo bash -c "cat >> /etc/security/limits.conf <<EOF
-      neo4j   soft    nofile  40000
-      neo4j   hard    nofile  40000
-      "
+      echo '
+description "neo4j" 
+start on (filesystem)
+stop on runlevel [016]
+respawn
+setuid vagrant
+setgid vagrant
+chdir /home/vagrant/neo4j-community-2.1.8/
+    
+exec ./bin/neo4j start
+' > neo4j.conf
+    
+    sudo cp neo4j.conf /etc/init/
       
-      sudo bash -c "cat >> /etc/pam.d/su <<EOF
-      session    required   pam_limits.so
-      "
+      bash -c "echo 'vagrant   soft    nofile  40000' >> /etc/security/limits.conf"
+      bash -c "echo 'vagrant   hard    nofile  40000' >> /etc/security/limits.conf"
       
-      sudo service neo4j-service stop
+      bash -c "echo 'session    required   pam_limits.so' >> /etc/pam.d/su"
       
-      sudo rm -rf /var/lib/neo4j/data
-      sudo cp -r /vagrant/hitwalker2_base_data /var/lib/neo4j/data
+      sudo rm -rf ~/neo4j-community-2.1.8/data
+      sudo cp -r /vagrant/hitwalker2_base_data ~/neo4j-community-2.1.8/data
       
-      sudo service neo4j-service start
+      sudo start neo4j
       
       sudo mkdir -p /var/www/hitwalker2_inst
       
@@ -121,7 +129,6 @@ Vagrant.configure(2) do |config|
       sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("igraph", "reshape2", "Biobase", "rjson", "SCAN.UPC","hgu133plus2.db", "tm", "devtools"))'
       
       sudo Rscript -e 'library(devtools)' -e 'install_github("mlbernauer/Entrez")'
-      
       
       #set up upstart for unicorn
     
@@ -149,9 +156,31 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
 
   cp -r /vagrant/HitWalker2 /home/vagrant/
   
+  cd /vagrant/HitWalker2/populate
+  
+  sudo R CMD INSTALL hwhelper
+  
   sudo chown -R vagrant:vagrant /var/www
   
   python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
+  
+  sudo apt-get install texlive-latex-recommended
+  sudo apt-get install texinfo
+  sudo apt-get install texlive-latex-extra
+  
+  R_SCRIPT=/vagrant/data/*.R
+  
+  RNW_SCRIPT=/vagrant/data/*.Rnw
+  
+  cd /vagrant/data/
+  
+  if [ -f $RNW_SCRIPT ]
+  then
+    R CMD Sweave --pdf $RNW_SCRIPT
+  elif [ -f $R_SCRIPT]
+  then
+    Rscript --vanilla $R_SCRIPT
+  fi
   
    SHELL
   
