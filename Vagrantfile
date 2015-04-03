@@ -82,39 +82,44 @@ Vagrant.configure(2) do |config|
       sudo pip install pandas==0.15.2
       sudo pip install eventlet==0.17.1
      
-      cd ~
+      sudo cp /vagrant/neo4j-community-2.1.8-unix.tar.gz /opt/
+      
+      sudo tar -xzvf /opt/neo4j-community-2.1.8-unix.tar.gz
+      
+      
+    echo "
+113c113 
+<   read -p 'Press any key to continue'
+---
+> #  read -p 'Press any key to continue'
+123c123
+< HEADLESS=false
+---
+> HEADLESS=true
+" > /vagrant/temp.diff
+
+
+    sudo patch /opt/neo4j-community-2.1.8/bin/neo4j-installer /vagrant/temp.diff
+    
+    cd /opt/neo4j-community-2.1.8/bin/
+    
+    sudo ./neo4j-installer install
+    
+    sudo ln -s /opt/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
      
-      cp /vagrant/neo4j-community-2.1.8-unix.tar.gz ~/
+    sudo bash -c "echo 'vagrant   soft    nofile  40000' >> /etc/security/limits.conf"
+    sudo bash -c "echo 'vagrant   hard    nofile  40000' >> /etc/security/limits.conf"
       
-      tar -xzvf neo4j-community-2.1.8-unix.tar.gz
+    sudo bash -c "echo 'session    required   pam_limits.so' >> /etc/pam.d/su"
       
-      rm neo4j-community-2.1.8-unix.tar.gz
+      sudo service neo4j-service stop
       
-      sudo ln -s ~/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
+      sudo rm -rf /opt/neo4j-community-2.1.8/data
+      sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
       
-      echo '
-description "neo4j" 
-start on (filesystem)
-stop on runlevel [016]
-respawn
-setuid vagrant
-setgid vagrant
-chdir /home/vagrant/neo4j-community-2.1.8/
-    
-exec ./bin/neo4j start
-' > neo4j.conf
-    
-    sudo cp neo4j.conf /etc/init/
+      sudo chown -R neo4j:neo4j /opt/neo4j-community-2.1.8/
       
-      bash -c "echo 'vagrant   soft    nofile  40000' >> /etc/security/limits.conf"
-      bash -c "echo 'vagrant   hard    nofile  40000' >> /etc/security/limits.conf"
-      
-      bash -c "echo 'session    required   pam_limits.so' >> /etc/pam.d/su"
-      
-      sudo rm -rf ~/neo4j-community-2.1.8/data
-      sudo cp -r /vagrant/hitwalker2_base_data ~/neo4j-community-2.1.8/data
-      
-      sudo start neo4j
+      sudo service neo4j-service start
       
       sudo mkdir -p /var/www/hitwalker2_inst
       
@@ -164,9 +169,9 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
   python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
   
-  sudo apt-get install texlive-latex-recommended
-  sudo apt-get install texinfo
-  sudo apt-get install texlive-latex-extra
+  sudo apt-get install -y texlive-latex-recommended
+  sudo apt-get install -y texinfo
+  sudo apt-get install -y texlive-latex-extra
   
   R_SCRIPT=/vagrant/data/*.R
   
