@@ -492,7 +492,7 @@
                                                                         if (d[e].attributes.node_type == "MetaNode")
                                                                         {
                                                                             //norm_edges[i][e].push(d[e].children.map(function(x) x.id));
-                                                                            temp_edges[e] = $.merge(temp_edges[e], d[e].children.map(function(x) {x.id}))
+                                                                            temp_edges[e] = $.merge(temp_edges[e], d[e].children.map(function(x) x.id))
                                                                         }
                                                                         else{
                                                                             //norm_edges[i][e].push([d[e].id]);
@@ -512,8 +512,8 @@
                                         
                                     });
             
-            var edge_nest = d3.nest().key(function(d) {return d.source}).key(function(d) {return d.target}).rollup(function(d) {return d.map(function(e) {e.type})}).map(norm_edges, d3.map);
-            var rev_nest = d3.nest().key(function(d) {return d.target}).key(function(d) {return d.source}).rollup(function(d) {return d.map(function(e) {e.type})}).map(norm_edges, d3.map);
+            var edge_nest = d3.nest().key(function(d) {return d.source}).key(function(d) {return d.target}).rollup(function(d) {return d.map(function(e) e.type)}).map(norm_edges, d3.map);
+            var rev_nest = d3.nest().key(function(d) {return d.target}).key(function(d) {return d.source}).rollup(function(d) {return d.map(function(e) e.type)}).map(norm_edges, d3.map);
             
             rev_nest.forEach(function(key, value)
                              {
