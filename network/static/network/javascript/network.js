@@ -1141,17 +1141,29 @@ function post_to_fullfill (obj)
                   
                 }
                 
-                
-                
-                spinner.stop()
                
             }
             else
             {
-                console.log(status)
+                console.log(status);
             }
+            
+            spinner.stop();
         
-       }, "text");
+       }, "text")
+    .fail(function()
+          {
+            spinner.stop();
+            
+            var pop_content = '<p class="text-danger">Sorry, An error has occured while executing this query.</p>';
+                      
+            $(obj).popover({container:"body", html:true, placement: 'right', title:'Query Error', content:pop_content, trigger:"manual"});
+              
+            $(obj).popover('show');
+            
+            adjust_screen_right(".popover");
+            
+          });
 }
 
 //var set_groups = function()
@@ -1966,11 +1978,15 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                                     }
                                                     else
                                                     {
-                                                        console.log(status)
+                                                        ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
                                                     }
                                                 
                                                     
-                                               }, "text");
+                                               }, "text")
+                                            .fail(function(x)
+                                                  {
+                                                      ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
+                                                  });
                                         }
                                         else
                                         {
@@ -1999,9 +2015,13 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                                     }
                                                     else
                                                     {
-                                                        console.log(status)
+                                                        ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
                                                     }
-                                               }, "text");
+                                               }, "text")
+                                            .fail(function(x)
+                                                  {
+                                                      ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
+                                                  });;
                                         }
                                         
                                     }

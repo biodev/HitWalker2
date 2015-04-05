@@ -393,6 +393,18 @@
             return(ret_table);
         }
         
+        function ajax_node_query_failure (bind_obj, content_text)
+        {
+            content_text = '<p class="alert alert-danger">' + content_text + '</p>';
+            
+            $(bind_obj).popover({content:content_text, title:"Query Failure", container:"body", html:true, trigger:"manual",
+                                                                              placement: 'right'});
+            $(bind_obj).popover('show');
+            popover_ref = bind_obj;
+            
+            adjust_screen_right(".popover");
+        }
+        
         //exporting the html summary tables via the 'Export Summary' button or other onclick functionality calling this
         function export_html_summary_csv(table_id)
         {
