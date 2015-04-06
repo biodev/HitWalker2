@@ -135,7 +135,7 @@ multi.gsub <- function(patterns, replacements, use.str)
 } 
 
 
-setMethod("configure", signature("HW2Config"), function(obj, base.dir="~/HitWalker2/populate/",dest.dir="~/HitWalker2/network/"){
+setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/"){
     #copySubstitute() --which is part of Biobase
     
     if (file.exists(dest.dir) == F)

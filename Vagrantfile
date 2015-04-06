@@ -37,7 +37,7 @@ Vagrant.configure(2) do |config|
   # the path on the host to the actual folder. The second argument is
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
-  # config.vm.synced_folder "../data", "/vagrant_data"
+   config.vm.synced_folder "data/", "/vagrant_data",owner: "neo4j", group: "neo4j"
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
@@ -65,7 +65,7 @@ Vagrant.configure(2) do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   
-  config.vm.provision "shell", inline: <<-SHELL
+  config.vm.provision "basic", type:"shell", inline: <<-SHELL
       sudo apt-get update
      
       sudo apt-get install -y nginx python-pip python-dev build-essential  python-numpy python-scipy python-cairosvg python-lxml wget openjdk-7-jdk 
@@ -82,44 +82,10 @@ Vagrant.configure(2) do |config|
       sudo pip install pandas==0.15.2
       sudo pip install eventlet==0.17.1
      
-      sudo cp /vagrant/neo4j-community-2.1.8-unix.tar.gz /opt/
-      
-      sudo tar -xzvf /opt/neo4j-community-2.1.8-unix.tar.gz
-      
-      
-    echo "
-113c113 
-<   read -p 'Press any key to continue'
----
-> #  read -p 'Press any key to continue'
-123c123
-< HEADLESS=false
----
-> HEADLESS=true
-" > /vagrant/temp.diff
-
-
-    sudo patch /opt/neo4j-community-2.1.8/bin/neo4j-installer /vagrant/temp.diff
-    
-    cd /opt/neo4j-community-2.1.8/bin/
-    
-    sudo ./neo4j-installer install
-    
-    sudo ln -s /opt/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
-     
     sudo bash -c "echo 'vagrant   soft    nofile  40000' >> /etc/security/limits.conf"
     sudo bash -c "echo 'vagrant   hard    nofile  40000' >> /etc/security/limits.conf"
       
     sudo bash -c "echo 'session    required   pam_limits.so' >> /etc/pam.d/su"
-      
-      sudo service neo4j-service stop
-      
-      sudo rm -rf /opt/neo4j-community-2.1.8/data
-      sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
-      
-      sudo chown -R neo4j:neo4j /opt/neo4j-community-2.1.8/
-      
-      sudo service neo4j-service start
       
       sudo mkdir -p /var/www/hitwalker2_inst
       
@@ -169,15 +135,65 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
   python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
   
+   SHELL
+   
+   config.vm.provision "neo4j", type:"shell", inline: <<-SHELL
+   
+      sudo cp /vagrant/neo4j-community-2.1.8-unix.tar.gz /opt/
+      
+      cd /opt/
+      
+      sudo tar -xzvf /opt/neo4j-community-2.1.8-unix.tar.gz
+      
+      
+    echo "
+113c113 
+<   read -p 'Press any key to continue'
+---
+> #  read -p 'Press any key to continue'
+123c123
+< HEADLESS=false
+---
+> HEADLESS=true
+" > /vagrant/temp.diff
+
+  cd /opt/neo4j-community-2.1.8/bin/
+
+  sudo patch neo4j-installer /vagrant/temp.diff
+    
+    sudo ./neo4j-installer install
+    
+    sudo ln -s /opt/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
+  
+    sudo service neo4j-service stop
+      
+    sudo rm -rf /opt/neo4j-community-2.1.8/data
+    sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
+    
+    sudo chown -R neo4j:neo4j /opt/neo4j-community-2.1.8/
+    
+    sudo service neo4j-service start
+      
+      
+  SHELL
+  
+  config.vm.provision "sweave", type:"shell", inline: <<-SHELL
+  
   sudo apt-get install -y texlive-latex-recommended
   sudo apt-get install -y texinfo
   sudo apt-get install -y texlive-latex-extra
   
-  R_SCRIPT=/vagrant/data/*.R
+  SHELL
   
-  RNW_SCRIPT=/vagrant/data/*.Rnw
+  config.vm.provision "data", type:"shell", inline: <<-SHELL
   
-  cd /vagrant/data/
+  R_SCRIPT=/vagrant_data/*.R
+  
+  RNW_SCRIPT=/vagrant_data/*.Rnw
+  
+  cd /vagrant_data/
+  
+  sudo su neo4j
   
   if [ -f $RNW_SCRIPT ]
   then
@@ -187,7 +203,6 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
     Rscript --vanilla $R_SCRIPT
   fi
   
-   SHELL
+  SHELL
   
-  #config.vm.provision "file", source: "~/.gitconfig", destination: ".gitconfig"
 end
