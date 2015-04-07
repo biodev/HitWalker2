@@ -37,8 +37,10 @@ Vagrant.configure(2) do |config|
   # the path on the host to the actual folder. The second argument is
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
-   config.vm.synced_folder "data/", "/vagrant_data",owner: "neo4j", group: "neo4j"
-
+  #config.vm.synced_folder "data/", "/vagrant_data",owner: "neo4j", group: "neo4j"
+  
+  config.ssh.insert_key = false
+  
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
   # Example for VirtualBox:
@@ -137,13 +139,13 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
    SHELL
    
-   config.vm.provision "neo4j", type:"shell", inline: <<-SHELL
+  config.vm.provision "neo4j", type:"shell", inline: <<-SHELL
    
-      sudo cp /vagrant/neo4j-community-2.1.8-unix.tar.gz /opt/
-      
-      cd /opt/
-      
-      sudo tar -xzvf /opt/neo4j-community-2.1.8-unix.tar.gz
+  sudo cp /vagrant/neo4j-community-2.1.8-unix.tar.gz /opt/
+  
+  cd /opt/
+  
+  sudo tar -xzvf /opt/neo4j-community-2.1.8-unix.tar.gz
       
       
     echo "
@@ -155,6 +157,10 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
 < HEADLESS=false
 ---
 > HEADLESS=true
+124c124
+< DEFAULT_USER='neo4j'
+---
+> DEFAULT_USER='vagrant'
 " > /vagrant/temp.diff
 
   cd /opt/neo4j-community-2.1.8/bin/
@@ -166,11 +172,22 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
     sudo ln -s /opt/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
   
     sudo service neo4j-service stop
-      
+    
+    echo "
+25,26c25,26
+< #wrapper.java.initmemory=512
+< #wrapper.java.maxmemory=512
+---
+> wrapper.java.initmemory=512
+> wrapper.java.maxmemory=7168
+" > /vagrant/temp_2.diff
+
+  sudo patch /opt/neo4j-community-2.1.8/conf/neo4j-wrapper.conf /vagrant/temp_2.diff
+    
     sudo rm -rf /opt/neo4j-community-2.1.8/data
     sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
     
-    sudo chown -R neo4j:neo4j /opt/neo4j-community-2.1.8/
+    sudo chown -R vagrant:vagrant /opt/neo4j-community-2.1.8/
     
     sudo service neo4j-service start
       
@@ -187,18 +204,18 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
   config.vm.provision "data", type:"shell", inline: <<-SHELL
   
-  R_SCRIPT=/vagrant_data/*.R
+  cd /vagrant/data/
   
-  RNW_SCRIPT=/vagrant_data/*.Rnw
+  sudo su vagrant
   
-  cd /vagrant_data/
+  R_SCRIPT=*.R
   
-  sudo su neo4j
+  RNW_SCRIPT=*.Rnw
   
   if [ -f $RNW_SCRIPT ]
   then
     R CMD Sweave --pdf $RNW_SCRIPT
-  elif [ -f $R_SCRIPT]
+  elif [ -f $R_SCRIPT ]
   then
     Rscript --vanilla $R_SCRIPT
   fi
