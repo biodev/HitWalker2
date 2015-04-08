@@ -129,6 +129,8 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
 
   cp -r /vagrant/HitWalker2 /home/vagrant/
   
+  sudo chown -R vagrant:vagrant /home/vagrant/HitWalker2
+  
   cd /vagrant/HitWalker2/populate
   
   sudo R CMD INSTALL hwhelper
