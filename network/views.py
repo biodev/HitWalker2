@@ -659,16 +659,12 @@ def multi_node_query(request):
 
 def download(request):
     
-    use_file = request.session['tmp_file']
-    
     resp_file_name = 'query_result.csv'
     
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="'+resp_file_name+'"'
     
     writer = csv.writer(response)
-    
-    file_inp = open(use_file, 'r')
     
     #write the parameter info
     
@@ -693,8 +689,39 @@ def download(request):
     writer.writerow(["Title:" + request.session['tmp_title']])
     writer.writerow([])
     
-    for i in csv.reader(file_inp):
-        writer.writerow(i)
+    #start writing the results
+    
+    subj_nodes = request.session['tmp_subj_nodes']
+    query_nodes = request.session['tmp_query_nodes']
+    
+    node_graph = {'nodes':core.NodeList(), 'links':[]}
+    
+    for i in zip(*[iter(query_nodes)]*100):
+        temp_node_graph = core.copy_nodes(subj_nodes, i, request, config.edge_queries, never_group=True, rel_types="product")
+        node_graph['nodes'].extendIfNew(temp_node_graph['nodes'])
+        node_graph['links'].append(temp_node_graph['links'])
+        
+    header = ['id', 'display_name'] + map(lambda x: x['id'], subj_nodes)
+    
+    writer.writerow(header)
+    
+    for i in node_graph['nodes'].tolist():
+        temp_ln = []
+        if i['attributes']['node_type'] == query_type['returned_node_type']:
+            temp_ln.extend([i['id'], i['display_name']] + [None]*(len(header)-2))
+           # print i
+            for j in i['children']:
+                if j['attributes']['node_type'].replace('_Hit', '') == query_info['text']:
+                    for k_ind, k in enumerate(j['attributes']['other_nodes']):
+                        val_loc = header.index(k)
+                        if val_loc == -1:
+                            raise Exception("Unexpected node found")
+                        else:
+                            if j['attributes']['meta'].has_key('score'):
+                                temp_ln[val_loc] = j['attributes']['meta']['score'][k_ind]
+                            else:
+                                temp_ln[val_loc] = 1
+            writer.writerow(temp_ln)
     
     return response
 
@@ -745,6 +772,8 @@ def fullfill_node_query(request):
         tx.append(use_query, node_queries)
         res_list = tx.commit()
         
+        print len(res_list)
+        
         temp_node_list = []
         
         for i in res_list[0]:
@@ -766,6 +795,8 @@ def fullfill_node_query(request):
         #too many nodes to render efficiently, will allow user to download csv file...
         if len(temp_node_list) > 2000:
             
+            request.session['tmp_title'] = use_title
+            
             subj_nodes = []
             query_nodes = []
             
@@ -775,40 +806,10 @@ def fullfill_node_query(request):
             
             for i in temp_node_list:
                 query_nodes.append({'id':i, 'node_type':query_type['returned_node_type']})
+    
             
-            node_graph = core.copy_nodes(subj_nodes, query_nodes, request, config.edge_queries, never_group=True)
-            
-            tmp_file = tempfile.mktemp()
-            
-            out_p = open(tmp_file, "w")
-            
-            header = ['id', 'display_name'] + map(lambda x: x['id'], subj_nodes)
-            
-            writer = csv.writer(out_p)
-            
-            writer.writerow(header)
-            
-            for i in node_graph['nodes'].tolist():
-                temp_ln = []
-                if i['attributes']['node_type'] == query_type['returned_node_type']:
-                    temp_ln.extend([i['id'], i['display_name']] + [None]*(len(header)-2))
-                    for j in i['children']:
-                        if j['attributes']['node_type'].replace('_Hit', '') == query_info['text']:
-                            for k_ind, k in enumerate(j['attributes']['other_nodes']):
-                                val_loc = header.index(k)
-                                if val_loc == -1:
-                                    raise Exception("unexpected node found")
-                                else:
-                                    if j['attributes']['meta'].has_key('score'):
-                                        temp_ln[val_loc] = j['attributes']['meta']['score'][k_ind]
-                                    else:
-                                        temp_ln[val_loc] = 1
-                    writer.writerow(temp_ln)
-                                
-            out_p.close()
-            
-            request.session['tmp_file'] = tmp_file
-            request.session['tmp_title'] = use_title
+            request.session['tmp_subj_nodes'] = subj_nodes
+            request.session['tmp_query_nodes'] = query_nodes
             
             ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
             
@@ -825,6 +826,7 @@ def fullfill_node_query(request):
         return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
     
     except:
+        raise
         return HttpResponseServerError()
 
 def get_data (request):
