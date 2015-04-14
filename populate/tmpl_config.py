@@ -116,7 +116,7 @@ get_seed_list=custom_functions.make_seed_list
 get_query_list=custom_functions.make_seed_list
 #
 ##Need to ensure that the query can find the appropriate parameters in the session and that the sample is refered to as '{name}'
-prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_graph_file":"/var/www/hitwalker_2_inst/static/data/9606.protein.links.v9.1.mm.mtx",
+prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_graph_file":"/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm.mtx",
                                                                       "string_session_name":"string_conf",
                                                                       "res_prob_session_name":"res_prob",
                                                                       "conv_thresh_session_name":"conv_thresh",
