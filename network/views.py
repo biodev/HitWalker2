@@ -79,7 +79,7 @@ def generate_css (user_name):
     
     #from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
     static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
-    css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
+    css_path =os.path.join(static_storage.location, "network/css/HitWalker2.css")
     hw_css = cssutils.parseFile(css_path)
     
     node_type_transl={'Gene':{'name':'Gene', 'class':'Gene'}, 'Sample':{'name':'Sample', 'class':'Sample'}}
@@ -240,7 +240,7 @@ def generate_css (user_name):
     print hw_css.cssText
     
     #now serialize the new css appropriately in a unique file
-    new_css_path = os.path.join(static_storage.location, "network/static/network/css/HitWalker2_"+user_name+".css")
+    new_css_path = os.path.join(static_storage.location, "network/css/HitWalker2_"+user_name+".css")
     new_css_out = open(new_css_path, "w")
     new_css_out.write(hw_css.cssText)
     new_css_out.close()
@@ -828,22 +828,6 @@ def network(request):
             import tinycss
             import cssselect
         
-            #from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
-            static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
-            
-            cur_dir = tempfile.tempdir
-            
-            #css_path = os.path.relpath(os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css"), cur_dir)
-           
-            #css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
-            
-            #use_prog_type = prog_type.strip('/')
-            #if use_prog_type != "":
-            #    use_prog_type = "_" + use_prog_type
-            #    css_path = os.path.join("/var/www/hitwalker_2_inst" + use_prog_type, "HitWalker2/network/static/network/css/HitWalker2.css")
-            #else:
-            #css_path =os.path.join(static_storage.location, "network/static/network/css/HitWalker2.css")
-            
             if request.POST["plot_type"] == 'svg':
                 
                 use_svg = '<?xml-stylesheet type="text/css" href="' + request.session['new_css_path'] + '" ?>' + request.POST["data"]
