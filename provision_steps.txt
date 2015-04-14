@@ -1,3 +1,5 @@
+cp HitWalker2/Vagrantfile .
+
 vagrant up --no-provision
 vagrant provision --provision-with basic
 
@@ -21,8 +23,12 @@ R CMD Sweave --pdf ccle_example.Rnw
 
 To login, first determine the local IP used by HW2
 
-vagrant ssh
-
 ifconfig
 
-Go to the following URL: http://172.28.128.13/HitWalker2
+There should be a line e.g. : inet addr:172.28.128.13
+
+May need to restart nginx:
+
+sudo nginx -s reload
+
+Then, for instance, go to the following URL: http://172.28.128.13/HitWalker2
