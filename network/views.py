@@ -659,6 +659,8 @@ def multi_node_query(request):
 
 def download(request):
     
+    #this entire thing is a little too hard-coded for comfort...
+    
     resp_file_name = 'query_result.csv'
     
     response = HttpResponse(content_type='text/csv')
@@ -691,27 +693,67 @@ def download(request):
     
     #start writing the results
     
-    subj_nodes = request.session['tmp_subj_nodes']
-    query_nodes = request.session['tmp_query_nodes']
+    var_type = request.session['tmp_var_type']
+    base_query = request.session['tmp_use_query']
+    base_params = request.session['tmp_node_queries']
     
-    node_graph = {'nodes':core.NodeList(), 'links':[]}
+    base_query = base_query.replace("RETURN ret_type", "")
     
-    for i in zip(*[iter(query_nodes)]*100):
-        temp_node_graph = core.copy_nodes(subj_nodes, i, request, config.edge_queries, never_group=True, rel_types="product")
-        node_graph['nodes'].extendIfNew(temp_node_graph['nodes'])
-        node_graph['links'].append(temp_node_graph['links'])
+    if base_query.find("gene.name") == -1:
+        raise Exception("Unexpected type of download...")
+    
+    base_query = base_query.replace("gene.name AS ret_type", "gene")
+    
+    #get the basic type of query for the given data type
+    
+    end_query_str = getattr(config, var_type)
+    
+    gene_re = re.compile(r"(\w+):EntrezID[\w\{\}:]+")
+    
+    gene_var = re.findall(gene_re, end_query_str['query'])
+    
+    if len(gene_var) > 1:
+        raise Exception("Currently don't support more than 1 gene variables")
+    
+    end_query = re.sub(gene_re, lambda x: 'gene', end_query_str['query'])
+    
+    end_query = end_query.replace(gene_var[0]+'.', 'gene.')
+    
+    end_query = end_query.replace('SAMPLE', 'Sample')
+    
+    run_query = base_query + ' ' + end_query
+    
+    #then merge the base params with those needed by end_query
+    
+    for i in end_query_str['session_params']:
+        for j in i:
+            if base_params.has_key(j) == False:
+                base_params[j] = core.iterate_dict(request.session, i)
+    
+    session = cypher.Session()
+    tx = session.create_transaction()
+    tx.append(run_query, base_params)
+    res_list = tx.commit()
+    
+    use_nodes = request.session['tmp_ret_nodes']
+    
+    #should use the handler in end_query_str, but for now...
+    
+    core.handle_gene_hits(map(lambda x: [x], res_list[0]), use_nodes, request)
+    
+    print len(use_nodes)
         
-    header = ['id', 'display_name'] + map(lambda x: x['id'], subj_nodes)
+    header = ['id', 'display_name'] + base_params['Sample']
     
     writer.writerow(header)
     
-    for i in node_graph['nodes'].tolist():
+    for i in use_nodes.tolist():
         temp_ln = []
-        if i['attributes']['node_type'] == query_type['returned_node_type']:
+        if i['attributes']['node_type'] == 'Gene':
             temp_ln.extend([i['id'], i['display_name']] + [None]*(len(header)-2))
-           # print i
+            #print i['children']
             for j in i['children']:
-                if j['attributes']['node_type'].replace('_Hit', '') == query_info['text']:
+                if j['attributes']['node_type'].replace('_Hit', '') == var_type:
                     for k_ind, k in enumerate(j['attributes']['other_nodes']):
                         val_loc = header.index(k)
                         if val_loc == -1:
@@ -792,6 +834,10 @@ def fullfill_node_query(request):
         else:
             use_title = 'ERROR: Unknown title...'
         
+        #convert the IDs to nodes
+            
+        ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
+        
         #too many nodes to render efficiently, will allow user to download csv file...
         if len(temp_node_list) > 2000:
             
@@ -808,16 +854,14 @@ def fullfill_node_query(request):
                 query_nodes.append({'id':i, 'node_type':query_type['returned_node_type']})
     
             
-            request.session['tmp_subj_nodes'] = subj_nodes
-            request.session['tmp_query_nodes'] = query_nodes
+            request.session['tmp_var_type'] = query_info['text']
+            request.session['tmp_use_query'] = use_query
+            request.session['tmp_node_queries'] = node_queries
+            request.session['tmp_ret_nodes'] = ret_nodes
             
             ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
             
         else:
-            
-            #convert the IDs to nodes
-            
-            ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
         
             ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
         

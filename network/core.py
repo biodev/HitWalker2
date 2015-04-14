@@ -480,7 +480,7 @@ class RelationshipSet:
 
 def handle_gene_hits(res_list, nodes, request):
     for i in BasicResultsIterable(res_list):
-        #print i
+       
         if len(i) > 0:
             if isinstance(i[0], tuple):
                 use_i = i[:]
