@@ -170,7 +170,9 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   cd /opt/neo4j-community-2.1.8/bin/
 
   sudo patch neo4j-installer /vagrant/temp.diff
-    
+  
+  sudo rm /vagrant/temp.diff
+  
     sudo ./neo4j-installer install
     
     sudo ln -s /opt/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
@@ -187,7 +189,9 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
 " > /vagrant/temp_2.diff
 
   sudo patch /opt/neo4j-community-2.1.8/conf/neo4j-wrapper.conf /vagrant/temp_2.diff
-    
+  
+  sudo rm /vagrant/temp_2.diff
+  
     sudo rm -rf /opt/neo4j-community-2.1.8/data
     sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
     
