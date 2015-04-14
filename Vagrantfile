@@ -135,9 +135,11 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
   sudo R CMD INSTALL hwhelper
   
-  sudo chown -R vagrant:vagrant /var/www
+  sudo chown -R vagrant:vagrant /var/www/
   
   python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
+  
+  sudo chown -R vagrant:vagrant /var/www/
   
    SHELL
    
@@ -201,26 +203,6 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   sudo apt-get install -y texlive-latex-recommended
   sudo apt-get install -y texinfo
   sudo apt-get install -y texlive-latex-extra
-  
-  SHELL
-  
-  config.vm.provision "data", type:"shell", inline: <<-SHELL
-  
-  cd /vagrant/data/
-  
-  sudo su vagrant
-  
-  R_SCRIPT=*.R
-  
-  RNW_SCRIPT=*.Rnw
-  
-  if [ -f $RNW_SCRIPT ]
-  then
-    R CMD Sweave --pdf $RNW_SCRIPT
-  elif [ -f $R_SCRIPT ]
-  then
-    Rscript --vanilla $R_SCRIPT
-  fi
   
   SHELL
   
