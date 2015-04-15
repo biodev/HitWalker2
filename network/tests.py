@@ -19,10 +19,12 @@ import string
 import collections
 import re
 import time
+import bs4
 from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
 
+@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
     
     def setUp(self):
@@ -129,7 +131,72 @@ def simple_handler_w_child(res_list, nodes, request):
         if len(i) > 0:
             nodes.add(BasicNodeWithAttr(i, only_child=True))
 
+test_params = {
+    'General_Parameters':{'type':'standard',
+                          'fields':{
+                                'string_conf':{'type':'numeric', 'default':.4, 'range':[0, 1], 'comparison':'>', 'name':'HitWalker STRING Confidence'},
+                                'path_conf':{'type':'numeric', 'default':.95, 'range':[0, 1], 'comparison':'>', 'name':'Pathway STRING Confidence'},
+                                'res_prob':{'type':'numeric', 'default':.3, 'range':[0,1], 'comparison':'=', 'name':'Restart Probability'},
+                                'max_iter':{'type':'numeric', 'default':100, 'range':[0, 10000], 'comparison':'=', 'name':'Max Iterations'},
+                                'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'},
+    'expression':{'type':'numeric', 'default':0.75 , 'range':[0,1], 'comparison':'>' , 'name':'Expression (Hit) Threshold'},
+    'genescore':{'type':'numeric', 'default':0 , 'range':[-100,100], 'comparison':'>' , 'name':'GeneScore (Hit) Threshold'}
+                                }, 
+                        }
+}
 
+
+
+class Test_views(TestCase):
+    def setUp(self):
+        # Every test needs access to the request factory.
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username='jacob', email='', password='top_secret')
+        
+        settings.SESSION_ENGINE = 'django.contrib.sessions.backends.file'
+        engine = import_module(settings.SESSION_ENGINE)
+        store = engine.SessionStore()
+        store.save()
+        
+        self.store = store
+
+    def test_table(self):
+        
+        test_post_1 = {'csrfmiddlewaretoken': 'test',
+            'query_samples': json.dumps({"SampleID":{"Expression":"METIS_p_NCLE_RNA1_Human_U133_Plus_2.0_A09_240866.CEL",
+                                           "GeneScore":"HEPG2_LIVER",
+                                           "Variants":"HEPG2_LIVER"}}),
+            'parameters':json.dumps(test_params)}
+        
+        request = self.factory.post('/table/', test_post_1)
+        
+        # Recall that middleware are not supported. You can simulate a
+        # logged-in user by setting request.user manually.
+        request.user = self.user
+        request.session = self.store
+        
+        response = views.table(request)
+        self.assertEqual(response.status_code, 200)
+        
+        html_res = bs4.BeautifulSoup(response.content)
+        
+        tab_res = html_res.find_all('tr')
+        
+        tab_list = []
+        
+        for i_ind, i in enumerate(tab_res):
+            temp_list = list(i.stripped_strings)
+            if len(temp_list) > 0:
+                tab_list.append(temp_list)
+        
+        print tab_list
+        
+        #compare this with the R equivalent
+        
+        ##first get the seeds
+        
+        ##run the RWR
 
 ###tests for the core module
 
@@ -293,7 +360,6 @@ class Test_node_classes(TestCase):
     
 class Test_core_classes (TestCase):
     
-    @unittest.skip("Working on graph db")
     def test_BasicResultsIterable(self):
         
         #get a single result from a single transaction
@@ -447,7 +513,7 @@ class Test_core_classes (TestCase):
         inp_query1 = {'query':'MATCH (n:Gene{name:{GENE}})-[r:KNOWN_AS]-(m) WHERE r.status="symbol" RETURN n.name,m.name', 'handler':custom_functions.get_gene_names, 'session_params':None}
         
         inp_query2 = {'query':'MATCH(n:LabID{name:{LABID}})-[r:GENE_SCORE_RUN]-()-[r2:SCORE_MAPPED_TO]-(m:Gene{name:{GENE}}) WHERE HAS(r.score) RETURN m.name, r.score,(r.score*r2.modifier) > {GENESCORE} AS is_hit ORDER BY r.score DESC limit 1',
-              'handler':custom_functions.get_gene_score, 'session_params':None} 
+              'handler':lambda x: x, 'session_params':None} 
         
         query_res = core.customize_query(inp_query1, query=lambda x:x.replace("{GENE}", "{name}"))
         self.assertEqual(query_res['query'], 'MATCH (n:Gene{name:{name}})-[r:KNOWN_AS]-(m) WHERE r.status="symbol" RETURN n.name,m.name')
@@ -475,18 +541,7 @@ class Test_core_classes (TestCase):
         self.assertDictEqual(new_tmpl, {'title':'Samples with siRNA hits for $$result$$','text':'siRNA Hit', 'query':'MATCH(sample:LabID)-[r:SIRNA_RUN]-()-[r2:SIRNA_MAPPED_TO]-(gene:Gene) WHERE  HAS(r.zscore) AND (r.zscore*r2.modifier) < {zscore} AND gene.name IN {Gene} WITH sample.name AS ret_type, COLLECT(DISTINCT gene.name) AS use_coll WHERE LENGTH(use_coll) = {Gene_length} RETURN ret_type',
                          'handler':None, 'session_params':[['zscore']]})
     
-    def test_fix_jquery_array_keys(self):
-        test_dict = {u'var_select[]': [u'ENSG00000010327', u'ENSG00000196132', u'ENSG00000181929'], u'panel_context': [u'panel'], u'seed_select[]': [u'ENSG00000109320', u'ENSG00000092445', u'ENSG00000182578']}
-        test_res_1 = core.fix_jquery_array_keys(test_dict)
-        self.assertDictEqual(test_res_1, {u'var_select': [u'ENSG00000010327', u'ENSG00000196132', u'ENSG00000181929'], u'panel_context': [u'panel'], u'seed_select': [u'ENSG00000109320', u'ENSG00000092445', u'ENSG00000182578']})
-        
-        test_dict_2 = {'key1':'val1', 'key2':'val2'}
-        test_res_2 = core.fix_jquery_array_keys(test_dict_2)
-        self.assertDictEqual(test_res_2, test_dict_2)
-        
-    def proper_type(self):
-        print 'todo'
-        
+    
     
         
         
@@ -535,8 +590,6 @@ class Test_core_classes (TestCase):
 class ajax_and_core_utils_tests(TestCase):
     def setUp(self):
         
-        #self.skipTest('Fix grouping and such related bugs/ambiguities')
-        
         self.client = Client()
         settings.SESSION_ENGINE = 'django.contrib.sessions.backends.file'
         engine = import_module(settings.SESSION_ENGINE)
@@ -546,19 +599,6 @@ class ajax_and_core_utils_tests(TestCase):
         self.client.cookies[settings.SESSION_COOKIE_NAME] = store.session_key
         
         self.graph_db = neo4j.GraphDatabaseService(test_cypher_session+'/db/data/') 
-        
-        #graph_inp = open("/var/www/hitwalker_2_inst/graph_struct.json", "r")
-        #graph_struct = json.load(graph_inp)
-        #graph_inp.close()
-        
-        #session['query_samples'] = {'LabID':{'siRNA':['12-00294','11-00003'],'GeneScore':['12-00294','11-00003'], 'Variants':['11-00003']}} #'13-00388']}}
-        #self.session['necessary_vars'] = set(['UNIT_DNA_DIFF', 'Variation', 'IMPACTS', 'DNA_DIFF'])
-        #self.session['where_template'] = '( ( $$IMPACTS$$.Cons_cat = "NonSynonymous" AND $$DNA_DIFF$$.genotype_quality > 40.0 AND $$UNIT_DNA_DIFF$$.QD > 5.0 AND $$UNIT_DNA_DIFF$$.MQ0 < 4.0 AND $$Variation$$.Sample_count < 187.5 ) ) AND ( ( $$Variation$$.in_1kg = 0 AND $$Variation$$.in_dbsnp = 0 ) OR ( $$Variation$$.in_1kg = 1 AND HAS($$Variation$$.gmaf) AND $$Variation$$.gmaf < 0.01 ) OR ( $$Variation$$.in_dbsnp = 1 AND $$Variation$$.in_1kg = 0 AND $$Variation$$.Sample_count = 1.0 ) )'
-        #self.session['graph_struct'] = graph_struct
-        #self.session['zscore'] = -2
-        #self.session['gene_score'] = 10
-        #self.session['string_conf'] = .4
-        #self.session['hitwalker_score'] = {}
         
         self.session.save()
     
@@ -1165,39 +1205,7 @@ class query_parser_tests (TestCase):
         
         self.assertEqual(rep_query, query_str_7)
 
-
-#class FilterTests (TestCase):
-#    def setUp(self):
-#        self.factory = RequestFactory()
-#        self.user = User.objects.create_user(username='test', email='test@test.com', password='top_secret')
-#        self.filter_hs_issue_1 = {'filter_hs':{"parent.0.group.0.type.Cons_cat.num.0":"NonSynon.","parent.0.group.0.type.genotype_quality.num.1":"40","parent.0.group.0.type.QD.num.2":"5","parent.0.group.0.type.HRun.num.3":"5",
-#                                               "parent.0.group.0.type.MQ0.num.4":"4","parent.0.group.0.type.cohort_freq.num.5":"0.5","parent.2.group.2.type.in_dbsnp.num.7":"False","parent.2.group.4.type.in_1kg.num.8":"True",
-#                                               "parent.2.group.4.type.freq.num.9":"0.01","parent.2.group.6.type.in_dbsnp.num.10":"True","parent.2.group.6.type.in_1kg.num.11":"False","parent.2.group.6.type.cohort_count.num.12":"1"},
-#                                'var_logic':{"logical_button":{"1":"AND","2":"AND","3":"AND","4":"AND","5":"AND","6":"AND","8":"OR","9":"AND","10":"OR","11":"AND","12":"AND"},
-#                                            "comp_button":{"1":">","2":">","3":"<","4":"<","5":"<","9":"<","12":"="}},
-#                                'param_hs':{'res_prob': u'0.3', 'zscore': u'-2', 'gene_score': u'0', 'max_iter': u'100', 'string_conf': u'0.4', 'conv_thresh': u'1e-10'}}
-#        
-#         #self.filter_hs_issue_1 = {'filter_hs':{"parent.0.group.0.type.Cons_cat.num.0":"NonSynon.","parent.0.group.0.type.genotype_quality.num.1":"40","parent.2.group.2.type.in_dbsnp.num.7":"False","parent.2.group.4.type.in_1kg.num.8":"True"},
-#         #                           'var_logic':{"logical_button":{"1":"AND"}, "comp_button":{"1":">"}}
-#         #                           }
-#        
-#    def test_save_parameter (self):
-#        
-#        request = self.factory.get('/HitWalker2/')
-#        request.user = self.user
-#        save_name = ajax.save_parameters(request, save_name="test_issue_1", filter_hs=self.filter_hs_issue_1['filter_hs'], param_hs=self.filter_hs_issue_1['param_hs'], var_logic=self.filter_hs_issue_1['var_logic'])
-#        self.assertJSONEqual(save_name, {"save_name":"test_issue_1"})
-#        
-#        load_val = ajax.load_parameters(request, load_name="test_issue_1")
-#        
-#        print views.default_filters
-#        
-#        comp_val = ""
-#        
-#        print json.loads(load_val)
-#
-
-
+#as these have been added to core, can be used there...
 class CustomFunctionsTests(TestCase):
     
     def setUp(self):
@@ -1272,7 +1280,7 @@ class CustomFunctionsTests(TestCase):
     #            
     #    return nodes
     
-    
+    @unittest.skip("Working on graph db")
     def test_combine_sirna_gs(self):
         
         #should return a SeedList
@@ -1310,73 +1318,3 @@ class CustomFunctionsTests(TestCase):
         self.assertEqual(sorted(test_1_prot.nodeList().ids()), sorted(test_prot_map.keys()))
         
         self.assertEqual(test_1_prot.getScores(test_prot_map.keys()), test_prot_map.values())
-        
-        
-#def test_copy_nodes_dep(self):
-#        
-#        self.skipTest('Fix grouping and such related bugs/ambiguities')
-#        
-#        #also need to check when there are duplicate nodes between subj and query
-#        
-#        gene_node = self.client.post('/HitWalker2/copy_nodes/', {'subj':json.dumps([{'id':'ENSG00000092445', 'node_type':'Gene'}, {'id':'ENSG00000116478', 'node_type':'Gene'}]), 'query':json.dumps([{'id':'12-00145', 'node_type':'Sample'}])})
-#        gene_node_res = json.loads(gene_node.content)
-#        
-#        self.check_node_ids(gene_node_res, set(['ENSG00000092445', 'ENSG00000116478', '12-00145']))
-#        
-#        self.check_links(gene_node_res, set(['ENSG00000092445.12-00145.Observed_siRNA']))
-#        
-#        #gene-gene test
-#        
-#        gene_gene = self.client.post('/HitWalker2/copy_nodes/', {'subj':json.dumps([{'id':'ENSG00000163631', 'node_type':'Gene'}]), 'query':json.dumps([{'id':'ENSG00000092445', 'node_type':'Gene'}])})
-#        gene_gene_res = json.loads(gene_gene.content)
-#        
-#        #should be a single link with a score of 540...
-#        
-#        #select * from EXTERNAL_ID NATURAL JOIN MAPPED_TO JOIN ASSOC ON stringID = stringID_from  where stringID_from = "9606.ENSP00000263798" and stringID_to = "9606.ENSP00000295897";
-#        #entrez_gene_id|entrezID|gene|entrez_string_id|stringID|string_id|stringID_from|stringID_to|score
-#        #6068|7301|ENSG00000092445|4906|9606.ENSP00000263798|1010039|9606.ENSP00000263798|9606.ENSP00000295897|540
-#        
-#        self.check_node_ids(gene_gene_res, set(['ENSG00000163631', 'ENSG00000092445']))
-#        self.check_links(gene_gene_res, set(['ENSG00000163631.ENSG00000092445.STRING']), verbose=True)
-#        
-#        #sample-sample test
-#        
-#        #currently there should be no sample-sample relationships...
-#        
-#        sample_sample = self.client.post('/HitWalker2/copy_nodes/', {'subj':json.dumps([{'id':'12-00145', 'node_type':'Sample'}]), 'query':json.dumps([{'id':'11-00009', 'node_type':'Sample'}])})
-#        
-#        sample_sample_res = json.loads(sample_sample.content)
-#        
-#        self.check_node_ids(sample_sample_res, set(['12-00145', '11-00009']))
-#        self.assertTrue(len(sample_sample_res["links"]) == 0)
-#        
-#        
-#        #case where it is failing...
-#        
-#        query_dict_1 = {'subj':json.dumps([{u'node_type': u'Sample', u'id': u'12-00374'}, {u'node_type': u'Sample', u'id': u'09-00342'}, {u'node_type': u'Sample', u'id': u'12-00362'}, {u'node_type': u'Sample', u'id': u'13-00091'}, {u'node_type': u'Sample', u'id': u'12-00185'},
-#            {u'node_type': u'Sample', u'id': u'13-00127'}, {u'node_type': u'Sample', u'id': u'12-00056'}, {u'node_type': u'Sample', u'id': u'13-00229'}, {u'node_type': u'Sample', u'id': u'11-00473'}, {u'node_type': u'Sample', u'id': u'10-00525'},
-#            {u'node_type': u'Sample', u'id': u'12-00196'}, {u'node_type': u'Sample', u'id': u'13-00090'}, {u'node_type': u'Sample', u'id': u'10-00831'}, {u'node_type': u'Sample', u'id': u'10-00045'}, {u'node_type': u'Sample', u'id': u'12-00343'},
-#            {u'node_type': u'Sample', u'id': u'12-00145'}, {u'node_type': u'Sample', u'id': u'10-00417'}, {u'node_type': u'Sample', u'id': u'12-00165'}, {u'node_type': u'Sample', u'id': u'12-00378'}, {u'node_type': u'Sample', u'id': u'14-00401'},
-#            {u'node_type': u'Sample', u'id': u'11-00466'}, {u'node_type': u'Sample', u'id': u'11-00133'}, {u'node_type': u'Sample', u'id': u'13-00653'}, {u'node_type': u'Sample', u'id': u'10-00218'}, {u'node_type': u'Sample', u'id': u'09-00180'},
-#            {u'node_type': u'Sample', u'id': u'08-00430'}]),
-#         'query': json.dumps([{u'node_type': u'Gene', u'id': u'LRG_144'}, {u'node_type': u'Gene', u'id': u'ENSG00000119535'}])}
-#        
-#        query_1 = self.client.post('/HitWalker2/copy_nodes/',query_dict_1)
-#        
-#        subj_names = map(lambda x:x['id'], json.loads(query_dict_1['subj']))
-#        query_names = map(lambda x:x['id'], json.loads(query_dict_1['query']))
-#        
-#        query_1_nl = core.get_nodes(subj_names, 'LabID', self.client)
-#        query_1_nl.extend(core.get_nodes(query_names, 'Gene', self.client, missing_param="skip"))
-#        
-#        query_1_graph = custom_functions.gene_to_lab_id (query_names, subj_names, self.client, config.edge_queries['nodes'], {'nodes':query_1_nl, 'links':[]})
-#        
-#        query_1_nodes, query_1_edges = self.get_exp_nodes_edges(query_1_graph, query_names)
-#        
-#        query_1_res = json.loads(query_1.content)
-#        
-#        self.check_node_ids(query_1_res, query_1_nodes, verbose=True)
-#        
-#        self.check_links(query_1_res, query_1_edges, verbose=True)
-#    
-#       
