@@ -737,9 +737,7 @@ def download(request):
     
     use_nodes = request.session['tmp_ret_nodes']
     
-    #should use the handler in end_query_str, but for now...
-    
-    core.handle_gene_hits(map(lambda x: [x], res_list[0]), use_nodes, request)
+    end_query_str['handler'](map(lambda x: [x], res_list[0]), use_nodes, request)
     
     print len(use_nodes)
         
