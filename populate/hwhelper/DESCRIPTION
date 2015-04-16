@@ -1,0 +1,14 @@
+Package: hwhelper
+Version: 0.99.0
+Date: 2015-3-18
+Title: R package to facilitate working with the HitWalker2 framework
+Authors@R: c(person("Daniel", "Bottomly", role=c("aut", "cre"), email="bottomly@ohsu.edu"),
+        person("Libbey", "White", role="aut"),
+        person("Beth", "Wilmot", role="aut"),
+        person("Shannon", "McWeeney", role="aut"))
+Depends: R (>= 3.1.2), methods, Biobase, reshape2, igraph, rjson
+Suggests: SCAN.UPC, Entrez, hgu133plus2.db
+Description: This package provides functionality to facilitate setting up a HitWalker2 instance including
+	data import and querying in Neo4j. 
+License: GPL-3
+Collate: misc.R neointerface.R BaseClasses.R

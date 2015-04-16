@@ -22,69 +22,93 @@ Database population is currently done using \texttt{R} in conjunction with the H
 
 <<echo=TRUE, eval=FALSE>>=
 
-source("populate_hw2.R")
-
 system("wget ftp://string-db.org/STRING/9.1/mapping_files/Entrez_mappings/entrez_gene_id.vs.string.v9.05.28122012.txt")
     
-ppi.map <- read.delim("entrez_gene_id.vs.string.v9.05.28122012.txt", sep="\t", header=TRUE, stringsAsFactors=FALSE)
-names(ppi.map) <- c("entrezID", "stringID")
-
-#need to limit inclusion to only those entrezIDs that can be mapped back to Ensembl genes..
-#ppi.map <- ppi.map[ppi.map$entrezID %in% gene.ent$entrezID,]
-
-load.neo4j(.data=ppi.map, edge.name="MAPPED_TO", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F)
-
-#string ppi
-
-system("wget http://string-db.org/newstring_download/protein.links.v9.1/9606.protein.links.v9.1.txt.gz")
-
-string.ppi <- read.delim("9606.protein.links.v9.1.txt.gz", sep="", stringsAsFactors=F)
-
-string.ppi <- string.ppi[(string.ppi$protein1 %in%  ppi.map$stringID) & (string.ppi$protein2 %in%  ppi.map$stringID),]
-names(string.ppi) <- c("stringID", "stringID", "score")
-
-load.neo4j(.data=string.ppi, edge.name="ASSOC", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F, unique.rels=F)
-
-
-#then add in the pathway info, converted to entrez IDs
-
-path.dta <- read.pc.gmt(filename="Pathway Commons.4.All.GSEA.gmt", organism.code="9606")
-
-#here will keep database as a property of the pathway node and will only keep non-NA relationships with entrez IDs
-
-load.path.dta <- path.dta[,c("pathway", "entrezID", "database")]
-names(load.path.dta)[3] <- "pathway.database"
-load.path.dta <- load.path.dta[complete.cases(load.path.dta),]
-
-#there are duplicated entries and uniqueness constraints so will also need to deal with it ahead of time...
-
-load.path.dta <- load.path.dta[!duplicated(load.path.dta),]
-
-load.path.dta$pathway <- paste(load.path.dta$pathway, paste0("(", load.path.dta$pathway.database, ")"))
-
-load.neo4j(.data=load.path.dta, edge.name="PATHWAY_CONTAINS", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F)
-
-#also load in gene symbol data for the entrez IDs:
+    ppi.map <- read.delim("entrez_gene_id.vs.string.v9.05.28122012.txt", sep="\t", header=TRUE, stringsAsFactors=FALSE)
+    names(ppi.map) <- c("entrezID", "stringID")
     
-system("wget ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz")
+    #need to limit inclusion to only those entrezIDs that can be mapped back to Ensembl genes..
+    #ppi.map <- ppi.map[ppi.map$entrezID %in% gene.ent$entrezID,]
     
-#readme
-system("wget ftp://ftp.ncbi.nih.gov/gene/DATA/README")
+    load.neo4j(.data=ppi.map, edge.name="MAPPED_TO", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F)
     
-#header is like: '#Format: tax_id GeneID Symbol LocusTag Synonyms' so need to remove the Format: prior to using...
+    #string ppi
     
-ent.info <- read.delim("Homo_sapiens.gene_info.gz", sep="\t", header=F, skip=1, stringsAsFactors=F)
-ent.info.header <- readLines("Homo_sapiens.gene_info.gz", n=1)
+    system("wget http://string-db.org/newstring_download/protein.links.v9.1/9606.protein.links.v9.1.txt.gz")
     
-ent.info.match <- regmatches(ent.info.header, regexec(":[[:space:]]+([[:alnum:][:space:]_]+)[[:space:]]+\\(", ent.info.header))[[1]][2]
-use.header <- strsplit(ent.info.match, "\\s+")[[1]]
+    string.ppi <- read.delim("9606.protein.links.v9.1.txt.gz", sep="", stringsAsFactors=F)
     
-names(ent.info) <- use.header
+    string.ppi <- string.ppi[(string.ppi$protein1 %in%  ppi.map$stringID) & (string.ppi$protein2 %in%  ppi.map$stringID),]
+    names(string.ppi) <- c("stringID", "stringID", "score")
     
-ent.dta <- ent.info[,c("GeneID", "Symbol", "Synonyms")]
-names(ent.dta) <- c("entrezID", "symbol", "synonyms")
+    system.time(load.neo4j(.data=string.ppi, edge.name="ASSOC", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F, unique.rels=F))
     
-load.neo4j(.data=ent.dta, edge.name="REFFERED_TO", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F, array.delim="|")
+    #user   system  elapsed 
+    #5.944    0.990 1400.100 
+    
+    #then add in the pathway info, converted to entrez IDs
+    
+    path.dta <- read.pc.gmt(filename="Pathway Commons.4.All.GSEA.gmt", organism.code="9606")
+    
+    #here will keep database as a property of the pathway node and will only keep non-NA relationships with entrez IDs
+    
+    load.path.dta <- path.dta[,c("pathway", "entrezID", "database")]
+    names(load.path.dta)[3] <- "pathway.database"
+    load.path.dta <- load.path.dta[complete.cases(load.path.dta),]
+    
+    #there are duplicated entries and uniqueness constraints so will also need to deal with it ahead of time...
+    
+    #maybe deal with this as follows:
+    
+    load.path.dta <- load.path.dta[!duplicated(load.path.dta),]
+    
+    load.path.dta$pathway <- paste(load.path.dta$pathway, paste0("(", load.path.dta$pathway.database, ")"))
+    
+    load.neo4j(.data=load.path.dta, edge.name="PATHWAY_CONTAINS", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F)
+    
+    #also load in gene symbol data for the entrez IDs:
+    
+    system("wget ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz")
+    
+    #readme
+    system("wget ftp://ftp.ncbi.nih.gov/gene/DATA/README")
+    
+    #header is like: '#Format: tax_id GeneID Symbol LocusTag Synonyms' so need to remove the Format: prior to using...
+    
+    ent.info <- read.delim("Homo_sapiens.gene_info.gz", sep="\t", header=F, skip=1, stringsAsFactors=F)
+    ent.info.header <- readLines("Homo_sapiens.gene_info.gz", n=1)
+    
+    ent.info.match <- regmatches(ent.info.header, regexec(":[[:space:]]+([[:alnum:][:space:]_]+)[[:space:]]+\\(", ent.info.header))[[1]][2]
+    use.header <- strsplit(ent.info.match, "\\s+")[[1]]
+    
+    names(ent.info) <- use.header
+    
+    ent.dta <- ent.info[,c("GeneID", "Symbol", "Synonyms")]
+    names(ent.dta) <- c("entrezID", "symbol", "synonyms")
+    
+    load.neo4j(.data=ent.dta, edge.name="REFFERED_TO", commit.size=10000L, neo.path="/Users/bottomly/Desktop/hitwalker2_paper/neo4j-community-2.1.6", dry.run=F, array.delim="|")
+    
+    ##example of what the format should look like:  data.frame(node1, node2, node[12].property, edge property(no x'.'y just name))
+    
+    #also make the *.mtx and .names matrix files for string
+    
+    require(igraph)
+    require(Matrix)
+
+    string.graph <- read.delim("9606.protein.links.v9.1.txt.gz", sep="", header=T, stringsAsFactors=FALSE)
+    names(string.graph) <- c("from.node", "to.node", "weight")
+    
+    string.graph$weight <- string.graph$weight/1000
+    
+    use.graph <- graph.data.frame(string.graph, directed=FALSE)
+    
+    temp.sparse <- get.adjacency(graph=use.graph, sparse=TRUE, attr="weight", type="both")/2
+    
+    writeMM(temp.sparse, file="9606.protein.links.v9.1.mm.mtx")
+    
+    all(colnames(temp.sparse) == rownames(temp.sparse))#TRUE
+    
+    write.table(rownames(temp.sparse), file="9606.protein.links.v9.1.mm.names", sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
     
 
 @

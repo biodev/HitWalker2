@@ -96,7 +96,7 @@ setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel
     
 })
 
-setMethod("populate", signature("HW2Config"), function(obj, neo.path, skip=NULL){
+setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL){
     
     if (missing(skip) || is.null(skip) || all(is.na(skip)))
     {
@@ -303,7 +303,7 @@ HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name=
     return(new("HW2exprSet", exprs=exprs, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
 }
 
-setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path){
+setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path=NULL){
     
     use.exprs <- exprs(obj@exprs)
     
@@ -322,7 +322,7 @@ setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path){
     
 })
 
-setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path,gene.model=c("entrez", "ensembl")){
+setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.model=c("entrez", "ensembl")){
     
     gene.model <- match.arg(gene.model)
     
@@ -388,7 +388,7 @@ setMethod("sampleNames", signature("CCLEMaf"), function(object){
 })
 
 
-setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path){
+setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path=NULL){
     #first sample -> variant
     #the name here will be derived from the Genome_Change column as that provides potentially enough information to uniquely id a variant (indels might still be tricky...)
     #will keep missing values as "" for now
@@ -405,7 +405,7 @@ setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path){
     load.neo4j(.data=samp.maf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
-setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path, gene.model="entrez"){
+setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.model="entrez"){
      #then add in the Variation->EntrezID relationships
     
     if (gene.model != "entrez")
@@ -480,7 +480,7 @@ DrugMatrix <- function(mat, mapping,sample.edge.name="HAS_DRUG_ASSAY", gene.edge
     return(new("DrugMatrix", matrix=mat, mapping=mapping, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
 }
 
-setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path){
+setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path=NULL){
     
     drug.mat <- getMatrix(obj)
     
@@ -513,7 +513,7 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path){
     
 })
 
-setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path, gene.model=c("entrez", "ensembl")){
+setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path=NULL, gene.model=c("entrez", "ensembl")){
     
     drug.genes <- getAnnotation(obj)
     
@@ -606,11 +606,20 @@ make.property.str.node <- function(prop.names, dta, pos, array.delim)
         return(base.str)
     }
 
-get.or.create.constraints <- function(neo.path, node.names)
+get.or.create.constraints <- function(neo.path=NULL, node.names)
 {
+    
+    if (missing(neo.path) == F && is.null(neo.path) == F && all(is.na(neo.path)) == F)
+    {
+       use.neo.path <- file.path(neo.path, "bin", "neo4j-shell")
+    }else{
+        
+        use.neo.path <- "neo4j-shell"
+    }
+    
     #before executing, things will go A LOT faster if constraints/indexes are available, check first and if not, then create them
     
-    found.schema <- system(paste(file.path(neo.path, "bin", "neo4j-shell"), "-c schema"), intern=T)
+    found.schema <- system(paste(use.neo.path, "-c schema"), intern=T)
     
     constraint.section <- grep("Constraints", found.schema)
     
@@ -639,7 +648,7 @@ get.or.create.constraints <- function(neo.path, node.names)
     
     if (length(missing.constraints) > 0)
     {
-        constr.str <- paste0(file.path(neo.path, "bin", "neo4j-shell"), " -c 'CREATE CONSTRAINT ON (",tolower(missing.constraints),":",missing.constraints,") ASSERT ",tolower(missing.constraints),".name IS UNIQUE;'")
+        constr.str <- paste0(use.neo.path, " -c 'CREATE CONSTRAINT ON (",tolower(missing.constraints),":",missing.constraints,") ASSERT ",tolower(missing.constraints),".name IS UNIQUE;'")
     }else{
         constr.str <- character(0)
     }
@@ -647,7 +656,7 @@ get.or.create.constraints <- function(neo.path, node.names)
     return (constr.str)
 }
 
-load.neo4j <- function(.data, edge.name=NULL, commit.size=1000, neo.path="/Users/bottomly/Desktop/resources/programs/neo4j-community-2.1.2", dry.run=F, array.delim="&", unique.rels=T, merge.from=T, merge.to=T)
+load.neo4j <- function(.data, edge.name=NULL, commit.size=1000, neo.path=NULL, dry.run=F, array.delim="&", unique.rels=T, merge.from=T, merge.to=T)
 {
     if (missing(edge.name) || is.null(edge.name))
     {
@@ -658,7 +667,7 @@ load.neo4j <- function(.data, edge.name=NULL, commit.size=1000, neo.path="/Users
     }
 }
 
-load.neo4j.node <- function(.data, commit.size=1000, neo.path="/Users/bottomly/Desktop/resources/programs/neo4j-community-2.1.2", dry.run=F, array.delim="&")
+load.neo4j.node <- function(.data, commit.size=1000, neo.path=NULL, dry.run=F, array.delim="&")
 {
     if (any(is.na(.data)))
     {
@@ -690,6 +699,14 @@ load.neo4j.node <- function(.data, commit.size=1000, neo.path="/Users/bottomly/D
     
     writeLines(cypher.stats, con=cypher.temp)
     
+    if (missing(neo.path) == F && is.null(neo.path) == F && all(is.na(neo.path)) == F)
+    {
+       use.neo.path <- file.path(neo.path, "bin", "neo4j-shell")
+    }else{
+        
+        use.neo.path <- "neo4j-shell"
+    }
+    
     if (dry.run == F)
     {
         for (i in constr.str)
@@ -698,7 +715,7 @@ load.neo4j.node <- function(.data, commit.size=1000, neo.path="/Users/bottomly/D
         }
         
         message("Loading into Neo4j...")
-        system(paste(file.path(neo.path, "bin", "neo4j-shell"), "-file", cypher.temp))
+        system(paste(use.neo.path, "-file", cypher.temp))
     }else{
         
         for (i in constr.str)
@@ -706,13 +723,13 @@ load.neo4j.node <- function(.data, commit.size=1000, neo.path="/Users/bottomly/D
             message(i)
         }
         
-        message(paste(file.path(neo.path, "bin", "neo4j-shell"), "-file", cypher.temp))
+        message(paste(use.neo.path, "-file", cypher.temp))
     }
 }
 
 #data.frame should be in the form:
 #data.frame(node1, node2, node[12].property, edge property(no x'.'y just name))
-load.neo4j.edge <- function(.data, edge.name=NULL, commit.size=1000, neo.path="/Users/bottomly/Desktop/resources/programs/neo4j-community-2.1.2", dry.run=F, array.delim="&", unique.rels=T, merge.from=T, merge.to=T)
+load.neo4j.edge <- function(.data, edge.name=NULL, commit.size=1000, neo.path=NULL, dry.run=F, array.delim="&", unique.rels=T, merge.from=T, merge.to=T)
 {
     message("Preprocessing...")
     
@@ -827,6 +844,14 @@ load.neo4j.edge <- function(.data, edge.name=NULL, commit.size=1000, neo.path="/
     
     writeLines(cypher.stats, con=cypher.temp)
     
+    if (missing(neo.path) == F && is.null(neo.path) == F && all(is.na(neo.path)) == F)
+    {
+       use.neo.path <- file.path(neo.path, "bin", "neo4j-shell")
+    }else{
+        
+        use.neo.path <- "neo4j-shell"
+    }
+    
     if (dry.run == F)
     {
         for (i in constr.str)
@@ -835,7 +860,7 @@ load.neo4j.edge <- function(.data, edge.name=NULL, commit.size=1000, neo.path="/
         }
         
         message("Loading into Neo4j...")
-        system(paste(file.path(neo.path, "bin", "neo4j-shell"), "-file", cypher.temp))
+        system(paste(use.neo.path, "-file", cypher.temp))
     }else{
         
         for (i in constr.str)
@@ -843,7 +868,7 @@ load.neo4j.edge <- function(.data, edge.name=NULL, commit.size=1000, neo.path="/
             message(i)
         }
         
-        message(paste(file.path(neo.path, "bin", "neo4j-shell"), "-file", cypher.temp))
+        message(paste(use.neo.path, "-file", cypher.temp))
     }
 }
 
@@ -918,13 +943,21 @@ clean.neo4j.res <- function(result)
     
 }
 
-compute.graph.structure <- function(neo.path)
+compute.graph.structure <- function(neo.path=NULL)
 {
     message("Getting labels from DB")
     
+    if (missing(neo.path) == F && is.null(neo.path) == F && all(is.na(neo.path)) == F)
+    {
+       use.neo.path <- file.path(neo.path, "bin", "neo4j-shell")
+    }else{
+        
+        use.neo.path <- "neo4j-shell"
+    }
+    
     label.query <- "'MATCH (n) RETURN DISTINCT LABELS(n);'"
     
-    labs <- system(paste(file.path(neo.path, "bin", "neo4j-shell"), "-c", label.query), intern=T)
+    labs <- system(paste(use.neo.path, "-c", label.query), intern=T)
     
     use.labs <- clean.neo4j.res(labs)
     
@@ -933,7 +966,7 @@ compute.graph.structure <- function(neo.path)
                 message(paste("Starting", i))
                 cur.query <- paste0('MATCH (n:', i ,')-[r]->(m) RETURN DISTINCT LABELS(n) AS from_node, LABELS(m) AS to_node, TYPE(r) AS type;')
         
-                cur.res <- system(paste0(file.path(neo.path, "bin", "neo4j-shell"), " -c ","'",cur.query, "'"), intern=T)
+                cur.res <- system(paste0(use.neo.path, " -c ","'",cur.query, "'"), intern=T)
                 
                 return(clean.neo4j.res(cur.res))
            })
@@ -1104,25 +1137,3 @@ in.csv.col <- function(vec, search.vals, delim.str=",", match.func=any)
                      })
     return(in.vec)
 }
-
-#taken from older code and needs to be adapted and checked...
-create.initial.graph <- function()
-{
-    library(igraph)
-
-    string.graph <- read.delim("/Users/bottomly/Desktop/tyner_results/string_preparation/protein.links.detailed.v9.05.9606.ncol", sep="", header=FALSE, stringsAsFactors=FALSE)
-    names(string.graph) <- c("from.node", "to.node", "weight")
-    
-    string.graph$weight <- string.graph$weight/1000
-    
-    use.graph <- graph.data.frame(string.graph, directed=FALSE)
-    
-    temp.sparse <- get.adjacency(graph=use.graph, sparse=TRUE, attr="weight", type="both")/2
-    
-    writeMM(temp.sparse, file="protein.links.detailed.v9.05.9606.mm.mtx")
-    
-    all(colnames(temp.sparse) == rownames(temp.sparse))#TRUE
-    
-    write.table(rownames(temp.sparse), file="protein.links.detailed.v9.05.9606.mm.names", sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
-}
-

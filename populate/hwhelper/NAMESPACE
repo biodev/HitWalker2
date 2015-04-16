@@ -1,0 +1,9 @@
+import(methods)
+import(Biobase)
+import(reshape2)
+import(igraph)
+import(rjson)
+
+exportClasses(DrugMatrix, CCLEMaf, HW2exprSet)
+exportMethods('addSamples<-', populate, configure)
+export(readMAF.ccle, DrugMatrix, makeHW2Config, HW2exprSet, compute.graph.structure, Subject)
