@@ -1,0 +1,34 @@
+cp HitWalker2/Vagrantfile .
+
+vagrant up --no-provision
+vagrant provision --provision-with basic
+
+vagrant provision --provision-with neo4j
+vagrant provision --provision-with sweave
+
+vagrant ssh
+
+cd HitWalker2
+
+python manage.py syncdb
+
+Also create an admin account and use that for the initial login
+
+Then 'vagrant ssh' to finish setting up django and run the R script
+The CCLE example is shown below:
+
+from /vagrant/data
+
+R CMD Sweave --pdf ccle_example.Rnw 
+
+To login, first determine the local IP used by HW2
+
+ifconfig
+
+There should be a line e.g. : inet addr:172.28.128.13
+
+May need to restart nginx:
+
+sudo nginx -s reload
+
+Then, for instance, go to the following URL: http://172.28.128.13/HitWalker2
