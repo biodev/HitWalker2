@@ -1131,8 +1131,8 @@ function post_to_fullfill (obj)
                                                                  $(this).popover('destroy');
                                                               });
                     
-                    var pop_content = '<p class="text-danger">'+parsed_data.title+'</p><a href="/HitWalker2/download/" class="btn btn-default">Download</button>';
-                      
+                    var pop_content = '<p class="text-danger">'+parsed_data.title+'</p><a onclick=delete_popover() href="/HitWalker2/download/" class="btn btn-default">Download</button>';
+                     
                     $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
                       
                     $(obj).popover('show');
@@ -1165,6 +1165,8 @@ function post_to_fullfill (obj)
             
           });
 }
+
+
 
 //var set_groups = function()
 //{

@@ -480,7 +480,7 @@ class RelationshipSet:
 
 def handle_gene_hits(res_list, nodes, request):
     for i in BasicResultsIterable(res_list):
-        #print i
+       
         if len(i) > 0:
             if isinstance(i[0], tuple):
                 use_i = i[:]
@@ -965,7 +965,7 @@ def fix_jquery_array_keys (inp_dict):
         
     return new_dict
 
-def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False):
+def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False, rel_types="combination"):
     
     """
         Takes the nodes specified in subj_nodes, and adds in the nodes in query_nodes.
@@ -994,8 +994,12 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False)
     
     for i in query_nodes:
         query_types[i["node_type"]].append(i["id"])
-    
+   
     query_nl = NodeList()
+    
+    print 'getting node info'
+    
+    #just want to create a base set of nodes here, will add the specific children and such below when iterating through the different rel types
     
     for key,val in query_types.items():
         temp_nl = get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip")
@@ -1022,12 +1026,23 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False)
                         query_nodes.append({'id':i, 'node_type':list(type_set)[0]})
             all_nodes.extendIfNew(temp_nl)
     
-    #just want to create a base set of nodes here, will add the specific children and such below when iterating through the different rel types
-  
+    print 'done'
+    
+    print 'getting relationship info'
+    
+    if (rel_types == "combination") or (len(all_node_dict.keys()) == 1):
+        iter_func = itertools.combinations_with_replacement(all_node_dict.keys(), 2)
+    elif (rel_types == "product"):
+        iter_func = [tuple(all_node_dict.keys())]
+    else:
+        raise Exception("Unknown value for rel_types, should be 'combination' or 'product'")
+    
     cur_graph = {'nodes':all_nodes, 'links':[]}
     
+    
     #compute the edges for each compatible compbination
-    for i in itertools.combinations_with_replacement(all_node_dict.keys(), 2):
+    for i in iter_func:
+        print i
         for_query = iterate_dict(query_dict['edges'], i)
         new_i = list(i)
         new_i.reverse()
@@ -1040,7 +1055,13 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False)
         else:
             raise Exception("Neither for_query nor ret_query was matched, check config.py")
     
+    print 'done'
+    
+    print 'grouping'
+    
     cur_graph = apply_grouping2(cur_graph, map(lambda x: x["id"], query_nodes), never_group=never_group)
+    
+    print 'done'
     
     #cur_graph = core.apply_grouping(cur_graph, map(lambda x: x["id"], query_nodes))
     
@@ -1230,6 +1251,7 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                     elif len(missing_params) > 0 and missing_param=="fail":
                         raise Exception("Cannot find parameter(s) " + str(list(missing_params)) + " and missing_param is set to 'fail'")
                     #otherwise this implies skip
+            
             if i_ind == (len(config_struct[node_type])-1):
                 res_list = tx.commit()
             else:
