@@ -546,7 +546,10 @@ def make_sample_table (node, context, sample_link=""):
     
     if len(node) > 0:
         
-        ret_str = '<a href="'+sample_link+node["id"]+'" class="list-group-item">Sample Info</a>'
+        if sample_link != "":
+            ret_str = '<a target="_blank" href="'+sample_link+node["id"]+'" class="list-group-item">Sample Info</a>'
+        else:
+            ret_str = ''
         
         ret_str += '<table class="table" style="width:300px">'
         ret_str += '<tbody>'
@@ -576,7 +579,7 @@ def make_gene_table (node, context, gene_link="", plot_vars={}):
     ret_str += '<div class="media-body">'
     ret_str += '<div class="media-heading"><h4>Gene Info</h4></div>'
     ret_str += '<ul class="list-group">'
-    ret_str += '<a href="'+gene_link+node["id"]+'" class="list-group-item">Gene: '+node["id"]+'</a>'
+    ret_str += '<a target="_blank" href="'+gene_link+node["id"]+'" class="list-group-item">Gene: '+node["id"]+'</a>'
     
     ret_str += '</ul></div></div></div>'
     

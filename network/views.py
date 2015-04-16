@@ -1,5 +1,5 @@
 # Create your views here.
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseServerError
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import SetPasswordForm
 from django.views.decorators.cache import never_cache
@@ -28,6 +28,7 @@ import custom_functions
 import core
 import collections
 import socket
+import csv
 
 #optionally need tinycss, cssselect, lxml, cairosvg
 
@@ -236,8 +237,6 @@ def generate_css (user_name):
                     dash_str + \
             '}'
         )
-    
-    print hw_css.cssText
     
     #now serialize the new css appropriately in a unique file
     new_css_path = os.path.join(static_storage.location, "network/css/HitWalker2_"+user_name+".css")
@@ -586,147 +585,250 @@ def get_sample_rels(request):
 #is overkill for this function, add in below in multi_node_query
 def node_query(request):
     
-    ret_nodes = json.loads(request.POST["nodes"])
+    try:
     
-    ret_context = request.POST["context"]
-    
-    unique_types = set(map(lambda x: str(x["attributes"]["node_type"]),ret_nodes))
-    
-    ret_content = ''
-    
-    if len(unique_types) == 1:
-        cur_type = unique_types.pop()
-        ret_content = config.node_content[cur_type]["func"](ret_nodes[0], ret_context, **config.node_content[cur_type]['args'])
-    
-    return HttpResponse(json.dumps({"content":ret_content}), mimetype="application/json")
+        ret_nodes = json.loads(request.POST["nodes"])
+        
+        ret_context = request.POST["context"]
+        
+        unique_types = set(map(lambda x: str(x["attributes"]["node_type"]),ret_nodes))
+        
+        ret_content = ''
+        
+        if len(unique_types) == 1:
+            cur_type = unique_types.pop()
+            ret_content = config.node_content[cur_type]["func"](ret_nodes[0], ret_context, **config.node_content[cur_type]['args'])
+        
+        return HttpResponse(json.dumps({"content":ret_content}), mimetype="application/json")
+        
+    except:
+        return HttpResponseServerError()
 
 def multi_node_query(request):
-    ret_nodes = json.loads(request.POST["nodes"])
     
-    unique_types = set(map(lambda x: str(x['attributes']['node_type']),ret_nodes))
+    try:
     
-    num_metas = 0
-    
-    if 'MetaNode' in unique_types:
-        num_metas += 1
-        unique_types.remove('MetaNode')
-        for i in ret_nodes:
-            if i['attributes']['node_type'] == "MetaNode":
-                for j in i['children']:
-                    unique_types.add(str(j['attributes']['node_type']))
-    
-    unique_type_list = sorted(unique_types, key=str.lower)
-    
-    cur_dict = core.iterate_dict(config.node_group_content, unique_type_list)
-    
-    ungroup_dis_text = "disabled"
-    pathway_dis_text = "disabled"
-    
-    if num_metas == len(unique_types):
-        ungroup_dis_text = ""
-    
-    type_intersect = unique_types.intersection(set(['Sample', 'Gene']))
-    
-    if  (len(type_intersect) == 1 and type_intersect == set(['Sample'])) or len(type_intersect) == 2:
-        pathway_dis_text = ""
-    
-    group_buttons = '<div class="btn-group"><button type="button" class="btn btn-default" '+ungroup_dis_text+' onclick="ungroup_nodes(this)">Ungroup</button></div>'
-    group_buttons += '<div class="btn-group"><button type="button" class="btn btn-default" '+pathway_dis_text+' onclick="pathway_context(this)">Pathway Context</button></div>'
-    
-    if cur_dict != None:
-    
-        question_list = map(lambda x: x['text'], cur_dict['options'])
+        ret_nodes = json.loads(request.POST["nodes"])
         
-        header = '<div class=container style="width:300px">'
-        header += '<div class="row"><div class="list-group">'
+        unique_types = set(map(lambda x: str(x['attributes']['node_type']),ret_nodes))
         
-        header += '<a class="list-group-item list-group-item-heading text-center" style="background-color:#f5f5f5">'+cur_dict['title']+'</a>'
-        for i_ind, i in enumerate(question_list):
-            header += '<a class="list-group-item text-center" onclick="post_to_fullfill(this)" style="cursor:pointer" data-value='+reduce(lambda x,y:x+'.'+y, unique_types)+'-'+str(i_ind)+'>'+i+'</a>'
+        num_metas = 0
         
-        header += '<br>' + group_buttons + '</div></div>'
-    else:
-        header = '<div class=container style="width:300px"><p class="text-danger">Sorry, no queries are currently defined for type(s): '+string.joinfields(unique_type_list, ' and ')+'.  Try selecting a different type or only one type at a time.</p><br>' +group_buttons+'</div>'
+        if 'MetaNode' in unique_types:
+            num_metas += 1
+            unique_types.remove('MetaNode')
+            for i in ret_nodes:
+                if i['attributes']['node_type'] == "MetaNode":
+                    for j in i['children']:
+                        unique_types.add(str(j['attributes']['node_type']))
         
+        unique_type_list = sorted(unique_types, key=str.lower)
+        
+        cur_dict = core.iterate_dict(config.node_group_content, unique_type_list)
+        
+        ungroup_dis_text = "disabled"
+        pathway_dis_text = "disabled"
+        
+        if num_metas == len(unique_types):
+            ungroup_dis_text = ""
+        
+        type_intersect = unique_types.intersection(set(['Sample', 'Gene']))
+        
+        if  (len(type_intersect) == 1 and type_intersect == set(['Sample'])) or len(type_intersect) == 2:
+            pathway_dis_text = ""
+        
+        group_buttons = '<div class="btn-group"><button type="button" class="btn btn-default" '+ungroup_dis_text+' onclick="ungroup_nodes(this)">Ungroup</button></div>'
+        group_buttons += '<div class="btn-group"><button type="button" class="btn btn-default" '+pathway_dis_text+' onclick="pathway_context(this)">Pathway Context</button></div>'
+        
+        if cur_dict != None:
+        
+            question_list = map(lambda x: x['text'], cur_dict['options'])
+            
+            header = '<div class=container style="width:300px">'
+            header += '<div class="row"><div class="list-group">'
+            
+            header += '<a class="list-group-item list-group-item-heading text-center" style="background-color:#f5f5f5">'+cur_dict['title']+'</a>'
+            for i_ind, i in enumerate(question_list):
+                header += '<a class="list-group-item text-center" onclick="post_to_fullfill(this)" style="cursor:pointer" data-value='+reduce(lambda x,y:x+'.'+y, unique_types)+'-'+str(i_ind)+'>'+i+'</a>'
+            
+            header += '<br>' + group_buttons + '</div></div>'
+        else:
+            header = '<div class=container style="width:300px"><p class="text-danger">Sorry, no queries are currently defined for type(s): '+string.joinfields(unique_type_list, ' and ')+'.  Try selecting a different type or only one type at a time.</p><br>' +group_buttons+'</div>'
+            
+        
+        return HttpResponse(json.dumps({"content":header}), mimetype="application/json")
+    except:
+        return HttpResponseServerError()
+
+def download(request):
     
-    return HttpResponse(json.dumps({"content":header}), mimetype="application/json")
+    use_file = request.session['tmp_file']
+    
+    resp_file_name = 'query_result.csv'
+    
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="'+resp_file_name+'"'
+    
+    writer = csv.writer(response)
+    
+    file_inp = open(use_file, 'r')
+    
+    #write the parameter info
+    
+    inp_params = request.session['inp_params']
+    where_vars = request.session['where_vars']
+    
+    for key,val in inp_params.items():
+        if val['type'] == 'standard':
+            writer.writerow([key])
+            for i,j in val['fields'].items():
+                writer.writerow([j['name'] + " " + j['comparison'] + " " + str(j['default'])])
+    
+    for i in where_vars:
+        writer.writerow([i['name']])
+        write.writerow([i['pretty_where']])
+    
+    writer.writerow([])
+    writer.writerow([])
+    
+    #write the title
+    
+    writer.writerow(["Title:" + request.session['tmp_title']])
+    writer.writerow([])
+    
+    for i in csv.reader(file_inp):
+        writer.writerow(i)
+    
+    return response
 
 def fullfill_node_query(request):
     
-    node_req = request.POST["choice"]
-    ret_node_queries = json.loads(request.POST["nodes"])
+    try:
     
-    print ret_node_queries
-    
-    #also add in the number of input genes if the queries need it
-    
-    node_queries = {}
-    
-    for i in ret_node_queries.keys():
-        node_queries[i] = map(lambda x: x['id'], ret_node_queries[i])
-        node_queries[i+'_length'] = len(ret_node_queries[i])
-    
-    #retrieve the query by parsing node_req
-    
-    req_table = node_req.split('-')
-    
-    search_list = req_table[0].split('.')
-    
-    query_type = core.iterate_dict(config.node_group_content, search_list)
-    
-    query_info = query_type['options'][int(req_table[1])]
-    
-    if query_info['session_params'] != None:
-        for i in query_info['session_params']:
-            use_key = i[-1]
-            if node_queries.has_key(use_key) == False:
-                node_queries[use_key] = core.iterate_dict(request.session, i)
-    
-    #execute the query
-    
-    session = cypher.Session()
-    tx = session.create_transaction()
-    
-    use_query = query_info['query']
-    
-    for var_elem in request.session['where_vars']:
-        use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
-    
-    print use_query, node_queries
-    
-    #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
-    tx.append(use_query, node_queries)
-    res_list = tx.commit()
-    
-    temp_node_list = []
-    
-    for i in res_list[0]:
-        temp_node_list.append(i.values[0])
-    
-    #convert the IDs to nodes
-    
-    ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
-    
-    ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
-    
-    if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
-        if len(ret_node_queries['Gene']) > 3:
-            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
+        node_req = request.POST["choice"]
+        ret_node_queries = json.loads(request.POST["nodes"])
+        
+        #also add in the number of input genes if the queries need it
+        
+        node_queries = {}
+        
+        for i in ret_node_queries.keys():
+            node_queries[i] = map(lambda x: x['id'], ret_node_queries[i])
+            node_queries[i+'_length'] = len(ret_node_queries[i])
+        
+        #retrieve the query by parsing node_req
+        
+        req_table = node_req.split('-')
+        
+        search_list = req_table[0].split('.')
+        
+        query_type = core.iterate_dict(config.node_group_content, search_list)
+        
+        query_info = query_type['options'][int(req_table[1])]
+        
+        if query_info['session_params'] != None:
+            for i in query_info['session_params']:
+                use_key = i[-1]
+                if node_queries.has_key(use_key) == False:
+                    node_queries[use_key] = core.iterate_dict(request.session, i)
+        
+        #execute the query
+        
+        session = cypher.Session()
+        tx = session.create_transaction()
+        
+        use_query = query_info['query']
+        
+        for var_elem in request.session['where_vars']:
+            use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+        
+        print use_query, node_queries
+        
+        #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
+        tx.append(use_query, node_queries)
+        res_list = tx.commit()
+        
+        temp_node_list = []
+        
+        for i in res_list[0]:
+            temp_node_list.append(i.values[0])
+        
+        if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
+            if len(ret_node_queries['Gene']) > 3:
+                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
+            else:
+                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
+        elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Sample'):
+            if len(ret_node_queries['Sample']) > 3:
+                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Sample'][0]['display_name'] + '...' + ret_node_queries['Sample'][-1]['display_name'])
+            else:
+                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Sample']), ','))
         else:
-            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
-    elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Sample'):
-        if len(ret_node_queries['Sample']) > 3:
-            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Sample'][0]['display_name'] + '...' + ret_node_queries['Sample'][-1]['display_name'])
+            use_title = 'ERROR: Unknown title...'
+        
+        #too many nodes to render efficiently, will allow user to download csv file...
+        if len(temp_node_list) > 2000:
+            
+            subj_nodes = []
+            query_nodes = []
+            
+            for i in ret_node_queries.keys():
+                for j in ret_node_queries[i]:
+                    subj_nodes.append({'id':j['id'], 'node_type':i})
+            
+            for i in temp_node_list:
+                query_nodes.append({'id':i, 'node_type':query_type['returned_node_type']})
+            
+            node_graph = core.copy_nodes(subj_nodes, query_nodes, request, config.edge_queries, never_group=True)
+            
+            tmp_file = tempfile.mktemp()
+            
+            out_p = open(tmp_file, "w")
+            
+            header = ['id', 'display_name'] + map(lambda x: x['id'], subj_nodes)
+            
+            writer = csv.writer(out_p)
+            
+            writer.writerow(header)
+            
+            for i in node_graph['nodes'].tolist():
+                temp_ln = []
+                if i['attributes']['node_type'] == query_type['returned_node_type']:
+                    temp_ln.extend([i['id'], i['display_name']] + [None]*(len(header)-2))
+                    for j in i['children']:
+                        if j['attributes']['node_type'].replace('_Hit', '') == query_info['text']:
+                            for k_ind, k in enumerate(j['attributes']['other_nodes']):
+                                val_loc = header.index(k)
+                                if val_loc == -1:
+                                    raise Exception("unexpected node found")
+                                else:
+                                    if j['attributes']['meta'].has_key('score'):
+                                        temp_ln[val_loc] = j['attributes']['meta']['score'][k_ind]
+                                    else:
+                                        temp_ln[val_loc] = 1
+                    writer.writerow(temp_ln)
+                                
+            out_p.close()
+            
+            request.session['tmp_file'] = tmp_file
+            request.session['tmp_title'] = use_title
+            
+            ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
+            
         else:
-            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Sample']), ','))
-    else:
-        use_title = 'ERROR: Unknown title...'
+            
+            #convert the IDs to nodes
+            
+            ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
+        
+            ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
+        
+            ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
+        
+        return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
     
-    ret_dict = {'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
-    
-    #fill in the direct connections
-    
-    return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
+    except:
+        return HttpResponseServerError()
 
 def get_data (request):
     
