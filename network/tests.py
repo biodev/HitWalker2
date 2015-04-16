@@ -20,6 +20,8 @@ import collections
 import re
 import time
 import bs4
+import subprocess
+import sys
 from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
@@ -183,20 +185,62 @@ class Test_views(TestCase):
         
         tab_res = html_res.find_all('tr')
         
-        tab_list = []
+        mut_res1 = []
         
-        for i_ind, i in enumerate(tab_res):
+        for i in tab_res[:10]:
             temp_list = list(i.stripped_strings)
             if len(temp_list) > 0:
-                tab_list.append(temp_list)
+                mut_res1.append(temp_list[0])
         
-        print tab_list
+        #html_res1 = reduce(lambda x,y: str(x)+str(y), tab_res)
         
         #compare this with the R equivalent
         
-        ##first get the seeds
+        def r_rwr(request, seed_gene_nl, initial_graph_file, string_session_name, res_prob_session_name, conv_thresh_session_name, max_iter_session_name):
+            
+            seed_dict = seed_gene_nl.todict()
+            
+            subprocess.call(["Rscript", "--vanilla",  os.path.join("network", "perform_rwr.R"),
+                             "/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm",
+                             str(request.session[string_session_name])] + seed_dict.keys())
+            
+            result_inp = open("temp_ranking_results.txt", "r")
+            
+            prot_nl = core.NodeList()
+            
+            for i in result_inp:
+                split_i = i.strip('\n').split()
+                prot_score = [split_i[0], float(split_i[1])]
+                temp_node = core.BasicNode(prot_score, only_child=True)
+                prot_nl.add(temp_node)
+            
+            result_inp.close()
+            
+            os.remove("temp_ranking_results.txt")
+            
+            return core.SeedList(prot_nl)
+            
+        config.prioritization_func['function'] = r_rwr
         
-        ##run the RWR
+        responseR = views.table(request)
+        self.assertEqual(responseR.status_code, 200)
+        
+        html_res2 = bs4.BeautifulSoup(responseR.content)
+        
+        tab_res2 = html_res2.find_all('tr')
+        
+        mut_res2 = []
+        
+        for i in tab_res2[:10]:
+            temp_list = list(i.stripped_strings)
+            if len(temp_list) > 0:
+                mut_res2.append(temp_list[0])
+        
+        #checks that the variants are arranged in the same order...
+        self.assertListEqual(mut_res1, mut_res2)
+        
+        #could also check the sanity of the list to choose from for the visualizations
+        
 
 ###tests for the core module
 
