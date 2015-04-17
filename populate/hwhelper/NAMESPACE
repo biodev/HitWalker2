@@ -4,6 +4,6 @@ import(reshape2)
 import(igraph)
 import(rjson)
 
-exportClasses(DrugMatrix, CCLEMaf, HW2exprSet)
+exportClasses(DrugMatrix, CCLEMaf, HW2exprSet, NeoData, HwHit)
 exportMethods('addSamples<-', populate, configure)
 export(readMAF.ccle, DrugMatrix, makeHW2Config, HW2exprSet, compute.graph.structure, Subject)
