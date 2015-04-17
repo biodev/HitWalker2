@@ -7,7 +7,6 @@ from django.conf import settings
 from django.test import TestCase, RequestFactory, Client
 from django.utils.importlib import import_module
 
-import ajax
 import views
 import json
 import custom_functions
@@ -150,6 +149,9 @@ test_params = {
 
 
 class Test_views(TestCase):
+    
+    maxDiff = None
+    
     def setUp(self):
         # Every test needs access to the request factory.
         self.factory = RequestFactory()
@@ -162,7 +164,23 @@ class Test_views(TestCase):
         store.save()
         
         self.store = store
-
+    
+    def get_result_list(self, content):
+        html_res = bs4.BeautifulSoup(content)
+        
+        tab_res = html_res.find_all('tr')
+        
+        mut_res = []
+        
+        #outside of the top ten, not going to be able to make meaningful comparisions as the values tend to get pretty small and
+        #into rounding errors...
+        for i in tab_res[:10]:
+            temp_list = list(i.stripped_strings)
+            if len(temp_list) > 0:
+                mut_res.append(temp_list[0])
+                
+        return mut_res
+    
     def test_table(self):
         
         test_post_1 = {'csrfmiddlewaretoken': 'test',
@@ -173,26 +191,31 @@ class Test_views(TestCase):
         
         request = self.factory.post('/table/', test_post_1)
         
-        # Recall that middleware are not supported. You can simulate a
+        # middleware are not supported. You can simulate a
         # logged-in user by setting request.user manually.
         request.user = self.user
         request.session = self.store
         
+        #remove any pre-created matrix file
+        
+        default_thresh_mat = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", ".400.mtx")
+        
+        if os.path.exists(default_thresh_mat):
+            os.remove(default_thresh_mat)
+            os.remove(default_thresh_mat.replace(".mtx", ".names"))
+        
         response = views.table(request)
         self.assertEqual(response.status_code, 200)
         
-        html_res = bs4.BeautifulSoup(response.content)
+        mut_res1 = self.get_result_list(response.content)
         
-        tab_res = html_res.find_all('tr')
+        #again, this time keeping the subsetted matrix
         
-        mut_res1 = []
+        response2 = views.table(request)
         
-        for i in tab_res[:10]:
-            temp_list = list(i.stripped_strings)
-            if len(temp_list) > 0:
-                mut_res1.append(temp_list[0])
+        mut_res2 = self.get_result_list(response2.content)
         
-        #html_res1 = reduce(lambda x,y: str(x)+str(y), tab_res)
+        self.assertListEqual(mut_res1, mut_res2)
         
         #compare this with the R equivalent
         
@@ -201,7 +224,7 @@ class Test_views(TestCase):
             seed_dict = seed_gene_nl.todict()
             
             subprocess.call(["Rscript", "--vanilla",  os.path.join("network", "perform_rwr.R"),
-                             "/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm",
+                             initial_graph_file.replace(".mtx", ""),
                              str(request.session[string_session_name])] + seed_dict.keys())
             
             result_inp = open("temp_ranking_results.txt", "r")
@@ -225,16 +248,7 @@ class Test_views(TestCase):
         responseR = views.table(request)
         self.assertEqual(responseR.status_code, 200)
         
-        html_res2 = bs4.BeautifulSoup(responseR.content)
-        
-        tab_res2 = html_res2.find_all('tr')
-        
-        mut_res2 = []
-        
-        for i in tab_res2[:10]:
-            temp_list = list(i.stripped_strings)
-            if len(temp_list) > 0:
-                mut_res2.append(temp_list[0])
+        mut_res2 = self.get_result_list(responseR.content)
         
         #checks that the variants are arranged in the same order...
         self.assertListEqual(mut_res1, mut_res2)
@@ -1362,3 +1376,71 @@ class CustomFunctionsTests(TestCase):
         self.assertEqual(sorted(test_1_prot.nodeList().ids()), sorted(test_prot_map.keys()))
         
         self.assertEqual(test_1_prot.getScores(test_prot_map.keys()), test_prot_map.values())
+        
+#class Test_get_valid_hits(TestCase):
+#    
+#    def setUp(self):
+#        self.graph_db = neo4j.GraphDatabaseService() 
+#        self.sirna_only = neo4j.CypherQuery(self.graph_db,'MATCH (n:LabID) WHERE (n)-[:SIRNA_RUN]->() AND NOT (n)-[:GENE_SCORE_RUN]->() RETURN n').execute_one()["name"]
+#        #currently doesn't exist
+#        #self.gs_only = neo4j.CypherQuery(graph_db,'MATCH (n:LabID) WHERE (n)-[:GENE_SCORE_RUN]->() AND NOT (n)-[:SIRNA_RUN]->() RETURN n').execute_one()["name"]
+#        self.neither = neo4j.CypherQuery(self.graph_db,'MATCH (n:LabID) WHERE NOT (n)-[:GENE_SCORE_RUN]->() AND NOT (n)-[:SIRNA_RUN]->() RETURN n').execute_one()["name"]
+#        self.both = neo4j.CypherQuery(self.graph_db,'MATCH (n:LabID) WHERE (n)-[:GENE_SCORE_RUN]->() AND (n)-[:SIRNA_RUN]->() RETURN n').execute_one()["name"]
+#        self.thresh_dict = {'siRNA':-2, 'GeneScore':0}
+#        #self.conn = sqlite3.connect('/Users/bottomly/tyner_results/hitwalker_sqlite_test/HitWalker2.db')
+#        
+#    def test_sirna_only(self):
+#        gene_score, hit_annot = custom_functions.get_valid_hits ({'siRNA':self.sirna_only, 'GeneScore':self.sirna_only}, self.thresh_dict, self.graph_db)
+#        
+#        self.assertEqual(set(gene_score.keys()), set(hit_annot.keys()))
+#        self.assertTrue(all(map(lambda x: x.has_key('siRNA'), hit_annot.values())))
+#        self.assertFalse(any(map(lambda x: x.has_key('GeneScore'), hit_annot.values())))
+#        self.assertTrue(max(gene_score.values()) == 1)
+#        
+#    def test_both(self):
+#        gene_score, hit_annot = custom_functions.get_valid_hits ({'siRNA':self.both, 'GeneScore':self.both}, self.thresh_dict, self.graph_db)
+#        
+#        self.assertEqual(set(gene_score.keys()), set(hit_annot.keys()))
+#        
+#        max_gene_score = 0
+#        
+#        for i in hit_annot.values():
+#            if i.has_key('GeneScore'):
+#                max_gene_score = max([max_gene_score, i['GeneScore']])
+#        
+#        for i in hit_annot.items():
+#            if i[1].has_key('siRNA'):
+#                self.assertEqual(gene_score[i[0]], max_gene_score)
+#    
+#    def test_neither(self):
+#        gene_score, hit_annot = custom_functions.get_valid_hits ({'siRNA':self.neither, 'GeneScore':self.neither}, self.thresh_dict, self.graph_db)
+#        self.assertEqual(gene_score, {})
+#        self.assertEqual(hit_annot, {})
+#
+#class Test_make_gene_id_dict(TestCase):
+#    
+#    def setUp(self):
+#        self.graph_db = neo4j.GraphDatabaseService()
+#        
+#    def test_gene_list(self):
+#        id_dict = custom_functions.make_gene_id_dict(self.graph_db)
+#        
+#        self.assertTrue(isinstance(id_dict, dict))
+#        self.assertTrue(all(map(lambda x:isinstance(x, list), id_dict.values())))
+#
+#class Test_gene_id_helpers(TestCase):
+#    
+#    def setUp(self):
+#        self.seed_dict = {'gene1':1, 'gene2':15, 'gene3':10, 'gene4':20}
+#        self.hit_annot = {'gene1':{'GeneScore':10}, 'gene2':{'GeneScore':15}, 'gene3':{'GeneScore':1}, 'gene4':{'siRNA':-5, 'GeneScore':5}}
+#        self.gene_id_dict = {'gene1':['mg1'], 'gene2':['mg2'], 'gene3':['mg1','mg3'], 'gene4':['mg4']}
+#    
+#    def test_seed_to_gene_ids(self):
+#        hit_dict = custom_functions.seed_to_gene_ids(self.seed_dict, self.gene_id_dict)
+#        
+#        self.assertEquals(hit_dict, {'mg1':10, 'mg2':15, 'mg3':10, 'mg4':20})
+#    
+#    def test_seed_annot_to_gene_ids(self):
+#        hit_annot_dict = custom_functions.seed_annot_to_gene_ids(self.hit_annot, self.gene_id_dict)
+#        
+#        self.assertEquals(hit_annot_dict, {'mg1':{'GeneScore':10}, 'mg2':{'GeneScore':15}, 'mg3':{'GeneScore':1}, 'mg4':{'GeneScore':5, 'siRNA':-5}})

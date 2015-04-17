@@ -162,38 +162,3 @@ def compute_rwr(use_graph, dim_dict, c_val, conv_thresh, max_iter, seed_dict):
         
     except Exception as e:
         print e
-    
-
-if __name__ == '__main__':
-    
-    #from rwr_utils import threshold_graph, compute_net_prop_mat, compute_rwr
-   use_graph, dim_dict, use_graph_file, use_graph_names = threshold_graph("protein.links.detailed.v9.05.9606.mm.mtx", .4)
-   
-   use_graph_np = compute_net_prop_mat(use_graph)
-   
-   seed_dict = {"9606.ENSP00000292535":1, "9606.ENSP00000368349":1, "9606.ENSP00000313021":1, "9606.ENSP00000384479":1, "9606.ENSP00000401504":1}
-   
-   res_vec = compute_rwr(use_graph_np, dim_dict, .3, 1e-10, 100, seed_dict)
-   
-   io.mmwrite("test_rwr_results.mm", res_vec)
-   
-   graph_dict = {}
-   
-   new_dim_dict = {}
-   
-   for i in dim_dict.keys():
-    if new_dim_dict.has_key(str(dim_dict[i])) == False:
-        new_dim_dict[str(dim_dict[i])] = i
-    else:
-        raise Exception("Unexpected Duplicate")
-    
-   for data, row, col in itertools.izip(use_graph.data, use_graph.row, use_graph.col):
-        if graph_dict.has_key(new_dim_dict[str(row)]):
-            if graph_dict[new_dim_dict[str(row)]].has_key(new_dim_dict[str(col)]):
-                raise Exception("Unexpected Duplicate")
-            else:
-                graph_dict[new_dim_dict[str(row)]][new_dim_dict[str(col)]] = data
-        else:
-            graph_dict[new_dim_dict[str(row)]] = {new_dim_dict[str(col)]:data}
-   
-    
