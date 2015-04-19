@@ -56,12 +56,12 @@
 <body>
     
     <!--adapted from https://github.com/agordon/d3export_demo-->
-    <form action="{{prog_type}}/HitWalker2/pathway/" method="post" id="pathform">
+    <form action="{{prog_type}}/HitWalker2/network/" method="post" id="pathform">
         {% csrf_token %}
         <input type="hidden" id="pathway_name" name="pathway_name" value="">
         <input type="hidden" id="sample_name" name="sample_name" value="">
     </form>
-    <form action="{{prog_type}}/HitWalker2/network/" method="post" id="svgform">
+    <form action="{{prog_type}}/HitWalker2/panel/" method="post" id="svgform">
         {% csrf_token %}
         <input type="hidden" id="output_format" name="output_format" value="">
         <input type="hidden" id="data" name="data" value="">
@@ -86,7 +86,7 @@
                     {% else %}
                         <li><a onclick="submit_table_data()" style="cursor:pointer">Select Variants</a></li>
                     {% endif %}
-                    <li class="active"><a href="{{prog_type}}/HitWalker2/network" style="pointer-events:none">Visualize and Query</a></li>
+                    <li class="active"><a href="{{prog_type}}/HitWalker2/panel" style="pointer-events:none">Visualize and Query</a></li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
                     <li><p class="navbar-text">Hello {{username}}</p></li>

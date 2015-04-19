@@ -904,14 +904,14 @@ def get_graph(request):
 
 @ensure_csrf_cookie
 @login_required(login_url=prog_type+'/HitWalker2/login/')
-def pathway(request):
+def network(request):
     
     if len(request.POST) == 0:
        
        if socket.gethostname() in set(["HRCC448", "HRCC255"]):
            pickle_inp = open("/var/www/hitwalker_2_inst/test_pathway_request.json", "r")
            ret_json = json.load(pickle_inp)
-       return render(request, 'network/d3_test.html', ret_json)
+       return render(request, 'network/network.html', ret_json)
     else:
         
         default_css_classes, new_css_path, node_type_transl, edge_type_transl = generate_css(str(request.user))
@@ -952,18 +952,18 @@ def pathway(request):
                 pickle_outp = open("/var/www/hitwalker_2_inst/test_pathway_request.json", "w")
                 json.dump(ret_json, pickle_outp)
         
-        return render(request, 'network/d3_test.html', ret_json)
+        return render(request, 'network/network.html', ret_json)
 
 @ensure_csrf_cookie
 @login_required(login_url=prog_type+'/HitWalker2/login/')
-def network(request):
+def panel(request):
     
     if len(request.POST) == 0:
         
         if socket.gethostname() in set(["HRCC448", "HRCC255"]):
             pickle_inp = open("/var/www/hitwalker_2_inst/test_network_request.json", "r")
             ret_json = json.load(pickle_inp)
-        return render(request, 'network/d3_test.html', ret_json)
+        return render(request, 'network/network.html', ret_json)
         #return redirect(prog_type+'/HitWalker2/')
     elif request.POST.has_key("output_format") and request.POST.has_key("data"):
         
@@ -1095,4 +1095,4 @@ def network(request):
             pickle_outp = open("/var/www/hitwalker_2_inst/test_network_request.json", "w")
             json.dump(ret_json, pickle_outp)
         
-        return render(request, 'network/d3_test.html', ret_json)
+        return render(request, 'network/network.html', ret_json)
