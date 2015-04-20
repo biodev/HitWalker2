@@ -1252,12 +1252,13 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                         raise Exception("Cannot find parameter(s) " + str(list(missing_params)) + " and missing_param is set to 'fail'")
                     #otherwise this implies skip
             
-            if i_ind == (len(config_struct[node_type])-1):
-                res_list = tx.commit()
-            else:
-                res_list = tx.execute()
-            
-            i['handler'](res_list, nodes, request)
+            if len(names) > 0:
+                if i_ind == (len(config_struct[node_type])-1):
+                    res_list = tx.commit()
+                else:
+                    res_list = tx.execute()
+                
+                i['handler'](res_list, nodes, request)
     else:
         raise Exception("config_struct does not have specified node_type")
     

@@ -836,7 +836,7 @@ def fullfill_node_query(request):
             use_title = 'ERROR: Unknown title...'
         
         #convert the IDs to nodes
-            
+        
         ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
         
         #too many nodes to render efficiently, will allow user to download csv file...
@@ -865,13 +865,12 @@ def fullfill_node_query(request):
         else:
         
             ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
-        
+            
             ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
         
         return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
     
-    except:
-        raise
+    except Exception as e:
         return HttpResponseServerError()
 
 def get_data (request):
