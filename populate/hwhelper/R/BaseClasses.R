@@ -163,7 +163,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     subj.name <- capwords(subjectName(obj))
     
-    base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WITH subject, sample, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias AS query_names WHERE ANY(x IN query_names WHERE x = "$$sample$$") WITH subject, sample ')
+    base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WITH subject, sample, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias END AS query_names WHERE ANY(x IN query_names WHERE x = "$$sample$$") WITH subject, sample ')
     
     prev.types <- character()
     
