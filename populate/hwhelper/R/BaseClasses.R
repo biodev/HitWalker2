@@ -29,10 +29,19 @@ setMethod("geneEdge", signature("NeoData"), function(obj){
 
 setClass(Class="Subject", representation=list(subject.info="data.frame", subject.to.sample="data.frame", type="character"))
 
-#data.types needs to be a list like: list(seeds=seed.vec,target='target')
+#data.types needs to be a list like: 
 #where the names in seeds and target need to correspond to the names of the ... arguments to makeHW2Config
 
-setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", gene.model="character"))
+#' HitWalker2 Configuration
+#'
+#' A Class Representing a HitWalker2 Configuration
+#'
+#' @slot subject A Subject object to be used as the basis for this HitWalker2 database
+#' @slot data.list Named list containing the experiemntal data
+#' @slot data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names in data.list
+#' @slot gene.model String naming the type of gene model to be used, currently only entrez is supported.
+HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", gene.model="character"))
+
 
 makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL,...)
 {
@@ -61,6 +70,7 @@ makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types
 }
 
 setGeneric("subjectName", def=function(obj,...) standardGeneric("subjectName"))
+#' @describeIn HW2Config Extracts the subject names defined in a HW2Config object
 setMethod("subjectName", signature("HW2Config"), function(obj){
     
     return(nodeName(obj@subject)) 
@@ -83,6 +93,9 @@ setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel
     
 })
 
+#' @describeIn HW2Config Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
+#' If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of
+#' your path.  If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
 setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL){
     
     if (missing(skip) || is.null(skip) || all(is.na(skip)))
@@ -150,7 +163,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     subj.name <- capwords(subjectName(obj))
     
-    base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WHERE ANY(x IN [subject.name] + subject.alias WHERE x = "$$sample$$") WITH subject, sample ')
+    base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WITH subject, sample, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias AS query_names WHERE ANY(x IN query_names WHERE x = "$$sample$$") WITH subject, sample ')
     
     prev.types <- character()
     
