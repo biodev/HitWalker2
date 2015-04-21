@@ -378,8 +378,6 @@ def table(request):
     #                                                    'cur_filts':cur_filts, 'cur_param':json.dumps(index_field_dict['parameters']), 'seeds':json.dumps(request.session['seed_list']), 'prog_type':prog_type, 'username':request.user})
     else:
         
-        print request.session.keys()
-        
         request_post = dict(request.POST.iterlists())
         
         #get ride of the token...
