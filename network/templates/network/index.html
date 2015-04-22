@@ -1177,15 +1177,37 @@
                                            {
                                                 if (status == "success")
                                                 {
-                                                    spinner.stop()
-                                                    rels_callback(JSON.parse(data));
+						    var parsed_data = JSON.parse(data)
+						    
+						    if (parsed_data.sample_list.length == 0)
+						    {
+							if ($("#nf_sample").length == 0){
+							    var temp_ar = ['<div id="nf_sample" class="row">',
+							    '<div class="col-md-12">',
+							    '<p class="text-danger">Sorry, no samples are available for the given subject, please choose again.</p>',
+							    '</div>'
+							    ];
+							    
+							    $("#sample_svg_row").after(temp_ar.join('\n')); 
+							}
+							
+							console.log("empty list")
+						    }else{
+							
+							if ($("#nf_sample").length >0){
+							    $("#nf_sample").remove();
+							}
+							
+							rels_callback(parsed_data);
+						    }                    
                                                 }
                                                 else
                                                 {
                                                     console.log(status)
                                                 }
                                             
-                                                
+                                                spinner.stop()
+						
                                            }, "text")
     }
     

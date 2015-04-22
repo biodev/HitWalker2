@@ -546,7 +546,7 @@ def get_match(request, match_type):
 
 def get_sample_rels(request):
     
-    graph_db = neo4j.GraphDatabaseService()
+    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
     
     cur_id = request.POST['cur_id']
     
@@ -555,7 +555,7 @@ def get_sample_rels(request):
     sample_list=[]
     
     if config.sample_rels_type == 'hierarchical':
-    
+        
         for i in sample_query.execute().data:
             temp_dict = {}
             temp_dict['property_order'] = []
