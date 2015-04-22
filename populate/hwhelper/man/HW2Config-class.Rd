@@ -4,6 +4,7 @@
 \name{HW2Config-class}
 \alias{HW2Config}
 \alias{HW2Config-class}
+\alias{configure,HW2Config-method}
 \alias{populate,HW2Config-method}
 \alias{subjectName,HW2Config-method}
 \title{HitWalker2 Configuration}
@@ -11,9 +12,13 @@
 \S4method{subjectName}{HW2Config}(obj)
 
 \S4method{populate}{HW2Config}(obj, neo.path = NULL, skip = NULL)
+
+\S4method{configure}{HW2Config}(obj,
+  base.dir = "/home/vagrant/HitWalker2/populate/",
+  dest.dir = "/home/vagrant/HitWalker2/network/")
 }
 \description{
-A Class Representing a HitWalker2 Configuration
+A class representing a HitWalker2 configuration
 }
 \section{Methods (by generic)}{
 \itemize{
@@ -22,6 +27,9 @@ A Class Representing a HitWalker2 Configuration
 \item \code{populate}: Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
 If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of
 your path.  If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
+
+\item \code{configure}: Configures a HitWalker2 instance by substituting values into the template files defined in 'base.dir' and placing them into 'dest.dir'.
+The defaults should suffice for Vagrant-based HitWalker2 instances.
 }}
 \section{Slots}{
 

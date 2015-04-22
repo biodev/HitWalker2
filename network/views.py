@@ -357,25 +357,6 @@ def table(request):
         return render(request, 'network/res_table.html', {'res_table':rels, 'res_header':rels_header, 'sample_display_name':request.session['query_samples']['SampleID'],
                                                         'cur_filts':json.dumps(cur_filts), 'cur_param':json.dumps(cur_param), 'seeds':json.dumps(seed_list[:50]), 'queries':json.dumps(query_list[:50]), 'prog_type':prog_type,
                                                         'username':request.user})
-    
-    #    
-    #    cur_filts = re.sub("\$\$[\w_\d]+\$\$\.", "", request.session['where_template'])
-    #    
-    #    index_field_dict = copy.deepcopy(config.field_dict)
-    #    
-    #    temp_header_ord = config.header_ord[:]
-    #    
-    #    
-    #    #probably need to add more to me...
-    #    temp_header_ord.append("HitWalker_Score")
-    #    
-    #    #as the functions are not JSON serializable...
-    #    for i in index_field_dict['parameters'].keys():
-    #        index_field_dict['parameters'][i]['default'] = request.session[i]
-    #    
-    #    return render(request, 'network/res_table.html', {'res_table':request.session['rels'], 'res_header':temp_header_ord, 'sample_display_name':request.session['sample_info']['display_name'],
-    #                                                      'sample_info':'{"node_type":"Sample", "name":"' + request.session['sample_info']['name']  + '","indexed_name":"' +  request.session['sample_info']['indexed_name'] + '"}',
-    #                                                    'cur_filts':cur_filts, 'cur_param':json.dumps(index_field_dict['parameters']), 'seeds':json.dumps(request.session['seed_list']), 'prog_type':prog_type, 'username':request.user})
     else:
         
         request_post = dict(request.POST.iterlists())
@@ -404,6 +385,8 @@ def table(request):
         request.session["query_samples"] = core.proper_type(request.POST["query_samples"])
         
         valid_hit_genes = core.get_valid_hits(request, config.hit_session_dict)
+        
+        print len(valid_hit_genes)
         
         if len(valid_hit_genes) > 0:
         

@@ -11,30 +11,54 @@ setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 
-setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character", base.query="character", template.query="character"))
+#' Neo4j Data for HitWalker2
+#'
+#' Basic class representing common components that all classes which load data into Neo4j for HitWalker2 should be derived from.
+#'
+#' @slot sample.edge.name The name of the edge going from sample to assay unit (e.g. SNP ID or probe ID).
+#' @slot gene.edge.name The name of the edge going from assay unit to gene
+#' @slot node.name The name of the node representation of the assay unit
+#' @slot base.query A cypher template which provides the basic information about the assay at the gene level (see provided classes for examples).
+#' @slot template.query A cypher template which forms the basis of aggregation-based queries (see provided classes for examples)
+NeoData <- setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character", base.query="character", template.query="character"))
 
-setClass(Class="HwHit", representation=list(default="numeric", direction="character", range="numeric", display_name="character"))
+#' Hit Parameter Data for HitWalker2
+#'
+#' Basic class representing common components for hit parameters that all classes which load data into Neo4j for HitWalker2 should be derived from.
+#'
+#' @slot default The default value used to determine if a datatype should be considered a 'hit' for a given sample
+#' @slot direction Direction of the test
+#' @slot range Valid range (vector) that the user can adjust the values towards
+#' @slot display_name Name to be displayed to the user
+HwHit <- setClass(Class="HwHit", representation=list(default="numeric", direction="character", range="numeric", display_name="character"))
 
 setMethod("nodeName", signature("NeoData"), function(obj){
     return(obj@node.name)
 })
 
+#' @describeIn NeoData Extracts the name of the sample -> assay unit edge
 setMethod("sampleEdge", signature("NeoData"), function(obj){
     return(obj@sample.edge.name)
 })
 
+#' @describeIn NeoData Extracts the name of the  assay unit -> gene edge
 setMethod("geneEdge", signature("NeoData"), function(obj){
     return(obj@gene.edge.name)
 })
 
+#' Subject-level information
+#'
+#' A class representing the subject and sample-level information in HitWalker2
+#'
+#' @slot subject.info, a \code{data.frame} containing subject level information.  The name of the first column will become the name associated with the subjects.
+#' An alias column can be provided which will allow the end-user the ability to search on more than just the subject name.  It must be '&' delimited.
+#' @slot subject.to.sample A \code{data.frame} containing the mapping from subject to sample, is best populated through \code{addSamples}.
+#' @slot type The column to be used to describe the subject in terms of the study (e.g. 'Case', 'Wildtype', 'Tissue')
 setClass(Class="Subject", representation=list(subject.info="data.frame", subject.to.sample="data.frame", type="character"))
-
-#data.types needs to be a list like: 
-#where the names in seeds and target need to correspond to the names of the ... arguments to makeHW2Config
 
 #' HitWalker2 Configuration
 #'
-#' A Class Representing a HitWalker2 Configuration
+#' A class representing a HitWalker2 configuration
 #'
 #' @slot subject A Subject object to be used as the basis for this HitWalker2 database
 #' @slot data.list Named list containing the experiemntal data
@@ -147,7 +171,8 @@ multi.gsub <- function(patterns, replacements, use.str)
     return(use.str)
 } 
 
-
+#' @describeIn HW2Config Configures a HitWalker2 instance by substituting values into the template files defined in 'base.dir' and placing them into 'dest.dir'.
+#' The defaults should suffice for Vagrant-based HitWalker2 instances.  
 setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/"){
     #copySubstitute() --which is part of Biobase
     
@@ -155,6 +180,8 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     {
         dir.create(dest.dir)
     }
+    
+    message("Creating config files from templates")
     
     src.files <- file.path(base.dir, c("tmpl_config.py", "tmpl_custom_functions.py"))
     
@@ -205,16 +232,30 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
                      TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=paste(hit.params, collapse=",\n"), USE_DATA=paste0("[", paste(paste0("'", dataTypes(obj) ,"'"), collapse=",") ,"]"))
     
+    message("Staging config files")
+    
     copySubstitute(src=src.files, dest=dest.dir, symbolValues=sub.list, symbolDelimiter="@", recursive=T)
     
-    #also might need the rjson package
-    #write(toJSON())
+    if (file.exists(file.path(dest.dir, "change_hw2_instance.sh")))
+    {
+        message("Setting up config files")
+        cur.dir <- getwd()
+        setwd(dest.dir)
+        system("./change_hw2_instance.sh tmpl")
+        setwd(cur.dir)
+    }else{
+        message("Cannot find 'change_hw2_instance.sh', skipping config file setup")
+    }
     
 })
 
-
-
 setGeneric("addSamples<-", def=function(obj,..., value) standardGeneric("addSamples<-"))
+
+#' @describeIn Subject Adds sample information to a \code{Subject} object.  This can either be done by passing
+#' in a \code{data.frame} or by passing in an object which has a \code{sampleNames} method.  The \code{data.frame}
+#' should contain a column referencing the subject, a 'sample' column and a 'type' column.  The 'type' column provides
+#' a mechanism through which samples with the same name can be differentiated in terms of data type.  If an object is
+#' supplied, the type column can be supplied as part of the method call (e.g. addSamples(subj, type="variant") <- object).
 setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
     
     if (is.data.frame(value) == F)
