@@ -373,7 +373,7 @@ def get_shortest_paths (request, request_post):
         ##if bypassing table I think this would be necessary...
         #simply create a graph with the node(s) requested by the user 
         
-        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'Subject', request)
+        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'Sample', request)
         
         node_names = final_nodes_list.display_names()
         
@@ -381,8 +381,6 @@ def get_shortest_paths (request, request_post):
             title = 'Subject: '+ node_names[0]
         else:
             title = 'Subject: ' + string.joinfields(node_names, ',')
-        
-        print final_nodes_list.tolist()
         
         return final_nodes_list.tolist(), [], title
     else:
