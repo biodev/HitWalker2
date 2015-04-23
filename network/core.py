@@ -308,7 +308,7 @@ class SubjectNode(Node):
         
         cypher_props = cypher_res[0].get_properties()
         
-        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Sample', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}
+        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Subject', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}
         
         for i in cypher_props.items():
             if (i[0] in set(['name', 'alias'])) == False:

@@ -263,7 +263,7 @@ def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
     
     if from_node_dict['attributes'].has_key('node_type') and to_node_dict['attributes'].has_key('node_type'):
         
-        if from_node_dict["attributes"]["node_type"] == "Sample" and to_node_dict["attributes"]["node_type"] == "Gene":
+        if from_node_dict["attributes"]["node_type"] == "Subject" and to_node_dict["attributes"]["node_type"] == "Gene":
             
             is_hit = rel_type.endswith("_Hit")
             temp_rel_name = rel_type.replace("_Hit", "")
@@ -352,7 +352,7 @@ def get_pathways_sample (request, request_post):
     
     import config
     print request_post
-    subj_nodes = map(lambda x:{'node_type':'Sample', 'id':x}, request_post['sample_name'])
+    subj_nodes = map(lambda x:{'node_type':'Subject', 'id':x}, request_post['sample_name'])
     query_nodes = map(lambda x:{'node_type':'Pathway', 'id':x}, request_post['pathway_name'])
     
     new_edge_queries = copy.deepcopy(config.edge_queries)
@@ -373,14 +373,14 @@ def get_shortest_paths (request, request_post):
         ##if bypassing table I think this would be necessary...
         #simply create a graph with the node(s) requested by the user 
         
-        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'Sample', request)
+        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'Subject', request)
         
         node_names = final_nodes_list.display_names()
         
         if len(node_names) == 1:
-            title = 'Sample: '+ node_names[0]
+            title = 'Subject: '+ node_names[0]
         else:
-            title = 'Samples: ' + string.joinfields(node_names, ',')
+            title = 'Subject: ' + string.joinfields(node_names, ',')
         
         print final_nodes_list.tolist()
         
@@ -397,7 +397,7 @@ def get_shortest_paths (request, request_post):
             if i != None:
                 samp_set.add(i)
         
-        final_nodes_list = core.get_nodes(list(samp_set), 'Sample', request)
+        final_nodes_list = core.get_nodes(list(samp_set), 'Subject', request)
         
         sp_query = string.joinfields(['MATCH (n:EntrezID{name:{var_select}})-[:MAPPED_TO]->(np) WITH np MATCH (m:EntrezID{name:{seed_select}})-[:MAPPED_TO]->(mp) WITH mp, np MATCH p=(np)-[:ASSOC*1..2]->(mp)',
                     'WHERE ALL(x IN NODES(p) WHERE (x)<-[:MAPPED_TO]->()) AND ALL(x IN RELATIONSHIPS(p) WHERE HAS(x.score) AND x.score > {score}) WITH p, REDUCE(val=0, x in RELATIONSHIPS(p)| val+x.score) as use_score,',
