@@ -6,7 +6,7 @@ import string
 
 prog_type = ""
 
-graph_struct_file = "/var/www/hitwalker_2_inst"+core.fix_prog_type(prog_type)+"/static/data/graph_struct.json"
+graph_struct_file = "/var/www/hitwalker2_inst"+core.fix_prog_type(prog_type)+"/static/network/data/graph_struct.json"
 
 cypher_session="http://localhost:7474"
 #the maximum number of nodes in a group before it becomes a metanode
@@ -95,6 +95,7 @@ sample_rels_type = 'hierarchical'
 matchers = {
     'pathway':custom_functions.match_pathway,
     'gene':custom_functions.match_gene,
+    'subject':custom_functions.match_sample,
     'sample':custom_functions.match_sample
 }
 

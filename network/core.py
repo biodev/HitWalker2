@@ -666,13 +666,13 @@ def make_metanode_table(node, context):
     import config
     #ret_str = '<div class=container>'
     
-    samp_dict = {'Sample':[], 'Type':[], 'Value':[]}
+    samp_dict = {'Subject':[], 'Type':[], 'Value':[]}
     gene_dict = {}
     
     for i in node['children']:
-        if i['attributes']['node_type'] in set(['Sample', 'Gene']):
+        if i['attributes']['node_type'] in set(['Subject', 'Gene']):
             for j in i['children']:
-                samp_dict['Sample'].append(i['display_name'])
+                samp_dict['Subject'].append(i['display_name'])
                 samp_dict['Type'].append(j['attributes']['meta']['node_cat'])
                 
                 #as it is in the form: Gene_siRNA
@@ -693,7 +693,7 @@ def make_metanode_table(node, context):
     
     table_dict = {}
     
-    for i in samp_dict['Sample'].items():
+    for i in samp_dict['Subject'].items():
         if table_dict.has_key(i[0][0]) == False:
             table_dict[i[0][0]] = [[i[0][1], i[1]]]
         else:
@@ -1491,7 +1491,7 @@ def check_input_query_where (query_str, necessary_vars,graph_struct):
     
     #with_stats = re.findall(r'WITH\s+([\w,\s_]+?)\s+[(?:MATCH)(?:WHERE)(?:RETURN)]', query_str)
     with_where = re.findall(r'WITH\s+(([\w,\s_]+?)\s+((?:MATCH)|(?:WHERE)|(?:RETURN])))', query_str)
-    
+
     if len(with_where) != (len(match_where) - 1):
         raise Exception("Unexpected number of with/match statements")
     

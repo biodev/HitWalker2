@@ -576,6 +576,8 @@ def node_query(request):
         
         ret_content = ''
         
+        print unique_types
+        
         if len(unique_types) == 1:
             cur_type = unique_types.pop()
             ret_content = config.node_content[cur_type]["func"](ret_nodes[0], ret_context, **config.node_content[cur_type]['args'])
@@ -713,6 +715,10 @@ def download(request):
         for j in i:
             if base_params.has_key(j) == False:
                 base_params[j] = core.iterate_dict(request.session, i)
+    
+    print run_query
+    
+    print core.check_input_query_where(run_query, set(['gene', 'subject']) ,graph_struct)
     
     session = cypher.Session()
     tx = session.create_transaction()
@@ -1006,6 +1012,7 @@ def panel(request):
             
             return response
         except ImportError, e:
+            raise e
             response = HttpResponse('<?xml-stylesheet type="text/css" ?>' + request.POST["data"], content_type='image/svg+xml')
             response['Content-Disposition'] = 'attachment; filename="HitWalker2.svg"'
             return response
