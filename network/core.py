@@ -863,6 +863,10 @@ def get_nodes_from_config(request, session_dict):
         
         retr_samp = iterate_dict(request.session, temp_list)
         
+        print retr_samp
+        print var_type
+        
+        
         if retr_samp != None:
             nl.mergeChildren(get_nodes([[retr_samp]], var_type, request, config_struct=session_dict))
     
