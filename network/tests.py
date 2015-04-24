@@ -146,7 +146,11 @@ test_params = {
                         }
 }
 
-
+#def new_where_tests ():
+# temp_str= '''MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID) WHERE HAS(r.score) AND r.score < .05 WITH gene MATCH (subject:MergeID)-[d:DERIVED]-(s) WHERE subject.name IN ["103051"]
+#... WITH gene, COLLECT(DISTINCT subject.name) AS use_coll WHERE LENGTH(use_coll) = 1  MATCH (n:MergeID)-[d:DERIVED]-(samp) WHERE n.name IN ["103051"] WITH n, gene
+#... MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene) WHERE HAS(r.score) WITH n, gene, MIN(r.score) AS methyl_pvalue RETURN gene.name AS gene, n.name AS sample, "Methylation" AS var, methyl_pvalue AS score, methyl_pvalue < .05 AS is_hit limit 10'''
+#
 
 class Test_views(TestCase):
     

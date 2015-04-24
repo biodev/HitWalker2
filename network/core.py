@@ -1482,6 +1482,17 @@ def check_input_query_where (query_str, necessary_vars,graph_struct):
     #match_stats = re.findall(r'MATCH\s*([>:\[\]\(\)\w\d_<-]+)\s*[(?:WITH)(?:RETURN)]', query_str)
     match_where = re.findall(r'(MATCH\s*(\S+)\s*((?:WITH)|(?:RETURN)|(?:WHERE)))', query_str)
     
+#    temp = re.findall(r'WITH\s+(([\w,\s_\.\(\)]+?)\s+((?:MATCH)|(?:WHERE)|(?:RETURN])))', query_str)
+#
+#
+#map(lambda x: re.sub(r',.+AS', ",", x[1]), temp)
+#
+#string.split(temp[1][1],"[,(?:AS)]")
+#
+#re.sub(r',.+AS', ",", temp[1][1])
+#
+#clean_temp=map(lambda x: ,temp)
+#    
     #as tuples are not assignable...
     match_where = map(list, match_where)
     
