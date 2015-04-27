@@ -395,8 +395,12 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.mo
     load.neo4j(.data=probe.to.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
-#MAF class utils
 
+#' CCLE MAF Representation
+#'
+#' A basic class for representing the Cancer Cell Line Encyclopedia style Mutation Annotation Format files.
+#'
+#' @slot maf, a \code{data.frame} representation of the MAF file.
 setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData",
          prototype=list(
                         base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFFERED_TO]-(symb) WHERE d.type = "DNASeq" AND n.name IN {SAMPLE}
@@ -466,8 +470,13 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.mode
     
 })
 
-#Drug class utils
 
+#' Drug Data Representation
+#'
+#' A basic class for representing drug panel results for a set of samples
+#'
+#' @slot matrix, a matrix containing a sinlge summary value for each drug (rows) and each sample (columns).  
+#' @slot mapping A \code{data.frame} containing the mapping from drug to gene.  It should contain a 'drug' column, a 'gene' column and a 'weight' column which indicates the confidence of the mapping.
 setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains=c("NeoData", "HwHit"),
          prototype=list(base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Drug_Assay" AND n.name IN {SAMPLE}
                         WITH n, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
