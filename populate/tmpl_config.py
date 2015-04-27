@@ -6,7 +6,7 @@ import string
 
 prog_type = ""
 
-graph_struct_file = "/var/www/hitwalker_2_inst"+core.fix_prog_type(prog_type)+"/static/data/graph_struct.json"
+graph_struct_file = "/var/www/hitwalker2_inst"+core.fix_prog_type(prog_type)+"/static/network/data/graph_struct.json"
 
 cypher_session="http://localhost:7474"
 #the maximum number of nodes in a group before it becomes a metanode
@@ -62,8 +62,9 @@ gene_names = {'query':'MATCH (n:EntrezID{name:{GENE}})-[r:REFFERED_TO]-(m) RETUR
 #used for the network view
 gene_rels = {'query':'MATCH (gene:EntrezID{name:{FROM_GENE}})-[:MAPPED_TO]-(string_from)-[r:ASSOC]-(string_to)-[:MAPPED_TO]-(gene_to) WHERE gene_to.name IN {TO_GENES} AND HAS(r.score) AND r.score > ({string_conf}*1000) RETURN gene.name,gene_to.name, MAX(r.score)', 'handler':None, 'session_params':[['string_conf']]}
 
-
 subject = {'query':'MATCH (n:@SUBJECT@{name:{SUBJECTID}}) RETURN n', 'handler':custom_functions.get_subject, 'session_params':None}
+#The initial call after the user chooses a sample can be made in terms of sample names not necessarily subject names
+sample = {'query':'MATCH (n)-[:DERIVED]->(Sample{name:{SUBJECTID}}) RETURN n', 'handler':custom_functions.get_subject, 'session_params':None}
 
 pathway = {'query':'MATCH (path:Pathway{name:{PATHNAME}})-[:PATHWAY_CONTAINS]->(gene) RETURN path.name, COLLECT(DISTINCT gene.name)', 'handler':custom_functions.get_pathway, 'session_params':None}
 
@@ -94,6 +95,7 @@ sample_rels_type = 'hierarchical'
 matchers = {
     'pathway':custom_functions.match_pathway,
     'gene':custom_functions.match_gene,
+    'subject':custom_functions.match_sample,
     'sample':custom_functions.match_sample
 }
 
@@ -131,7 +133,8 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 
 node_queries={
     'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
-    'Sample':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))]
+    'Sample':[core.customize_query(sample, query=lambda x: x.replace("{SUBJECTID}", "{name}"))],
+    'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))]
 }
 
 #by default the user has no control over these parameters, if this was desired then these queries would need to be specified in 'adjust_fields' above and the unique id would need to be specified in session_params (e.g. core.customize_query(etc, etc, session_params=lambda x: [['gene_score']])
@@ -146,17 +149,17 @@ for i in data_list:
 edge_queries = {
     'nodes':{
         'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
-        'Sample':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))],
+        'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))],
         'Pathway':[core.customize_query(pathway, query=lambda x: x.replace("{PATHNAME}", "{name}"))]
         },
     
     'edges':{
         'Gene':{
-            'Sample':{'query':None, 'handler':custom_functions.gene_to_sample, 'session_params':None},
+            'Subject':{'query':None, 'handler':custom_functions.gene_to_sample, 'session_params':None},
             'Gene':{'query':None, 'handler':custom_functions.no_rels, 'session_params':None}
             },
-        'Sample':{
-            'Sample':{'query':None, 'handler':custom_functions.no_rels, 'session_params':None}
+        'Subject':{
+            'Subject':{'query':None, 'handler':custom_functions.no_rels, 'session_params':None}
         }
     }
 
@@ -168,17 +171,17 @@ for i in data_list:
 
 ##This dictionary specifies how the summary modals should be displayed upon right-clicking a specified node
 node_content = {
-    'Sample':{'func':core.make_sample_table, 'args':{}},
+    'Subject':{'func':core.make_sample_table, 'args':{}},
     'Gene':{'func':core.make_gene_table, 'args':{'gene_link':'http://www.ncbi.nlm.nih.gov/gene/?term='}},
     'MetaNode':{'func':core.make_metanode_table, 'args':{}}
 }
 
 node_group_content={
-    'Gene':{'title':'Find Samples where all Genes in this set has a(n):',
-            'returned_node_type':'Sample',
+    'Gene':{'title':'Find Subject where all Genes in this set has a(n):',
+            'returned_node_type':'Subject',
             'options':[]
             },
-    'Sample':{'title':'Find Genes where all Samples in this set has a(n):',
+    'Subject':{'title':'Find Genes where all Subjects in this set has a(n):',
             'returned_node_type':'Gene',
             'options':[]
               }

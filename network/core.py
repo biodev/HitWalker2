@@ -308,7 +308,7 @@ class SubjectNode(Node):
         
         cypher_props = cypher_res[0].get_properties()
         
-        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Sample', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}
+        self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Subject', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}
         
         for i in cypher_props.items():
             if (i[0] in set(['name', 'alias'])) == False:
@@ -666,13 +666,13 @@ def make_metanode_table(node, context):
     import config
     #ret_str = '<div class=container>'
     
-    samp_dict = {'Sample':[], 'Type':[], 'Value':[]}
+    samp_dict = {'Subject':[], 'Type':[], 'Value':[]}
     gene_dict = {}
     
     for i in node['children']:
-        if i['attributes']['node_type'] in set(['Sample', 'Gene']):
+        if i['attributes']['node_type'] in set(['Subject', 'Gene']):
             for j in i['children']:
-                samp_dict['Sample'].append(i['display_name'])
+                samp_dict['Subject'].append(i['display_name'])
                 samp_dict['Type'].append(j['attributes']['meta']['node_cat'])
                 
                 #as it is in the form: Gene_siRNA
@@ -693,7 +693,7 @@ def make_metanode_table(node, context):
     
     table_dict = {}
     
-    for i in samp_dict['Sample'].items():
+    for i in samp_dict['Subject'].items():
         if table_dict.has_key(i[0][0]) == False:
             table_dict[i[0][0]] = [[i[0][1], i[1]]]
         else:
@@ -862,6 +862,10 @@ def get_nodes_from_config(request, session_dict):
         temp_list.append(var_type)
         
         retr_samp = iterate_dict(request.session, temp_list)
+        
+        print retr_samp
+        print var_type
+        
         
         if retr_samp != None:
             nl.mergeChildren(get_nodes([[retr_samp]], var_type, request, config_struct=session_dict))
@@ -1525,7 +1529,7 @@ def check_input_query_where (query_str, necessary_vars,graph_struct):
     
     #with_stats = re.findall(r'WITH\s+([\w,\s_]+?)\s+[(?:MATCH)(?:WHERE)(?:RETURN)]', query_str)
     with_where = re.findall(r'WITH\s+(([\w,\s_]+?)\s+((?:MATCH)|(?:WHERE)|(?:RETURN])))', query_str)
-    
+
     if len(with_where) != (len(match_where) - 1):
         raise Exception("Unexpected number of with/match statements")
     

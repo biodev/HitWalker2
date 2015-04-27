@@ -79,7 +79,7 @@
                         {% csrf_token %}
                         <input type="hidden" name="redirect" value='True')></input>
                     </form>
-                    <li><a href="{{prog_type}}/HitWalker2">Select Sample</a></li>
+                    <li><a href="{{prog_type}}/HitWalker2">Select Subject</a></li>
                     
                     {% if "query_samples" in input_vals %}
                         <li class="disabled"><a style="cursor:pointer">Select Variants</a></li>
@@ -1445,11 +1445,11 @@
             
             //find nodes available for the current panel
             
-            var node_map = {Sample:[], Gene:[]};
+            var node_map = {Subject:[], Gene:[]};
             
             //for all of these, select the nodes in the panel if not already
             
-            d3.selectAll("#"+panel_name+" circle.Sample").each(function(x)
+            d3.selectAll("#"+panel_name+" circle.Subject").each(function(x)
                                              {
                                                     if (selected_node.has(x.id) == false)
                                                     {
@@ -1475,7 +1475,7 @@
             //if there is only sample nodes
                 //take the user to the standard gene picking screen
             
-            if (node_map.Sample.length > 0 && node_map.Gene.length == 0)
+            if (node_map.Subject.length > 0 && node_map.Gene.length == 0)
             {
                 query_pathways(panel_name, obj, 'static_pathway_tab')
             }else{
@@ -1751,7 +1751,7 @@
                                                 '<button type="button" class="btn btn-default dropdown-toggle col-md-12" '+add_dis_str+' " data-toggle="dropdown" >Add Node<span class="caret"></button>' +
                                                 '<ul class="dropdown-menu" role="menu">' +
                                                     '<li> <a onclick="query_nodes(\''+ cur_panel_name +'\', this, \'Gene\')" style="cursor:pointer">Gene</a></li>' +
-                                                    '<li><a onclick="query_nodes(\''+ cur_panel_name +'\', this, \'Sample\')" style="cursor:pointer">Sample</a></li>' +
+                                                    '<li><a onclick="query_nodes(\''+ cur_panel_name +'\', this, \'Subject\')" style="cursor:pointer">Subject</a></li>' +
                                                     '<li><a onclick="query_pathways(\''+ cur_panel_name +'\', this, \'add_pathway\')" style="cursor:pointer">Pathway</a></li>' +
                                                 '</ul>' +
                                             '</div>' +

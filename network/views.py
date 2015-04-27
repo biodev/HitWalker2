@@ -83,7 +83,7 @@ def generate_css (user_name):
     css_path =os.path.join(static_storage.location, "network/css/HitWalker2.css")
     hw_css = cssutils.parseFile(css_path)
     
-    node_type_transl={'Gene':{'name':'Gene', 'class':'Gene'}, 'Sample':{'name':'Sample', 'class':'Sample'}}
+    node_type_transl={'Gene':{'name':'Gene', 'class':'Gene'}, 'Subject':{'name':'Subject', 'class':'Subject'}}
     edge_type_transl={'STRING':{'name':'STRING', 'class':'STRING'}}
     #for recording the colors of the hits/targets and subtracting them from the available defaults
     important_defaults = set()
@@ -576,6 +576,8 @@ def node_query(request):
         
         ret_content = ''
         
+        print unique_types
+        
         if len(unique_types) == 1:
             cur_type = unique_types.pop()
             ret_content = config.node_content[cur_type]["func"](ret_nodes[0], ret_context, **config.node_content[cur_type]['args'])
@@ -613,9 +615,9 @@ def multi_node_query(request):
         if num_metas == len(unique_types):
             ungroup_dis_text = ""
         
-        type_intersect = unique_types.intersection(set(['Sample', 'Gene']))
+        type_intersect = unique_types.intersection(set(['Subject', 'Gene']))
         
-        if  (len(type_intersect) == 1 and type_intersect == set(['Sample'])) or len(type_intersect) == 2:
+        if  (len(type_intersect) == 1 and type_intersect == set(['Subject'])) or len(type_intersect) == 2:
             pathway_dis_text = ""
         
         group_buttons = '<div class="btn-group"><button type="button" class="btn btn-default" '+ungroup_dis_text+' onclick="ungroup_nodes(this)">Ungroup</button></div>'
@@ -703,7 +705,7 @@ def download(request):
     
     end_query = end_query.replace(gene_var[0]+'.', 'gene.')
     
-    end_query = end_query.replace('SAMPLE', 'Sample')
+    end_query = end_query.replace('SAMPLE', 'Subject')
     
     new_end_query = core.check_input_query_with(end_query, set('gene'))
     
@@ -716,6 +718,10 @@ def download(request):
             if base_params.has_key(j) == False:
                 base_params[j] = core.iterate_dict(request.session, i)
     
+    print run_query
+    
+    print core.check_input_query_where(run_query, set(['gene', 'subject']) ,graph_struct)
+    
     session = cypher.Session()
     tx = session.create_transaction()
     tx.append(run_query, base_params)
@@ -727,7 +733,7 @@ def download(request):
     
     print len(use_nodes)
         
-    header = ['id', 'display_name'] + base_params['Sample']
+    header = ['id', 'display_name'] + base_params['Subject']
     
     writer.writerow(header)
     
@@ -784,7 +790,7 @@ def fullfill_node_query(request):
         
         #execute the query
         
-        session = cypher.Session()
+        session = cypher.Session(config.cypher_session)
         tx = session.create_transaction()
         
         use_query = query_info['query']
@@ -810,11 +816,11 @@ def fullfill_node_query(request):
                 use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
             else:
                 use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
-        elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Sample'):
-            if len(ret_node_queries['Sample']) > 3:
-                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Sample'][0]['display_name'] + '...' + ret_node_queries['Sample'][-1]['display_name'])
+        elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Subject'):
+            if len(ret_node_queries['Subject']) > 3:
+                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Subject'][0]['display_name'] + '...' + ret_node_queries['Subject'][-1]['display_name'])
             else:
-                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Sample']), ','))
+                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Subject']), ','))
         else:
             use_title = 'ERROR: Unknown title...'
         
@@ -854,6 +860,7 @@ def fullfill_node_query(request):
         return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
     
     except Exception as e:
+        raise e
         return HttpResponseServerError()
 
 def get_data (request):
@@ -868,6 +875,9 @@ def copy_nodes(request):
     subj_nodes = json.loads(request.POST["subj"])
     query_nodes = json.loads(request.POST["query"])
     
+    print subj_nodes
+    print query_nodes
+    
     cur_graph = core.copy_nodes(subj_nodes, query_nodes, request, config.edge_queries)
     
     ret_dict = {'nodes':cur_graph['nodes'].tolist(), 'links':cur_graph['links']}
@@ -877,6 +887,8 @@ def copy_nodes(request):
 def get_graph(request):
     
     request_post = core.fix_jquery_array_keys(dict(request.POST.iterlists()))
+    
+    print request_post
     
     nodes, links, title = core.iterate_dict(config.graph_initializers, request_post['panel_context'])(request, request_post)
     
@@ -1002,6 +1014,7 @@ def panel(request):
             
             return response
         except ImportError, e:
+            raise e
             response = HttpResponse('<?xml-stylesheet type="text/css" ?>' + request.POST["data"], content_type='image/svg+xml')
             response['Content-Disposition'] = 'attachment; filename="HitWalker2.svg"'
             return response
