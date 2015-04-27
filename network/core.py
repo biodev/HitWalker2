@@ -495,9 +495,12 @@ def handle_gene_hits(res_list, nodes, request):
             for j in use_i:
                 gene_list[j[1]].append([j[3], j[4]])
                 use_vars.add(j[2])
-                
-            gene_score = BasicGeneChild(nodes.getNode(use_i[0][0]), gene_list, list(use_vars)[0])
-            nodes.addChild(use_i[0][0], gene_score)
+            
+            if nodes.hasNode(use_i[0][0]):
+                gene_score = BasicGeneChild(nodes.getNode(use_i[0][0]), gene_list, list(use_vars)[0])
+                nodes.addChild(use_i[0][0], gene_score)
+            else:
+                print "Did not find node " + use_i[0][0] + " skipping..."
     
 
 class TargetChildNode(Node):
@@ -1261,7 +1264,7 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                     res_list = tx.commit()
                 else:
                     res_list = tx.execute()
-                
+                    
                 i['handler'](res_list, nodes, request)
     else:
         raise Exception("config_struct does not have specified node_type")

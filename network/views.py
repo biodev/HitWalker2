@@ -707,7 +707,7 @@ def download(request):
     
     end_query = end_query.replace('SAMPLE', 'Subject')
     
-    new_end_query = core.check_input_query_with(end_query, set('gene'))
+    new_end_query = core.check_input_query_with(end_query, set(['gene']))
     
     run_query = base_query + ' ' + new_end_query
     
@@ -718,21 +718,21 @@ def download(request):
             if base_params.has_key(j) == False:
                 base_params[j] = core.iterate_dict(request.session, i)
     
-    print run_query
-    
-    print core.check_input_query_where(run_query, set(['gene', 'subject']) ,graph_struct)
-    
-    session = cypher.Session()
+    session = cypher.Session(config.cypher_session)
     tx = session.create_transaction()
+    
     tx.append(run_query, base_params)
     res_list = tx.commit()
     
     use_nodes = request.session['tmp_ret_nodes']
     
+    print len(res_list[0]), request.session['tmp_expected_count']
+    
+    if request.session['tmp_expected_count'] != len(res_list[0]):
+        raise Exception("Was not able to retrieve the expected number of results")
+    
     end_query_str['handler'](map(lambda x: [x], res_list[0]), use_nodes, request)
     
-    print len(use_nodes)
-        
     header = ['id', 'display_name'] + base_params['Subject']
     
     writer.writerow(header)
@@ -804,8 +804,6 @@ def fullfill_node_query(request):
         tx.append(use_query, node_queries)
         res_list = tx.commit()
         
-        print len(res_list)
-        
         temp_node_list = []
         
         for i in res_list[0]:
@@ -829,25 +827,15 @@ def fullfill_node_query(request):
         ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
         
         #too many nodes to render efficiently, will allow user to download csv file...
-        if len(temp_node_list) > 2000:
+        if len(ret_nodes) > 2000:
             
             request.session['tmp_title'] = use_title
-            
-            subj_nodes = []
-            query_nodes = []
-            
-            for i in ret_node_queries.keys():
-                for j in ret_node_queries[i]:
-                    subj_nodes.append({'id':j['id'], 'node_type':i})
-            
-            for i in temp_node_list:
-                query_nodes.append({'id':i, 'node_type':query_type['returned_node_type']})
-    
             
             request.session['tmp_var_type'] = query_info['text']
             request.session['tmp_use_query'] = use_query
             request.session['tmp_node_queries'] = node_queries
             request.session['tmp_ret_nodes'] = ret_nodes
+            request.session['tmp_expected_count'] = len(temp_node_list)
             
             ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
             

@@ -25,7 +25,7 @@ from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
 
-@unittest.skip("Skipping selenium")
+#@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
     
     def setUp(self):
@@ -55,8 +55,30 @@ class BasicSeleniumTests(LiveServerTestCase):
     def tearDown(self):
         self.driver.quit()
     
-    def test_gene_addition(self):
     
+    def test_large_downloads(self):
+        
+        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("103051")
+        self.driver.find_element_by_css_selector(".select2-result-label").click()
+        self.driver.find_element_by_css_selector("#query").click()
+        time.sleep(10)
+        #check click events
+        
+        use_panel = self.driver.find_element_by_css_selector(".Subject~circle")
+        
+        #to go into the pathway view
+        webdriver.ActionChains(self.driver).move_to_element(use_panel).click(use_panel).context_click(use_panel).perform()
+        
+        self.driver.find_element_by_css_selector('a.list-group-item[data-value="Subject-0"]').click()
+        
+        self.driver.find_element_by_css_selector('a[href="/HitWalker2/download/"]').click()
+        
+        time.sleep(20)
+        
+    def test_gene_addition(self):
+        self.skipTest('not quite to this test yet')
         self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
