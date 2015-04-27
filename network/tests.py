@@ -147,7 +147,6 @@ test_params = {
 }
 
 
-
 class Test_views(TestCase):
     
     maxDiff = None
@@ -1176,6 +1175,32 @@ class query_parser_tests (TestCase):
         
         store = self.session
         os.unlink(store._key_to_file())
+    
+    def test_check_input_query_with(self):
+        temp_str= '''MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID) WHERE HAS(r.score) AND r.score < .05 WITH gene MATCH (subject:MergeID)-[d:DERIVED]-(s) WHERE subject.name IN ["103051"]
+        WITH gene, COLLECT(DISTINCT subject.name) AS use_coll WHERE LENGTH(use_coll) = 1  MATCH (n:MergeID)-[d:DERIVED]-(samp) WHERE n.name IN ["103051"] WITH n, gene
+        MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene) WHERE HAS(r.score) WITH n, gene, MIN(r.score) AS methyl_pvalue RETURN gene.name AS gene, n.name AS sample, "Methylation" AS var,
+        methyl_pvalue AS score, methyl_pvalue < .05 AS is_hit'''
+        
+        check_vars = set(['gene'])
+        
+        res_str = core.check_input_query_with(temp_str, check_vars)
+        
+        self.assertEqual(temp_str, res_str)
+        
+        temp_str2= '''MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID) WHERE HAS(r.score) AND r.score < .05 WITH gene MATCH (subject:MergeID)-[d:DERIVED]-(s) WHERE subject.name IN ["103051"]
+        WITH gene, COLLECT(DISTINCT subject.name) AS use_coll WHERE LENGTH(use_coll) = 1  MATCH (n:MergeID)-[d:DERIVED]-(samp) WHERE n.name IN ["103051"] WITH n
+        MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene) WHERE HAS(r.score) WITH n, gene, MIN(r.score) AS methyl_pvalue RETURN gene.name AS gene, n.name AS sample, "Methylation" AS var,
+        methyl_pvalue AS score, methyl_pvalue < .05 AS is_hit'''
+        
+        res_str2 = core.check_input_query_with(temp_str2, check_vars)
+        
+        goal_str = '''MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID) WHERE HAS(r.score) AND r.score < .05 WITH gene MATCH (subject:MergeID)-[d:DERIVED]-(s) WHERE subject.name IN ["103051"]
+        WITH gene, COLLECT(DISTINCT subject.name) AS use_coll WHERE LENGTH(use_coll) = 1  MATCH (n:MergeID)-[d:DERIVED]-(samp) WHERE n.name IN ["103051"] WITH gene,n
+        MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene) WHERE HAS(r.score) WITH n, gene, MIN(r.score) AS methyl_pvalue RETURN gene.name AS gene, n.name AS sample, "Methylation" AS var,
+        methyl_pvalue AS score, methyl_pvalue < .05 AS is_hit'''
+        
+        self.assertEqual(res_str2, goal_str)
     
     #checks both add_where_input_query and check_input_query_where which is called internally
     def test_add_where_input_query(self):

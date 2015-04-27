@@ -1447,6 +1447,40 @@ def add_where_input_query(query_str, where_template, necessary_vars, graph_struc
             else:
                 return query_str.replace("RETURN", "WHERE " + where_template + " RETURN")
 
+#ensures that the variables defined in check_var is present in all the with statements
+def check_input_query_with (query_str, check_var, on_missing="replace"):
+    
+    if len(check_var) != 1:
+        raise Exception('check_var currently needs to be a set of length 1')
+    
+    withs = re.findall(r'WITH\s+(([\w,\s_\.\(\)]+?)\s+((?:MATCH)|(?:WHERE)|(?:RETURN])))', query_str)
+
+    #should perhaps support renaming of variables, but not for now, so will just take the values on the right side of the AS statements 
+    with_vars = map(lambda x: map(lambda y: re.sub(r'\s+', '', y), re.sub(r',.+AS', ",", x[1]).split(',')), withs)
+
+    in_with = map(lambda x: len(check_var.intersection(set(x))) == len(check_var), with_vars)
+    
+    if sum(in_with) != len(in_with):
+        
+        if on_missing == "fail":
+            raise Exception('Provided query does not have the necessary variables')
+        elif on_missing == "replace":
+            
+            missing_withs = filter(lambda x: x[0]==False, itertools.izip(in_with, withs))
+            
+            sub_var = check_var.pop()
+            
+            for i in missing_withs:
+                query_str = re.sub(i[1][0], sub_var+','+i[1][0], query_str)
+                
+            return query_str
+            
+        else:
+            raise Exception("on_missing only accepts 'fail' or 'replace'")
+            
+    else:
+        return query_str
+
 def check_input_query_where (query_str, necessary_vars,graph_struct):
     
     #start match

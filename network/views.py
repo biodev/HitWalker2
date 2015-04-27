@@ -705,7 +705,9 @@ def download(request):
     
     end_query = end_query.replace('SAMPLE', 'Sample')
     
-    run_query = base_query + ' ' + end_query
+    new_end_query = core.check_input_query_with(end_query, set('gene'))
+    
+    run_query = base_query + ' ' + new_end_query
     
     #then merge the base params with those needed by end_query
     
