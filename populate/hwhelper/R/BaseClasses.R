@@ -240,7 +240,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     {
         message("Setting up config files")
         cur.dir <- getwd()
-        setwd(dest.dir)
+        setwd(dirname(dest.dir))
         system("./change_hw2_instance.sh tmpl")
         setwd(cur.dir)
     }else{
