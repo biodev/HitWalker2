@@ -373,7 +373,7 @@ def get_shortest_paths (request, request_post):
         ##if bypassing table I think this would be necessary...
         #simply create a graph with the node(s) requested by the user 
         
-        final_nodes_list = core.get_nodes(list(set(request.session['query_samples']['SampleID'].values())), 'Sample', request)
+        final_nodes_list = core.get_nodes([request.session['query_samples']['SampleID'].values()[0]], 'Sample', request)
         
         node_names = final_nodes_list.display_names()
         
@@ -389,13 +389,7 @@ def get_shortest_paths (request, request_post):
         
         cur_edge_set = core.RelationshipSet()
         
-        samp_set = set()
-        
-        for i in request.session['query_samples']['SampleID'].values():
-            if i != None:
-                samp_set.add(i)
-        
-        final_nodes_list = core.get_nodes(list(samp_set), 'Sample', request)
+        final_nodes_list = core.get_nodes([request.session['query_samples']['SampleID'].values()[0]], 'Sample', request)
         
         sp_query = string.joinfields(['MATCH (n:EntrezID{name:{var_select}})-[:MAPPED_TO]->(np) WITH np MATCH (m:EntrezID{name:{seed_select}})-[:MAPPED_TO]->(mp) WITH mp, np MATCH p=(np)-[:ASSOC*1..2]->(mp)',
                     'WHERE ALL(x IN NODES(p) WHERE (x)<-[:MAPPED_TO]->()) AND ALL(x IN RELATIONSHIPS(p) WHERE HAS(x.score) AND x.score > {score}) WITH p, REDUCE(val=0, x in RELATIONSHIPS(p)| val+x.score) as use_score,',

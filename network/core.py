@@ -305,7 +305,7 @@ class BasicSubjectChild(Node):
 class SubjectNode(Node):
     
     def __init__(self, cypher_res):
-        
+        print cypher_res
         cypher_props = cypher_res[0].get_properties()
         
         self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Subject', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}

@@ -173,7 +173,7 @@ multi.gsub <- function(patterns, replacements, use.str)
 
 #' @describeIn HW2Config Configures a HitWalker2 instance by substituting values into the template files defined in 'base.dir' and placing them into 'dest.dir'.
 #' The defaults should suffice for Vagrant-based HitWalker2 instances.  
-setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/"){
+setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/", make.graph.struct=T){
     #copySubstitute() --which is part of Biobase
     
     if (file.exists(dest.dir) == F)
@@ -236,7 +236,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     copySubstitute(src=src.files, dest=dest.dir, symbolValues=sub.list, symbolDelimiter="@", recursive=T)
     
-    if (file.exists(file.path(dest.dir, "change_hw2_instance.sh")))
+    if (file.exists(file.path(dirname(dest.dir), "change_hw2_instance.sh")))
     {
         message("Setting up config files")
         cur.dir <- getwd()
@@ -245,6 +245,11 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
         setwd(cur.dir)
     }else{
         message("Cannot find 'change_hw2_instance.sh', skipping config file setup")
+    }
+    
+    if (make.graph.struct){
+        ccle.graph <- compute.graph.structure()
+        make.graph.struct(ccle.graph, graph.struct.path="/var/www/hitwalker2_inst/static/network/data/graph_struct.json")
     }
     
 })
@@ -335,7 +340,7 @@ setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contain
                         base.query='MATCH(n:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression" AND HAS(r.score) AND n.name IN {SAMPLE}
                         RETURN m.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, ANY(x IN COLLECT(r.score) WHERE x > $PAR_NAME$) AS is_hit',
                         
-                        template.query='MATCH(sample:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WHERE d.type = "Affy_Expression" AND r.score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
+                        template.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WHERE d.type = "Affy_Expression" AND r.score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
                         WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'))
 
 HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet"){
@@ -408,7 +413,7 @@ setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoDa
                             r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,
                             r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id, n.name AS Sample ',
                         
-                        template.query='MATCH (sample:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE d.type = "DNASeq" AND $$lower_coll_type$$.name IN {$$coll_type$$}
+                        template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE d.type = "DNASeq" AND $$lower_coll_type$$.name IN {$$coll_type$$}
                         WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'
                         ))
 
@@ -482,7 +487,7 @@ setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.
                         WITH n, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
                         RETURN o.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, effect_score AS score, effect_score > $PAR_NAME$ AS is_hit;',
                         
-                        template.query='MATCH (sample:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(gene:EntrezID) WHERE d.type = "Drug_Assay" WITH sample, gene,
+                        template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(gene:EntrezID) WHERE d.type = "Drug_Assay" WITH subject, gene,
                         SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score WHERE effect_score > $PAR_NAME$ AND
                         $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll
                         WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type',
