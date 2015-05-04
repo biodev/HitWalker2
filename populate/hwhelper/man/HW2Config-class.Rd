@@ -15,7 +15,7 @@
 
 \S4method{configure}{HW2Config}(obj,
   base.dir = "/home/vagrant/HitWalker2/populate/",
-  dest.dir = "/home/vagrant/HitWalker2/network/")
+  dest.dir = "/home/vagrant/HitWalker2/network/", make.graph.struct = T)
 }
 \description{
 A class representing a HitWalker2 configuration

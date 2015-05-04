@@ -1,11 +1,13 @@
 setGeneric("fromSample", def=function(obj,...) standardGeneric("fromSample"))
 setGeneric("toGene", def=function(obj,...) standardGeneric("toGene"))
+
+setGeneric("configure", def=function(obj,...) standardGeneric("configure"))
+
+setGeneric("populate", def=function(obj,...) standardGeneric("populate"))
+
 setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
 setGeneric("getAnnotation", def=function(obj,...) standardGeneric("getAnnotation"))
-setGeneric("configure", def=function(obj,...) standardGeneric("configure"))
-setGeneric("populate", def=function(obj,...) standardGeneric("populate"))
 setGeneric("dataTypes", def=function(obj,...) standardGeneric("dataTypes"))
-
 setGeneric("nodeName", def=function(obj,...) standardGeneric("nodeName"))
 setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
@@ -261,6 +263,9 @@ setGeneric("addSamples<-", def=function(obj,..., value) standardGeneric("addSamp
 #' should contain a column referencing the subject, a 'sample' column and a 'type' column.  The 'type' column provides
 #' a mechanism through which samples with the same name can be differentiated in terms of data type.  If an object is
 #' supplied, the type column can be supplied as part of the method call (e.g. addSamples(subj, type="variant") <- object).
+#' @param obj A object of class \code{Subject}
+#' @param ... Additional argument list, currently used when \code{value} is not a \code{data.frame} to specify additional subject attributes such as 'type'.
+#' @param value Either an object with a \code{sampleNames} method defined or a \code{data.frame} with at least a 'sample' and column named the same as the subject. 
 setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
     
     if (is.data.frame(value) == F)
