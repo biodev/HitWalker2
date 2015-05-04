@@ -961,14 +961,28 @@ def panel(request):
                 use_svg = '<?xml-stylesheet type="text/css" href="' + request.session['new_css_path'] + '" ?>' + request.POST["data"]
                 
             else:
-                if request.POST["plot_type"] == 'g1':
-                    width="600"
-                    height="400"
-                    transl = 'translate(200,0)'
-                elif request.POST["plot_type"] == 'siRNA_plot':
-                    width="850"
-                    height="400"
-                    transl='translate(50,0)'
+                
+                print request.POST
+                
+                if request.POST['panel_context'] == 'image':
+                    width = str(config.pathway_sizes['w'] + config.pathway_sizes['legend_offset'])
+                    height = str(config.pathway_sizes['h'])
+                    transl = 'translate('+str(config.pathway_sizes['legend_offset'])+',0)'
+                elif request.POST['panel_context'] == 'panel':
+                    
+                    if request.POST["plot_type"] == 'g1':
+                        width=str(config.network_sizes['w']+config.network_sizes['legend_offset'])
+                        transl = 'translate('+str(config.pathway_sizes['legend_offset'])+',0)'
+                    elif request.POST["plot_type"] == 'siRNA_plot':
+                        width=str((config.network_sizes['w']*2)+50)
+                        transl='translate(50,0)'
+                    else:
+                        raise Exception('Unknown plot_type')
+                    
+                    height = str(config.network_sizes['h'])
+                else:
+                    raise Exception('Unknown value for panel_context')
+               
             
                 use_data = '<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" >' + request.POST["data"].replace('xmlns="http://www.w3.org/2000/svg"', "")  + '</svg>'
                 
@@ -979,7 +993,10 @@ def panel(request):
                 #assuming only one non-legend g for now
                 tree.find("./*[@class=\'"+request.POST["plot_type"]+"\']").attrib['transform'] = transl
                 
-                tree.find(".//*[@class='BorderRect BorderSelected']/..").remove(tree.find(".//*[@class='BorderRect BorderSelected']"))
+                sub_tree = tree.find(".//*[@class='BorderRect BorderSelected']/..")
+                
+                if sub_tree != None:
+                    tree.find(".//*[@class='BorderRect BorderSelected']/..").remove(tree.find(".//*[@class='BorderRect BorderSelected']"))
                 
                 use_svg = '<?xml-stylesheet type="text/css" href="' + request.session['new_css_path'] + '" ?>' + ET.tostring(tree)
                 

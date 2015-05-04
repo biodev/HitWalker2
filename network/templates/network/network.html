@@ -66,6 +66,7 @@
         <input type="hidden" id="output_format" name="output_format" value="">
         <input type="hidden" id="data" name="data" value="">
         <input type="hidden" id="plot_type" name="plot_type" value="">
+        <input type="hidden" id="panel_context" name="panel_context" value="">
     </form>
 <!--    end adaptation-->
     <div class="container">
@@ -666,6 +667,7 @@
                 
                 form['data'].value = legend_xml + g_xml ;
                 form['plot_type'].value = cur_g.attr('class');
+                form['panel_context'].value = panel_context;
             }
             
             form.submit();
