@@ -13,6 +13,13 @@ setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 
+#' Class Helper Functions
+#'
+#' These functions are the preferred way to initialize the classes defined in \code{hwhelper}
+#'
+#' @name class_helpers
+NULL
+
 #' Neo4j Data for HitWalker2
 #'
 #' Basic class representing common components that all classes which load data into Neo4j for HitWalker2 should be derived from.
@@ -39,6 +46,7 @@ setMethod("nodeName", signature("NeoData"), function(obj){
 })
 
 #' @describeIn NeoData Extracts the name of the sample -> assay unit edge
+#' @param obj An object of class \code{NeoData}
 setMethod("sampleEdge", signature("NeoData"), function(obj){
     return(obj@sample.edge.name)
 })
@@ -68,7 +76,10 @@ setClass(Class="Subject", representation=list(subject.info="data.frame", subject
 #' @slot gene.model String naming the type of gene model to be used, currently only entrez is supported.
 HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", gene.model="character"))
 
-
+#' @rdname class_helpers
+#' @param subject An object of class \code{Subject}
+#' @param gene.model String naming the type of gene model to be used, currently only entrez is supported.
+#' @param data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names in data.list
 makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL,...)
 {
     gene.model <- match.arg(gene.model)
@@ -96,7 +107,9 @@ makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types
 }
 
 setGeneric("subjectName", def=function(obj,...) standardGeneric("subjectName"))
+
 #' @describeIn HW2Config Extracts the subject names defined in a HW2Config object
+#' @param obj An object of class \code{HW2Config}
 setMethod("subjectName", signature("HW2Config"), function(obj){
     
     return(nodeName(obj@subject)) 
@@ -120,8 +133,8 @@ setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel
 })
 
 #' @describeIn HW2Config Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
-#' If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of
-#' your path.  If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
+#' @param skip If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.
+#' @param skip If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
 setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL){
     
     if (missing(skip) || is.null(skip) || all(is.na(skip)))
@@ -174,7 +187,10 @@ multi.gsub <- function(patterns, replacements, use.str)
 } 
 
 #' @describeIn HW2Config Configures a HitWalker2 instance by substituting values into the template files defined in 'base.dir' and placing them into 'dest.dir'.
-#' The defaults should suffice for Vagrant-based HitWalker2 instances.  
+#' The defaults should suffice for Vagrant-based HitWalker2 instances.
+#' @param base.dir Directory where the template files are located
+#' @param dest.dir Directory where the complete template files should be placed.
+#' @param make.graph.struct If TRUE, generate and stage a graph_struct file
 setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/", make.graph.struct=T){
     #copySubstitute() --which is part of Biobase
     
@@ -309,6 +325,10 @@ setMethod("nodeName", signature("Subject"), function(obj){
     return(names(obj@subject.info)[1])  
 })
 
+#' @rdname class_helpers
+#' @param subject.info A \code{data.frame} with at least one column and row, where the first column name corresponds to how the subjects' should be named in HitWalker2.
+#' @param subject.to.sample A \code{data.frame} describing the mapping from subject to sample, can be left as NULL here and filled in later using \code{addSamples}
+#' @param type.col If specified, the column of \code{subject.info} that should be used as a description of the subject in the displays.  Defaults as 'N/A'.
 Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
 {
     if(missing(subject.info) || is.null(subject.info) || all(is.na(subject.info)))
@@ -337,9 +357,13 @@ Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
     return(new("Subject", subject.info=subject.info, subject.to.sample=subject.to.sample, type=type))
 }
 
-#expression utils, affy for now...
 
-setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains=c("NeoData", "HwHit"),
+#' Basic Representation for Expression Array Data
+#'
+#' A basic class for representing Affymetrix expression array data.
+#'
+#' @slot exprs, an \code{ExpressionSet} containing expression data.
+HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains=c("NeoData", "HwHit"),
          prototype=list(sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet",
                         default=.75, direction=">", range=c(0,1), display_name="Expression (Hit) Threshold",
                         base.query='MATCH(n:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression" AND HAS(r.score) AND n.name IN {SAMPLE}
@@ -348,11 +372,20 @@ setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contain
                         template.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WHERE d.type = "Affy_Expression" AND r.score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
                         WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'))
 
+#' @rdname class_helpers
+#' @param exprs An ExpressionSet
+#' @param sample.edge.name The name of the relationship between the samples and the assay identifier e.g. probeset, drug or variant.
+#' @param gene.edge.name The name of the relationship between the assay identifiers and genes
+#' @param node.name The name that should be given to the assay units in the Neo4j database.
 HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet"){
     
     return(new("HW2exprSet", exprs=exprs, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
 }
 
+#' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the
+#' probeset names are derived from the rownames. The score attribute is derived from the values of the matrix.
+#' @param obj An object of class \code{HW2exprSet}.
+#' @param neo.path The optional path to a Neo4j database.
 setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path=NULL){
     
     use.exprs <- exprs(obj@exprs)
@@ -372,6 +405,9 @@ setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path=NULL){
     
 })
 
+#' @describeIn HW2exprSet_class Implements the loading of the probeset to gene mapping data into Neo4j.  The mapping data is derived from the annotation
+#' database specified using the \code{annotation} method for the \code{ExpressionSet}.
+#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
 setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.model=c("entrez", "ensembl")){
     
     gene.model <- match.arg(gene.model)
@@ -411,7 +447,7 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.mo
 #' A basic class for representing the Cancer Cell Line Encyclopedia style Mutation Annotation Format files.
 #'
 #' @slot maf, a \code{data.frame} representation of the MAF file.
-setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData",
+CCLEMaf_class <- setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData",
          prototype=list(
                         base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFFERED_TO]-(symb) WHERE d.type = "DNASeq" AND n.name IN {SAMPLE}
                             RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
@@ -421,7 +457,8 @@ setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoDa
                         template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE d.type = "DNASeq" AND $$lower_coll_type$$.name IN {$$coll_type$$}
                         WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'
                         ))
-
+#' @rdname class_helpers
+#' @param file.name The path to the CCLE MAF file.
 readMAF.ccle <- function(file.name, sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation")
 {
     use.maf <- read.delim(file.name, sep="\t", stringsAsFactors=F)
@@ -441,7 +478,18 @@ setMethod("sampleNames", signature("CCLEMaf"), function(object){
     return(unique(maf(object)$Tumor_Sample_Barcode))
 })
 
-
+#' @describeIn CCLEMaf_class Loads the sample to variant data into Neo4j.  The sample annotation is taken from the 'Tumor_Sample_Barcode' column and the variant annotation is taken from the 'Genome_Change' column.
+#' The following additional columns are added as attributes as well:
+#' \itemize{
+#'   \item Center
+#'   \item Sequencer
+#'   \item Alternative_allele_reads_count
+#'   \item Reference_allele_reads_count
+#'   \item dbSNP_RS
+#'   \item dbSNP_Val_Status
+#' }
+#' @param obj The optional path to a Neo4j database.
+#' @param neo.path The optional path to a Neo4j database.
 setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path=NULL){
     #first sample -> variant
     #the name here will be derived from the Genome_Change column as that provides potentially enough information to uniquely id a variant (indels might still be tricky...)
@@ -459,6 +507,17 @@ setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path=NULL){
     load.neo4j(.data=samp.maf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
+#' @describeIn CCLEMaf_class Loads the variant to gene data into Neo4j.  The mapping is produced using the 'Genome_Change' and 'Entrez_Gene_Id' columns.
+#' Additionally, the following columns are also included as attributes:
+#' \itemize{
+#'      \item Variant_Classification
+#'      \item Annotation_Transcript
+#'      \item Transcript_Strand
+#'      \item cDNA_Change
+#'      \item Codon_Change
+#'      \item Protein_Change
+#' }
+#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
 setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.model="entrez"){
      #then add in the Variation->EntrezID relationships
     
@@ -487,7 +546,7 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.mode
 #'
 #' @slot matrix, a matrix containing a sinlge summary value for each drug (rows) and each sample (columns).  
 #' @slot mapping A \code{data.frame} containing the mapping from drug to gene.  It should contain a 'drug' column, a 'gene' column and a 'weight' column which indicates the confidence of the mapping.
-setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains=c("NeoData", "HwHit"),
+DrugMatrix_class <- setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains=c("NeoData", "HwHit"),
          prototype=list(base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Drug_Assay" AND n.name IN {SAMPLE}
                         WITH n, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
                         RETURN o.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, effect_score AS score, effect_score > $PAR_NAME$ AS is_hit;',
@@ -514,6 +573,9 @@ setMethod("sampleNames", signature("DrugMatrix"), function(object){
     return(unique(colnames(getMatrix(object))))
 })
 
+#' @rdname class_helpers
+#' @param mat A \code{matrix} of the form drug x sample with named rows and columns.
+#' @param mapping A \code{data.frame} containing the mappings between drug and gene with at least column names 'drug' and 'gene'.
 DrugMatrix <- function(mat, mapping,sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug"){
     
     if(missing(mat) || is.null(mat) || all(is.na(mat)) || class(mat) != "matrix")
@@ -539,6 +601,11 @@ DrugMatrix <- function(mat, mapping,sample.edge.name="HAS_DRUG_ASSAY", gene.edge
     return(new("DrugMatrix", matrix=mat, mapping=mapping, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
 }
 
+#' @describeIn DrugMatrix_class The mapping from sample to drug taken from the column and rownames of the \code{matrix} slot.
+#' The \code{score} attribute consists of the elements of the matrix.  In addition, a 'median_IC50' attribute is added to the
+#' drug node.
+#' @param obj The optional path to a Neo4j database.
+#' @param neo.path The optional path to a Neo4j database. 
 setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path=NULL){
     
     drug.mat <- getMatrix(obj)
@@ -572,6 +639,8 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path=NULL){
     
 })
 
+#' @describeIn DrugMatrix_class The mapping from drug to gene taken from the \code{mapping} slot.
+#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
 setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path=NULL, gene.model=c("entrez", "ensembl")){
     
     drug.genes <- getAnnotation(obj)

@@ -422,8 +422,6 @@ make.graph.struct <- function(neo.graph, graph.struct.path="test_graph_struct.js
 
 read.graph_struct  <- function(graph_struct="/var/www/hitwalker_2_inst/graph_struct.json")
 {
-    require(rjson)
-    require(igraph)
     
     json.obj <- fromJSON(file=graph_struct)
     

@@ -17,6 +17,19 @@
   base.dir = "/home/vagrant/HitWalker2/populate/",
   dest.dir = "/home/vagrant/HitWalker2/network/", make.graph.struct = T)
 }
+\arguments{
+\item{obj}{An object of class \code{HW2Config}}
+
+\item{skip}{If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.}
+
+\item{base.dir}{Directory where the template files are located}
+
+\item{dest.dir}{Directory where the complete template files should be placed.}
+
+\item{make.graph.struct}{If TRUE, generate and stage a graph_struct file}
+
+\item{skip}{If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.}
+}
 \description{
 A class representing a HitWalker2 configuration
 }
@@ -25,8 +38,6 @@ A class representing a HitWalker2 configuration
 \item \code{subjectName}: Extracts the subject names defined in a HW2Config object
 
 \item \code{populate}: Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
-If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of
-your path.  If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
 
 \item \code{configure}: Configures a HitWalker2 instance by substituting values into the template files defined in 'base.dir' and placing them into 'dest.dir'.
 The defaults should suffice for Vagrant-based HitWalker2 instances.
