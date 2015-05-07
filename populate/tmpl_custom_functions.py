@@ -13,11 +13,14 @@ def match_sample(query):
     graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
     
     query_list = []
-    
-    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@)-[:DERIVED]->() WITH n, CASE n.alias WHEN null THEN [n.name] ELSE [n.name]+n.alias END AS alias_query UNWIND alias_query AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(n.name)')
-    
-    for i in sample_query.execute().data:
-        query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':i.values[2]})
+
+    if query == "ALL":
+        query_list.append({'id':1, 'text':"ALL", 'search_list':["ALL"]})
+    else:
+        sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@)-[:DERIVED]->() WITH n, CASE n.alias WHEN null THEN [n.name] ELSE [n.name]+n.alias END AS alias_query UNWIND alias_query AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(n.name)')
+        
+        for i in sample_query.execute().data:
+            query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':i.values[2]})
     
     return query, query_list
 
@@ -373,7 +376,29 @@ def get_shortest_paths (request, request_post):
         ##if bypassing table I think this would be necessary...
         #simply create a graph with the node(s) requested by the user 
         
-        final_nodes_list = core.get_nodes([request.session['query_samples']['SampleID'].values()[0]], 'Sample', request)
+        #need to deal with case of ALL:  'query_samples': {'SampleID': {'Query': [u'ALL']}}}
+        
+        samp_name = request.session['query_samples']['SampleID'].values()[0]
+        
+        if samp_name == "ALL":
+            
+            #first get the names of all subjects
+            tx.append('MATCH (n:@SUBJECT@) return n.name')
+            subj_res = tx.commit()
+            
+            temp_nodes = []
+            
+            for i in core.BasicResultsIterable(subj_res):
+                for j in i:
+                    temp_nodes.append(j[0])
+            
+            temp_nl = core.get_nodes(temp_nodes, 'Subject', request)
+            
+            final_graph = core.apply_grouping2({'nodes':temp_nl, 'links':[]}, [])
+            final_nodes_list = final_graph['nodes']
+        else:
+        
+            final_nodes_list = core.get_nodes([samp_name], 'Sample', request)
         
         node_names = final_nodes_list.display_names()
         

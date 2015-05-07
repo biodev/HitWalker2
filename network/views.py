@@ -1033,7 +1033,7 @@ def panel(request):
         request.session['new_css_path'] = new_css_path
         
         if request_post.has_key('query_samples'):
-        
+            
             #if bypassing table I think this would be necessary...
             ##get ride of the token...
             

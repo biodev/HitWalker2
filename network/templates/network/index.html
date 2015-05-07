@@ -656,7 +656,7 @@
      $(document).ready(function() {
         $(".select2").select2({
                 minimumInputLength: 2,
-                placeholder: "Please Enter a Lab ID",
+                placeholder: "Please Enter a Subject Name",
                 query: function(query){
                     $.post("{{prog_type}}/HitWalker2/match_sample/", {query:query.term}, function(data, status, xhr)
                                            {
@@ -717,10 +717,17 @@
         if (Object.keys(samp_dict).length == 0 || all_null == true)
         {
             samp_dict['SampleID'] = {Query:$(".select2").select2("data").text};
+	    
+	    //as the sample_id_row div may not exist, add it.
+	    if ($("#sample_id_row").length == 0){
+		$("#overall_form").append('<div id="sample_id_row" class="row">');
+	    }
         }
         
+	console.log(JSON.stringify(samp_dict));
+	
         $("input:not([name=csrfmiddlewaretoken])").removeAttr("name");
-        
+	
         d3.select("#sample_id_row").append("input").attr("type", "hidden").attr("name", "query_samples").property("value", JSON.stringify(samp_dict));
         
         d3.select("#parameters").append("input").attr("type", "hidden").attr("name", "parameters").property("value", JSON.stringify(adjust_fields));
@@ -731,77 +738,6 @@
         return (true);
     }
     
-    //old version below...
-    
-    //function form_submit ()
-    //{
-    //    //make hidden inputs which contain the sample data from the disabled forms...
-    //    
-    //    var samp_dict = {};
-    //    var null_list = [];
-    //    
-    //    d3.selectAll("input[name$=_sample]").each(function(d,i)
-    //                                              {
-    //                                                    var cur_val = d3.select(this).property("value");
-    //                                                    
-    //                                                    var type_samp_split = cur_val.split(": ");
-    //                                                    var samp = type_samp_split[1];
-    //                                                    var type = type_samp_split[0];
-    //                                                    
-    //                                                    //console.log(cur_val);
-    //                                                    var split_val = type.split(" ");
-    //                                                    var val_type = split_val.shift();
-    //                                                    if (split_val.join('') in samp_dict == false)
-    //                                                    {
-    //                                                        samp_dict[split_val.join('')] = {};
-    //                                                        
-    //                                                    }
-    //                                                    
-    //                                                    if (samp == "N/A"){
-    //                                                        samp = null;
-    //                                                        null_list.push(true);
-    //                                                    }else{
-    //                                                        null_list.push(false);
-    //                                                    }
-    //                                                    
-    //                                                    samp_dict[split_val.join('')][val_type]=samp;
-    //                                                    
-    //                                              })
-    //    
-    //    var all_null = null_list.every(function(x)
-    //                                     {
-    //                                        return(x);
-    //                                     })
-    //    
-    //    if (Object.keys(samp_dict).length == 0 || all_null == true)
-    //    {
-    //        //a hack as it currently is not used downstream in any meaningful way
-    //        samp_dict['LabID'] = {Unknown:$(".select2").select2("data").text};
-    //    }
-    //    
-    //    d3.select("#sample_id_row").append("input").attr("type", "hidden").attr("name", "query_samples").property("value", JSON.stringify(samp_dict));
-    //    
-    //    //d3.selectAll('[disabled=""]').attr("disabled", null);
-    //    
-    //    //additionally add how the variant filters are pieced together logically to variant_filter_logic.
-    //    //note that these were in check_all_fields, moved out as it made more sense that way...
-    //    var button_vals = make_button_info();
-    //    
-    //    document.getElementsByName("variant_filter_logic")[0].value = JSON.stringify(button_vals)
-    //    
-    //    var field_res = check_all_fields();
-    //    
-    //    if (field_res == true)
-    //    {
-    //        var target = document.getElementById('network_spinner');
-    //        var spinner = new Spinner(spinner_opts).spin(target);
-    //        return(true);
-    //    }
-    //    else
-    //    {
-    //        return(false);
-    //    }
-    //}
     
     function recurse_keys (nest, cur_list)
     {
@@ -1173,7 +1109,17 @@
         var target = document.getElementById('network_spinner');
         var spinner = new Spinner(spinner_opts).spin(target);
         var cur_id =  $(".select2").select2("data").text;
-        $.post("{{prog_type}}/HitWalker2/get_sample_rels/", {cur_id:cur_id}, function(data, status, xhr)
+	
+	if (cur_id == "ALL")
+	{
+	    d3.select("#prioritize").attr("disabled", true);
+	    d3.select("#query").attr("disabled", null);
+	    
+	    //need to pass down ALL to the downstream functionality
+	    
+	    spinner.stop();
+	}else{
+	    $.post("{{prog_type}}/HitWalker2/get_sample_rels/", {cur_id:cur_id}, function(data, status, xhr)
                                            {
                                                 if (status == "success")
                                                 {
@@ -1191,7 +1137,6 @@
 							    $("#sample_svg_row").after(temp_ar.join('\n')); 
 							}
 							
-							console.log("empty list")
 						    }else{
 							
 							if ($("#nf_sample").length >0){
@@ -1206,9 +1151,12 @@
                                                     console.log(status)
                                                 }
                                             
-                                                spinner.stop()
+                                                spinner.stop();
 						
                                            }, "text")
+	}
+	
+        
     }
     
     var load_ok_clicked = function(prog_type)
