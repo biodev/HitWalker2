@@ -504,8 +504,8 @@ def handle_gene_hits(res_list, nodes, request):
     
 
 class TargetChildNode(Node):
-    def __init__(self,gene_node,var_name, samp_list):
-        self.node_dict = {'id':gene_node.id+'_'+var_name, 'display_name':var_name, 'attributes':{'node_type':'Variants', 'other_nodes':samp_list,'meta':{'node_cat':'Assay Result', 'is_hit':[True]*len(samp_list)}}, 'children':NodeList()}
+    def __init__(self,gene_node,var_name, samp_list, node_type):
+        self.node_dict = {'id':gene_node.id+'_'+var_name, 'display_name':var_name, 'attributes':{'node_type':node_type, 'other_nodes':samp_list,'meta':{'node_cat':'Assay Result', 'is_hit':[True]*len(samp_list)}}, 'children':NodeList()}
         self.id = gene_node.id+'_'+var_name
         self.display_name = var_name
         
@@ -515,6 +515,8 @@ class TargetChildNode(Node):
 def handle_gene_targets(res_list, nodes, request):
     
     if len(res_list) > 0:
+        
+        from config import data_types
         
         for i in res_list:
             
@@ -542,7 +544,7 @@ def handle_gene_targets(res_list, nodes, request):
                     
                     cur_gene = nodes.getNode(use_j[0][use_j[0][gene_name]])
                     for k in gene_list.items():
-                        variant = TargetChildNode(cur_gene, k[0], k[1])
+                        variant = TargetChildNode(cur_gene, k[0], k[1], data_types['target'])
                         nodes.addChild(cur_gene.id, variant)
 
 def make_sample_table (node, context, sample_link=""):
