@@ -358,6 +358,7 @@ Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
 }
 
 
+##Note here, that for dense datatypes like expression, don't actually return possible hits
 #' Basic Representation for Expression Array Data
 #'
 #' A basic class for representing Affymetrix expression array data.
@@ -367,7 +368,7 @@ HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="Expr
          prototype=list(sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet",
                         default=.75, direction=">", range=c(0,1), display_name="Expression (Hit) Threshold",
                         base.query='MATCH(n:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression" AND HAS(r.score) AND n.name IN {SAMPLE}
-                        RETURN m.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, ANY(x IN COLLECT(r.score) WHERE x > $PAR_NAME$) AS is_hit',
+                        AND r.score > $PAR_NAME$ RETURN m.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, true AS is_hit',
                         
                         template.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WHERE d.type = "Affy_Expression" AND r.score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
                         WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'))
