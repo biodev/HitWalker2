@@ -1956,39 +1956,79 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                         if (selected_node.keys().length == 0 || panel_context == 'image')
                                         {
                                           
-                                            var use_data = d3.select(p_node_obj).datum();
-                                            var post_node = {'nodes':JSON.stringify([use_data]), 'context':panel_context}
-                                            
-                                            $.post("/HitWalker2/node_query/", post_node, function(data, status, xhr)
-                                               {
-                                                    if (status == "success")
-                                                    {
-                                                        
-                                                        //<div class="modal-header">
-                                                        //placement code from: https://github.com/twbs/bootstrap/issues/1833
-                                                        $(p_node_obj).popover({content:JSON.parse(data).content, title:use_data.attributes.node_type + ": " + use_data.display_name, container:"body", html:true, trigger:"manual",
-                                                                              placement: 'right'});
-                                                        $(p_node_obj).popover('show');
-                                                        popover_ref = p_node_obj;
-                                                        
-                                                        
-                                                        //necessary to initialize popovers for inclusion with html elements...http://stackoverflow.com/questions/18410922/bootstrap-3-0-popovers-and-tooltips
-                                                        
-                                                        $('[data-toggle="popover"]').popover({container:"body"});
-                                                        
-                                                        adjust_screen_right(".popover");
-                                                    }
-                                                    else
-                                                    {
-                                                        ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
-                                                    }
+                                          var use_data = d3.select(p_node_obj).datum();
+                                          
+                                          if (use_data.attributes.node_type == "MetaNode"){
+                                             
+                                             console.log(use_data.children[0]);
                                                 
-                                                    
-                                               }, "text")
-                                            .fail(function(x)
-                                                  {
-                                                      ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
-                                                  });
+                                             var count_obj = d3.nest().key(function(d) {return d.attributes.meta.node_cat;}).key(function(d){
+                                                if (use_data.attributes.node_type == 'Gene')
+                                                {
+                                                   return(d.attributes.node_type);
+                                                }else{
+                                                   return(d.display_name);
+                                                }
+                                             }).rollup(function(d) {return d.length;}).entries(use_data.children);
+                                             
+                                             console.log(count_obj);
+                                             
+                                             //var meta_list = $.map(use_data.children, function(x){
+                                             //   
+                                             //   var use_val = "";
+                                             //   
+                                             //   if (use_data.attributes.node_type == 'Gene')
+                                             //   {
+                                             //      use_val = x.attributes.node_type;
+                                             //   }else{
+                                             //      use_val = x.display_name;
+                                             //   }
+                                             //   
+                                             //   return ([{Subject:use_data.display_name, Type:x.attributes.meta.node_cat, Value:use_val}]);
+                                             //   
+                                             //});
+                                             //
+                                             //console.log(meta_list);
+                                             
+                                           }else{
+                                            
+                                             var post_node = {'nodes':JSON.stringify([use_data]), 'context':panel_context}
+                                             
+                                             
+                                             
+                                             $.post("/HitWalker2/node_query/", post_node, function(data, status, xhr)
+                                                {
+                                                     if (status == "success")
+                                                     {
+                                                         
+                                                         //<div class="modal-header">
+                                                         //placement code from: https://github.com/twbs/bootstrap/issues/1833
+                                                         $(p_node_obj).popover({content:JSON.parse(data).content, title:use_data.attributes.node_type + ": " + use_data.display_name, container:"body", html:true, trigger:"manual",
+                                                                               placement: 'right'});
+                                                         $(p_node_obj).popover('show');
+                                                         popover_ref = p_node_obj;
+                                                         
+                                                         
+                                                         //necessary to initialize popovers for inclusion with html elements...http://stackoverflow.com/questions/18410922/bootstrap-3-0-popovers-and-tooltips
+                                                         
+                                                         $('[data-toggle="popover"]').popover({container:"body"});
+                                                         
+                                                         adjust_screen_right(".popover");
+                                                     }
+                                                     else
+                                                     {
+                                                         ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
+                                                     }
+                                                 
+                                                     
+                                                }, "text")
+                                             .fail(function(x)
+                                                   {
+                                                       ajax_node_query_failure(p_node_obj, "An error has occured, please contact the site administrator");
+                                                   });
+                                           }
+                                            
+                                            
                                         }
                                         else
                                         {
