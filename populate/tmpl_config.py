@@ -6,7 +6,7 @@ import string
 
 prog_type = ""
 
-graph_struct_file = "/var/www/hitwalker2_inst"+core.fix_prog_type(prog_type)+"/static/network/data/graph_struct.json"
+graph_struct_file = "/var/www/hitwalker2_inst/static/network/data/graph_struct.json"
 
 cypher_session="http://localhost:7474"
 #the maximum number of nodes in a group before it becomes a metanode
