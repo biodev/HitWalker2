@@ -1960,35 +1960,83 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                           
                                           if (use_data.attributes.node_type == "MetaNode"){
                                              
-                                             console.log(use_data.children[0]);
+                                             var agg_obj = d3.map();
+                                             
+                                             use_data.children.forEach(function(node){
+          
+                                                node.children.forEach(function(subnode){
+                                                   
+                                                   var use_val = "Unknown";
+                                                   
+                                                   if (node.attributes.node_type == "Gene")
+                                                   {
+                                                      use_val = subnode.attributes.node_type;
+                                                   }else{
+                                                      
+                                                      use_val = type_translation(subnode.display_name, node_transl, 'name', 15)
+                                                   }
+                                                   
+                                                   var temp_map = d3.map();
+                                                   
+                                                   if (agg_obj.has(subnode.attributes.meta.node_cat) == false){
+                                                      
+                                                      temp_map.set(use_val, 1)
+                                                      
+                                                   }else{
+                                                      
+                                                      temp_map = agg_obj.get(subnode.attributes.meta.node_cat);
+                                                      
+                                                      if (temp_map.has(use_val))
+                                                      {
+                                                         temp_map.set(use_val, temp_map.get(use_val) + 1)
+                                                      }else{
+                                                         temp_map.set(use_val,  1)
+                                                      } 
+                                                   }
+                                                   
+                                                   agg_obj.set(subnode.attributes.meta.node_cat, temp_map)
+                                                   
+                                                });
+                                             });
+                                             
+                                             ret_str = '<table class="table" id="summary_table", style="width:300px">'
+                                             ret_str += '<thead><tr><th>Type</th><th>Value</th><th>Count</th></tr></thead>'
+                                             ret_str += '<tbody>'
+                                             
+                                             agg_obj.forEach(function(key1,val1){
                                                 
-                                             var count_obj = d3.nest().key(function(d) {return d.attributes.meta.node_cat;}).key(function(d){
-                                                if (use_data.attributes.node_type == 'Gene')
-                                                {
-                                                   return(d.attributes.node_type);
-                                                }else{
-                                                   return(d.display_name);
-                                                }
-                                             }).rollup(function(d) {return d.length;}).entries(use_data.children);
+                                                row_head = '<th rowspan="'+val1.keys().length+'" valign="top">' + key1 + '</th>'
+                                                
+                                                var counter = 0;
+                                                
+                                                val1.forEach(function(key2, val2){
+                                                   ret_str += '<tr>'
+                                                   if (counter == 0){
+                                                       ret_str += row_head
+                                                   }
+                                                   ret_str += '<td>' + key2.replace('_', ' ') + '</td>' + '<td><span class="badge btn" onclick="subset_meta_node(\''+key1+'\',\''+key2+'\', \''+use_data.id+'\')">' + val2 + '</span></td>'
+                                                   ret_str += '</tr>'
+                                                   counter += 1;
+                                                });
+                                                
+                                             });
                                              
-                                             console.log(count_obj);
+                                             ret_str += '</tbody>'
+                                             ret_str += '</table>'
+                                             ret_str += '<div><a class="btn btn-default" id="nf_button" onclick="export_html_summary_csv(\'summary_table\')">Export Summary</a>'
+                                             ret_str += '</div>'
                                              
-                                             //var meta_list = $.map(use_data.children, function(x){
-                                             //   
-                                             //   var use_val = "";
-                                             //   
-                                             //   if (use_data.attributes.node_type == 'Gene')
-                                             //   {
-                                             //      use_val = x.attributes.node_type;
-                                             //   }else{
-                                             //      use_val = x.display_name;
-                                             //   }
-                                             //   
-                                             //   return ([{Subject:use_data.display_name, Type:x.attributes.meta.node_cat, Value:use_val}]);
-                                             //   
-                                             //});
-                                             //
-                                             //console.log(meta_list);
+                                              $(p_node_obj).popover({content:ret_str, title:use_data.attributes.node_type + ": " + use_data.display_name, container:"body", html:true, trigger:"manual",
+                                                                               placement: 'right'});
+                                                $(p_node_obj).popover('show');
+                                                popover_ref = p_node_obj;
+                                                      
+                                                      
+                                                //necessary to initialize popovers for inclusion with html elements...http://stackoverflow.com/questions/18410922/bootstrap-3-0-popovers-and-tooltips
+                                                
+                                                $('[data-toggle="popover"]').popover({container:"body"});
+                                                
+                                                adjust_screen_right(".popover");
                                              
                                            }else{
                                             
