@@ -1,5 +1,9 @@
 from django.test import LiveServerTestCase
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 
 from django.utils import unittest
 from django.contrib.auth.models import User
@@ -30,27 +34,29 @@ class BasicSeleniumTests(LiveServerTestCase):
     
     def setUp(self):
         
-        self.driver = webdriver.Firefox()
+        #self.driver = webdriver.Firefox()
+        self.driver = webdriver.Chrome(executable_path="/Users/bottomly/Desktop/chromedriver")
         # create user
         self.user = User.objects.create_user(username="selenium",
                                              email=None,
                                              password="test")
-        self.client.login(username="selenium", password="test") #Native django test client
-        cookie = self.client.cookies['sessionid']
-        self.driver.get(self.live_server_url + '/HitWalker2')  #selenium will set cookie domain based on current page domain
-        self.driver.add_cookie({'name': 'sessionid', 'value': cookie.value, 'secure': False, 'path': '/'})
-        self.driver.refresh() #need to update page for logged in user
-        self.driver.get(self.live_server_url + '/HitWalker2')
+        #self.client.login(username="selenium", password="test") #Native django test client
+        #cookie = self.client.cookies['sessionid']
+        #self.driver.get(self.live_server_url + '/HitWalker2')  #selenium will set cookie domain based on current page domain
+        #self.driver.add_cookie({'name': 'sessionid', 'value': cookie.value, 'secure': True, 'path': '/'})
+        #self.driver.refresh() #need to update page for logged in user
+        #self.driver.get(self.live_server_url + '/HitWalker2')
         
+        #for some reason the above doesn't work for chrome...
         #self.driver = webdriver.Firefox()
-        #self.driver.implicitly_wait(1)
-        #self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
-        #elem = self.driver.find_element_by_id("id_username")
-        #elem.send_keys("selenium")
-        #elem = self.driver.find_element_by_id("id_password")
-        #elem.send_keys("test")
+        self.driver.implicitly_wait(1)
+        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+        elem = self.driver.find_element_by_id("id_username")
+        elem.send_keys("selenium")
+        elem = self.driver.find_element_by_id("id_password")
+        elem.send_keys("test")
         #
-        #self.driver.find_element_by_css_selector("input[type=submit]").click()
+        self.driver.find_element_by_css_selector("input[type=submit]").click()
     
     def tearDown(self):
         self.driver.quit()
@@ -58,6 +64,7 @@ class BasicSeleniumTests(LiveServerTestCase):
     
     def test_large_downloads(self):
         
+        self.skipTest('not quite to this test yet')
         self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("103051")
@@ -78,37 +85,81 @@ class BasicSeleniumTests(LiveServerTestCase):
         time.sleep(20)
         
     def test_gene_addition(self):
-        self.skipTest('not quite to this test yet')
+        #self.skipTest('not quite to this test yet')
         self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
         self.driver.find_element_by_css_selector(".select2-result-label").click()
-        time.sleep(5)
-        self.driver.find_element_by_css_selector("#query").click()
         
-        #right click on a panel
+        element = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "query"))
+        )
         
-        use_panel = self.driver.find_element_by_css_selector("rect.BorderRect")
+        element.click()
         
-        webdriver.ActionChains(self.driver).move_to_element(use_panel).context_click(use_panel).perform()
+        panel = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "rect.BorderRect"))
+        )
+        
+        webdriver.ActionChains(self.driver).move_to_element(panel).context_click(panel).perform()
         
         self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
         
         self.driver.find_element_by_css_selector("ul li:first-child a").click()
         
-        #enter the gene name
+        ##enter the gene name
         self.driver.find_element_by_css_selector(".select2-choice").click()
-        #self.driver.find_element_by_css_selector("input.select2-input").send_keys("CLSTN2")
         self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
-        self.driver.find_element_by_css_selector(".select2-result-label").click()
-        time.sleep(1)
+        
+        input_highlight = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
+            )
+        
+        input_highlight.click()
         
         self.driver.find_element_by_xpath("//button[.='OK']").click()
+        
+        #now wait for the new panel and check its contents against its expected result
+        panel_2 = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.ID,"panel_2"))
+        )
+        
+        print dir(panel_2)
+        
+        #within panel_2
+        
+        #look for g class node with circle of class 'Subject' and/or gene
+        #at the same level of circle look for g within g-> circle of appriate class per css  
+        
+        #at the same level as the top g can look for a path tag with suitable class link css_class selected/unselected
+        
+        time.sleep(5)
+        
+        #self.driver.find_element_by_css_selector("#").click()
+        
+        #right click on a panel
+        
+        #use_panel = self.driver.find_element_by_css_selector("rect.BorderRect")
+        #
+        #webdriver.ActionChains(self.driver).move_to_element(use_panel).context_click(use_panel).perform()
+        #
+        #self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
+        #
+        #self.driver.find_element_by_css_selector("ul li:first-child a").click()
+        #
+        ##enter the gene name
+        #self.driver.find_element_by_css_selector(".select2-choice").click()
+        ##self.driver.find_element_by_css_selector("input.select2-input").send_keys("CLSTN2")
+        #self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
+        #self.driver.find_element_by_css_selector(".select2-result-label").click()
+        #time.sleep(1)
+        #
+        #self.driver.find_element_by_xpath("//button[.='OK']").click()
         
         #check the sanity of the result
         
         
-        time.sleep(10)
+        #time.sleep(10)
     
 
 ##globally useful functions and classes
