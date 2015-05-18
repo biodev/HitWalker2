@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.conf import settings
 from django.test import TestCase, RequestFactory, Client
 from django.utils.importlib import import_module
+from django.core.files.storage import get_storage_class
 
 import views
 import json
@@ -86,6 +87,27 @@ class BasicSeleniumTests(LiveServerTestCase):
         
     def test_gene_addition(self):
         #self.skipTest('not quite to this test yet')
+        
+        graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
+        #
+        #gene_query = neo4j.CypherQuery(graph_db,config.gene_names['query'].replace("{name:{GENE}}", "") + " LIMIT 10")
+        #
+        #for i in gene_query.execute().data:
+        #    print i
+        
+        #get samples
+        
+        #current css
+        static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
+        new_css_path = os.path.join(static_storage.location, "network/css/HitWalker2_selenium.css")
+        print new_css_path
+        
+        sample_query = neo4j.CypherQuery(graph_db,config.subject['query'].replace("{name:{SUBJECTID}}", "") + " LIMIT 10") 
+        
+        for i in sample_query.execute().data:
+            print i.values
+            print i.values[0].get_properties()
+        
         self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
@@ -107,6 +129,8 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         self.driver.find_element_by_css_selector("ul li:first-child a").click()
         
+        #get a gene
+        
         ##enter the gene name
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
@@ -124,9 +148,13 @@ class BasicSeleniumTests(LiveServerTestCase):
             EC.presence_of_element_located((By.ID,"panel_2"))
         )
         
-        print dir(panel_2)
-        
         #within panel_2
+        
+        #there should be at least both a Subject and a gene node
+        
+        panel_2.find_element_by_css_selector("g > circle.Subject")
+        panel_2.find_element_by_css_selector("g > circle.Gene")
+        
         
         #look for g class node with circle of class 'Subject' and/or gene
         #at the same level of circle look for g within g-> circle of appriate class per css  
