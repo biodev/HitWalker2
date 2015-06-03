@@ -1,6 +1,5 @@
 \documentclass[10pt]{article}
 \usepackage[margin=1.0in]{geometry}
-\usepackage[utf8]{inputenc}
 \usepackage[parfill]{parskip}
 \usepackage{hyperref}
 \usepackage{natbib}
@@ -29,7 +28,6 @@ CCLE_Expression.Arrays_2013-03-18.tar.gz
 library(hwhelper)
 library(Entrez)
 library(hgu133plus2.db)
-library(SCAN.UPC)
 
 @
 
@@ -224,74 +222,59 @@ addSamples(subj) <- data.frame(cellLine=intersect(sampleNames(drug), subject.sam
                                 type="Drug_Assay", stringsAsFactors=F)
 @
 
-\section{Picking Expression samples}
+\section{Processing expression data}
 
-Finally for our examples we wish to find good examples to include expression data on, specifically those that have drug GeneScore hits as well as variants.  We do this by first computing the
-GeneScores and then intersecting them with those samples that have variants.
-
-<<eval=TRUE, echo=FALSE>>=
-
-drug.meds <- aggregate(IC50..uM.~Compound, median, data=drug.dta)
-names(drug.meds) <- c("Compound", "median_ic50")
-
-drug.temp <- merge(drug.dta, drug.meds, by="Compound")
-
-drug.temp$is.hit <- drug.temp$IC50..uM. <= (drug.temp$median_ic50/5)
-
-drug.temp <- merge(drug.temp, drug.genes.merge, by.x="Compound", by.y="drug")
-
-drug.temp$score <- ifelse(drug.temp$is.hit, drug.temp$weight, -drug.temp$weight)
-
-drug.sum <- aggregate(score~CCLE.Cell.Line.Name+gene, sum, data=drug.temp)
-
-samps.w.hits <- unique(drug.sum$CCLE.Cell.Line.Name[drug.sum$score > 0])
-
-length(samps.w.hits)
-
-#and of these, how many have mutations as well?
-length(intersect(samps.w.hits, sampleNames(maf.obj)))
-
-@
-
-So as an example we will process and load expression for the first 20 of these.
+To process the expression data we will choose the top 10% most variable genes (in terms of IQR) and perform a batch correction based on the
+Batch information in the array sample information file.  The resulting matrix is then converted back to an ExpressionSet for loading into the
+database.
 
 <<eval=TRUE, echo=TRUE>>=
 
-sif <- read.delim("CCLE_Expression.Arrays.sif_2012-10-18.txt",
-    sep="\t", header=T, stringsAsFactors=F)
-
-sub.sif <- sif[sif$CCLE.name %in% intersect(samps.w.hits, sampleNames(maf.obj)),][1:20,]
+sif.dta <- read.delim("CCLE_Expression.Arrays.sif_2012-10-18.txt", sep="\t", header=T, stringsAsFactors=F)
 
 @
 
 <<eval=FALSE, echo=TRUE>>=
 
-#process only a subset of the CEL files
+library(affy)
+library(genefilter)
+library(sva)
 
-dir.create("ccle_cel_file_subset")
+all.genes <- ReadAffy(path="CCLE_Expression.Arrays_2013-03-18", filenames=list.files(pattern="CEL"))
 
-all(sub.sif$Batch == 1)#TRUE, so won't do batch correction here
+all(sif.dta$ID %in% sub(".CEL", "", colnames(all.genes)))
 
-use.cels <- paste0(file.path("CCLE_Expression.Arrays_2013-03-18", sub.sif$ID), ".CEL")
+all.exprs <- rma(all.genes[,paste0(sif.dta$ID, ".CEL")])
 
-all(file.copy(from=use.cels, to="ccle_cel_file_subset"))
+filt.exprs.list <- nsFilter(all.exprs, require.entrez=TRUE,
+         remove.dupEntrez=FALSE, var.func=IQR,
+         var.cutoff=0.90, var.filter=TRUE,
+         filterByQuantile=TRUE, feature.exclude="^AFFX")
 
-upc.eset <- UPC(celFilePattern="ccle_cel_file_subset/*CEL", outFilePath = NA, convThreshold = 0.01,
-    annotationPackageName = NA, probeSummaryPackage = NA, probeLevelOutDirPath = NA, exonArrayTarget = NA,
-    modelType="nn", verbose = TRUE)
+filt.exprs <- filt.exprs.list$eset
 
-annotation(upc.eset) <- "hgu133plus2.db"
+#Do combat correction based on batch
 
-#This is then used as part of the vignette
-save(upc.eset, file="ccle_upc.RData")
+batch <- sif.dta$Batch
+names(batch) <- paste0(sif.dta$ID, ".CEL")
+
+batch <- batch[colnames(filt.exprs)]
+
+int.mod <- model.matrix(~1, data=sif.dta)
+
+comb.exprs <- ComBat(dat=exprs(filt.exprs), batch=batch, mod=int.mod, numCovs=NULL, par.prior=T)
+
+ccle.eset <- ExpressionSet(assayData=comb.exprs, annotation=annotation(filt.exprs))
+
+save(ccle.eset, file="ccle_eset.RData")
 
 @
 
 <<eval=TRUE, echo=FALSE>>=
-data(ccle_upc)
+data(ccle_eset)
 @
 
-For expression, 'probeset'->'gene' mapping info doesn't need to be supplied by an \texttt{ExpressionSet} as it can be populated using Bioconductors annotation mechanism.
+For expression, 'probeset'->'gene' mapping info doesn't need to be supplied by an \texttt{ExpressionSet} as it can be populated using Bioconductor's annotation mechanism.
 As this object doesn't have an annotation package specified, we will manually add it.
 
 As before we still need to supply the mapping between the CEL file names and the subject names and we will do this base on the SIF file.  Instead of supplying \texttt{addSamples}
@@ -299,12 +282,12 @@ an object, we will supply it a \texttt{data.frame} with the mapping info as belo
 
 <<eval=TRUE, echo=TRUE>>=
 
-sub.sif$ID <- paste0(sub.sif$ID, ".CEL")
+sif.dta$ID <- paste0(sif.dta$ID, ".CEL")
 
-all(sub.sif$ID %in% sampleNames(upc.eset))
-all(sub.sif$CCLE.name %in% subj@subject.info$cellLine)
+all(sif.dta$ID %in% sampleNames(ccle.eset))
+all(sif.dta$CCLE.name %in% subj@subject.info$cellLine)
 
-expr.annot <- sub.sif[,c("CCLE.name", "ID")]
+expr.annot <- sif.dta[,c("CCLE.name", "ID")]
 names(expr.annot) <- c("cellLine","sample")
 expr.annot$type <- "Affy_Expression"
 
