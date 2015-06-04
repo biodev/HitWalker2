@@ -13,9 +13,24 @@ def match_sample(query):
     graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
     
     query_list = []
-
-    if query == "ALL":
-        query_list.append({'id':1, 'text':"ALL", 'search_list':["ALL"]})
+    
+    query = query.lower()
+    
+    if query.startswith("@"):
+        
+        from config import subj_att_set
+        
+        counter = 0
+        
+        red_set = reduce(lambda x,y: x.union(y), subj_att_set.values())
+        
+        #red_set.add("ALL")
+        
+        for i in red_set:
+            if i.lower().startswith(query[1:]):
+                query_list.append({'id':counter, 'text':'@'+i, 'search_list':[i]})
+                counter += 1
+        
     else:
         sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@)-[:DERIVED]->() WITH n, CASE n.alias WHEN null THEN [n.name] ELSE [n.name]+n.alias END AS alias_query UNWIND alias_query AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(n.name)')
         
@@ -268,7 +283,7 @@ def get_link_atts(request, from_node, to_node, rel_type, props, is_hit=False):
         
         if from_node_dict["attributes"]["node_type"] == "Subject" and to_node_dict["attributes"]["node_type"] == "Gene":
             
-            is_hit = rel_type.endswith("_Hit")
+            #is_hit = rel_type.endswith("_Hit")
             temp_rel_name = rel_type.replace("_Hit", "")
             
             if temp_rel_name == config.data_types['target']:
@@ -380,10 +395,13 @@ def get_shortest_paths (request, request_post):
         
         samp_name = request.session['query_samples']['SampleID'].values()[0]
         
-        if samp_name == "ALL":
+        if samp_name.startswith("@"):
+
+            from config import subj_att_set
             
-            #first get the names of all subjects
-            tx.append('MATCH (n:@SUBJECT@) return n.name')
+            prop_name = filter(lambda x: samp_name[1:] in x[1], subj_att_set.items())  
+            
+            tx.append('MATCH (n:@SUBJECT@) WHERE n.'+prop_name[0][0]+'="'+samp_name[1:]+'" return n.name')
             subj_res = tx.commit()
             
             temp_nodes = []

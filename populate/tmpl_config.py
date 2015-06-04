@@ -12,6 +12,8 @@ cypher_session="http://localhost:7474"
 #the maximum number of nodes in a group before it becomes a metanode
 max_nodes = 1
 
+subj_att_set = @SUBJECT_ATTRIBUTES@
+
 #sizes for network view
 network_sizes = {"w":400, "h":400, "legend_offset":200, "history_offset":10}
 
@@ -177,11 +179,11 @@ node_content = {
 }
 
 node_group_content={
-    'Gene':{'title':'Find Subject where all Genes in this set has a(n):',
+    'Gene':{'title':'Find subjects with hits in the largest fraction of these genes using:',
             'returned_node_type':'Subject',
             'options':[]
             },
-    'Subject':{'title':'Find Genes where all Subjects in this set has a(n):',
+    'Subject':{'title':'Find the most frequent gene hits for these subjects using:',
             'returned_node_type':'Gene',
             'options':[]
               }

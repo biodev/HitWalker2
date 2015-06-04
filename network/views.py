@@ -790,8 +790,7 @@ def fullfill_node_query(request):
         
         #execute the query
         
-        session = cypher.Session(config.cypher_session)
-        tx = session.create_transaction()
+        graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
         
         use_query = query_info['query']
         
@@ -801,13 +800,20 @@ def fullfill_node_query(request):
         print use_query, node_queries
         
         #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
-        tx.append(use_query, node_queries)
-        res_list = tx.commit()
+        query = neo4j.CypherQuery(graph_db, use_query)
         
         temp_node_list = []
-        
-        for i in res_list[0]:
-            temp_node_list.append(i.values[0])
+        #node_queries
+        max_val = 0
+        for i in query.stream(**node_queries):
+            print i.values
+            if i.values[1] >= max_val:
+                max_val = i.values[1]
+                temp_node_list.append(i.values[0])
+            else:
+                break
+            
+        print temp_node_list
         
         if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
             if len(ret_node_queries['Gene']) > 3:
@@ -865,7 +871,7 @@ def copy_nodes(request):
     
     print subj_nodes
     print query_nodes
-    
+    # need to fix me to support the '@' phentype info...
     if (len(query_nodes) == 1) and (query_nodes[0]['node_type'] == 'Subject') and (query_nodes[0]['id'] == 'ALL'):
     
         session = cypher.Session(config.cypher_session)

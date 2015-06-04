@@ -247,8 +247,27 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
         templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T)), "', 'handler':None, 'session_params':",use.params, "}"))
     }
     
+    subj.dta <- obj@subject@subject.info
+    
+    use.cols <- subj.dta[,names(subj.dta) %in% c(subj.name, "alias") == F]
+    
+    subj_atts <- "{"
+    
+    for(i in names(use.cols)){
+        
+        if (which(i == names(use.cols)) > 1){
+            subj_atts <- paste(subj_atts, ",")
+        }
+        
+        subj_atts <- paste(subj_atts, "'", i, "':",
+                            paste("set([", paste(paste0("'", unique(use.cols[,i])  ,"'"), collapse=",") ,"])", sep=""),
+                           sep="")
+    }
+    
+    subj_atts <- paste(subj_atts, "}")
+    
     sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
-                     TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=paste(hit.params, collapse=",\n"), USE_DATA=paste0("[", paste(paste0("'", dataTypes(obj) ,"'"), collapse=",") ,"]"))
+                     SUBJECT_ATTRIBUTES=subj_atts,TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=paste(hit.params, collapse=",\n"), USE_DATA=paste0("[", paste(paste0("'", dataTypes(obj) ,"'"), collapse=",") ,"]"))
     
     message("Staging config files")
     
@@ -371,7 +390,7 @@ HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="Expr
                         AND r.score > $PAR_NAME$ RETURN m.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, true AS is_hit',
                         
                         template.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WHERE d.type = "Affy_Expression" AND r.score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
-                        WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'))
+                        WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll'))
 
 #' @rdname class_helpers
 #' @param exprs An ExpressionSet
@@ -456,7 +475,7 @@ CCLEMaf_class <- setClass(Class="CCLEMaf", representation=list(maf="data.frame")
                             r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id, n.name AS Sample ',
                         
                         template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE d.type = "DNASeq" AND $$lower_coll_type$$.name IN {$$coll_type$$}
-                        WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type'
+                        WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll'
                         ))
 #' @rdname class_helpers
 #' @param file.name The path to the CCLE MAF file.
@@ -554,8 +573,8 @@ DrugMatrix_class <- setClass(Class="DrugMatrix", representation=list(matrix="mat
                         
                         template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(gene:EntrezID) WHERE d.type = "Drug_Assay" WITH subject, gene,
                         SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score WHERE effect_score > $PAR_NAME$ AND
-                        $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COLLECT(DISTINCT $$lower_coll_type$$.name) AS use_coll
-                        WHERE LENGTH(use_coll) = {$$coll_type$$_length} RETURN ret_type',
+                        $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
+                        ORDER BY use_coll DESC RETURN ret_type, use_coll',
                         
                         sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug",
                         

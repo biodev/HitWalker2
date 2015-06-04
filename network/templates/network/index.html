@@ -1110,12 +1110,20 @@
         var spinner = new Spinner(spinner_opts).spin(target);
         var cur_id =  $(".select2").select2("data").text;
 	
-	if (cur_id == "ALL")
+	if (cur_id.startsWith("@"))
 	{
+	    var is_vis = d3.select("#sample_svg_div svg");
+        
+	    var is_inp = d3.select("#sample_id_row").remove();
+	    
+	    is_vis.remove();
+	    
+	    if ($("#nf_sample").length >0){
+		$("#nf_sample").remove();
+	    }
+	    
 	    d3.select("#prioritize").attr("disabled", true);
 	    d3.select("#query").attr("disabled", null);
-	    
-	    //need to pass down ALL to the downstream functionality
 	    
 	    spinner.stop();
 	}else{

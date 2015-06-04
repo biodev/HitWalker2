@@ -1398,7 +1398,14 @@
             
             sel_nodes.forEach(function(d,i,ar)
                               {
-                                    query_nodes.push({id:d, display_name:node_label,attributes:{node_type:type}});
+                                    //remove the '@' for future display
+                                    if (node_label.startsWith("@")){
+                                        var use_disp = node_label.substring(1);
+                                    }else{
+                                        var use_disp = node_label;
+                                    }
+                                
+                                    query_nodes.push({id:d, display_name:use_disp,attributes:{node_type:type}});
                               })
             
             console.log(JSON.stringify(query_nodes))

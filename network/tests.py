@@ -113,13 +113,13 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
         self.driver.find_element_by_css_selector(".select2-result-label").click()
         
-        element = WebDriverWait(self.driver, 10).until(
+        element = WebDriverWait(self.driver, 20).until(
             EC.element_to_be_clickable((By.ID, "query"))
         )
         
         element.click()
         
-        panel = WebDriverWait(self.driver, 10).until(
+        panel = WebDriverWait(self.driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "rect.BorderRect"))
         )
         
@@ -135,7 +135,7 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
         
-        input_highlight = WebDriverWait(self.driver, 10).until(
+        input_highlight = WebDriverWait(self.driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
             )
         
@@ -144,7 +144,7 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.driver.find_element_by_xpath("//button[.='OK']").click()
         
         #now wait for the new panel and check its contents against its expected result
-        panel_2 = WebDriverWait(self.driver, 10).until(
+        panel_2 = WebDriverWait(self.driver, 20).until(
             EC.presence_of_element_located((By.ID,"panel_2"))
         )
         
@@ -152,12 +152,17 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         #there should be at least both a Subject and a gene node
         
-        panel_2.find_element_by_css_selector("g > circle.Subject")
-        panel_2.find_element_by_css_selector("g > circle.Gene")
-        
-        
         #look for g class node with circle of class 'Subject' and/or gene
-        #at the same level of circle look for g within g-> circle of appriate class per css  
+        
+        subj_node = panel_2.find_elements_by_css_selector("g > circle.Subject")
+        gene_node = panel_2.find_elements_by_css_selector("g > circle.Gene")
+        
+        self.assertTrue(len(subj_node) == 1 and len(gene_node) == 1)
+        
+        #at the same level of circle look for g within g-> circle of appriate class per css 
+        
+        print temp_1
+        print temp_2
         
         #at the same level as the top g can look for a path tag with suitable class link css_class selected/unselected
         

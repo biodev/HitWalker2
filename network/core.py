@@ -372,7 +372,7 @@ class SeedNode(Node):
         
         self.node_dict = {'id':gene_node.id + '_' + seed_type, 'display_name':gene_node.display_name + '_' + seed_type, 'attributes':{'node_type':seed_type, 'other_nodes':[], 'meta':{'node_cat':'Assay Result', 'type':[], 'score':[], 'is_hit':[]}}, 'children':NodeList()}
         
-        #other_nodes doesn't really matter here...but technically is the other samples this siRNA can be observed in
+        #other_nodes doesn't really matter here...but technically is the other samples this hit can be observed in
         self.node_dict['attributes']['other_nodes'].append(cypher_res[1])
         
         for i in range(3, len(cypher_res)):
