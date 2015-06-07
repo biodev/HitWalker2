@@ -380,6 +380,28 @@ def get_pathways_sample (request, request_post):
     
     return cur_graph['nodes'].tolist(), cur_graph['links'], query_nodes[0]['id']
 
+def match_by_category(cat_name):
+    #get the names of all subjects subsetted  by the appropriate property
+            
+    from config import subj_att_set, cypher_session
+    
+    session = cypher.Session(cypher_session)
+    tx = session.create_transaction()
+    
+    #assuming that cat_name[0] is '@'
+    prop_name = filter(lambda x: cat_name[1:] in x[1], subj_att_set.items())  
+    
+    tx.append('MATCH (n:@SUBJECT@) WHERE n.'+prop_name[0][0]+'="'+cat_name[1:]+'" return n.name')
+    subj_res = tx.commit()
+    
+    temp_nodes = []
+    
+    for i in core.BasicResultsIterable(subj_res):
+        for j in i:
+            temp_nodes.append(j[0])
+            
+    return temp_nodes
+
 def get_shortest_paths (request, request_post):
     
     from config import cypher_session
@@ -397,18 +419,7 @@ def get_shortest_paths (request, request_post):
         
         if samp_name.startswith("@"):
 
-            from config import subj_att_set
-            
-            prop_name = filter(lambda x: samp_name[1:] in x[1], subj_att_set.items())  
-            
-            tx.append('MATCH (n:@SUBJECT@) WHERE n.'+prop_name[0][0]+'="'+samp_name[1:]+'" return n.name')
-            subj_res = tx.commit()
-            
-            temp_nodes = []
-            
-            for i in core.BasicResultsIterable(subj_res):
-                for j in i:
-                    temp_nodes.append(j[0])
+            temp_nodes = match_by_category(samp_name)
             
             temp_nl = core.get_nodes(temp_nodes, 'Subject', request)
             

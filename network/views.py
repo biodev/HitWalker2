@@ -869,27 +869,23 @@ def copy_nodes(request):
     subj_nodes = json.loads(request.POST["subj"])
     query_nodes = json.loads(request.POST["query"])
     
-    print subj_nodes
-    print query_nodes
-    # need to fix me to support the '@' phentype info...
-    if (len(query_nodes) == 1) and (query_nodes[0]['node_type'] == 'Subject') and (query_nodes[0]['id'] == 'ALL'):
+    #print subj_nodes
+    #print query_nodes
     
-        session = cypher.Session(config.cypher_session)
-        tx = session.create_transaction()
-        
-        use_query = core.customize_query(config.subject, query=lambda x:x.replace("{name:{SUBJECTID}}", "").replace("RETURN n", "RETURN n.name"))['query']
-        
-        tx.append(use_query)
-        query_res = tx.commit()
-        
-        temp_nodes = []
+    temp_nodes = []
+    
+    for i in query_nodes:
+        print i
+        if i['id'].startswith('@') and i['node_type'] == 'Subject':
+            node_ids = custom_functions.match_by_category(i['id'])
             
-        for i in core.BasicResultsIterable(query_res):
-            for j in i:
-                temp_nodes.append({'node_type':'Subject','id':j[0]})
-        #{u'node_type': u'Subject', u'id': u'HEPG2_LIVER'}
-    else:
-        temp_nodes = copy.deepcopy(query_nodes)
+            temp_nodes.extend(map(lambda x: {'node_type':'Subject', 'id':x}, node_ids))
+        
+        elif i['id'].startswith('@'):
+            raise Exception("Unexpected non-subject ID starting with '@'")
+        else:
+            temp_nodes.append(i)
+    
     cur_graph = core.copy_nodes(subj_nodes, temp_nodes, request, config.edge_queries)
     
     ret_dict = {'nodes':cur_graph['nodes'].tolist(), 'links':cur_graph['links']}
