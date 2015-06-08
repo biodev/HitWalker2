@@ -2030,6 +2030,7 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                              ret_str += '</tbody>'
                                              ret_str += '</table>'
                                              ret_str += '<div><a class="btn btn-default" id="nf_button" onclick="export_html_summary_csv(\'summary_table\')">Export Summary</a>'
+                                             ret_str += '<a class="btn btn-default" id="node_specific_button">Search Nodes</a>'
                                              ret_str += '</div>'
                                              
                                               $(p_node_obj).popover({content:ret_str, title:use_data.attributes.node_type + ": " + use_data.display_name, container:"body", html:true, trigger:"manual",
