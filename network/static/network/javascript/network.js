@@ -1962,6 +1962,8 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                              
                                              var agg_obj = d3.map();
                                              
+                                             var category_map = d3.map();
+                                             
                                              use_data.children.forEach(function(node){
           
                                                 node.children.forEach(function(subnode){
@@ -1973,8 +1975,10 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                                       use_val = subnode.attributes.node_type;
                                                    }else{
                                                       
-                                                      use_val = type_translation(subnode.display_name, node_transl, 'name', 15)
+                                                      use_val = type_translation(subnode.display_name, node_transl, 'name', 15);
                                                    }
+                                                   
+                                                   category_map.set(use_val, subnode.attributes.node_type);
                                                    
                                                    var temp_map = d3.map();
                                                    
@@ -2003,6 +2007,8 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                              ret_str += '<thead><tr><th>Type</th><th>Value</th><th>Count</th></tr></thead>'
                                              ret_str += '<tbody>'
                                              
+                                             console.log(category_map);
+                                             
                                              agg_obj.forEach(function(key1,val1){
                                                 
                                                 row_head = '<th rowspan="'+val1.keys().length+'" valign="top">' + key1 + '</th>'
@@ -2014,7 +2020,7 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                                    if (counter == 0){
                                                        ret_str += row_head
                                                    }
-                                                   ret_str += '<td>' + key2.replace('_', ' ') + '</td>' + '<td><span class="badge btn" onclick="subset_meta_node(\''+key1+'\',\''+key2+'\', \''+use_data.id+'\')">' + val2 + '</span></td>'
+                                                   ret_str += '<td>' + key2.replace('_', ' ') + '</td>' + '<td><span class="badge btn" onclick="subset_meta_node(\''+key1+'\',\''+category_map.get(key2)+'\', \''+use_data.id+'\')">' + val2 + '</span></td>'
                                                    ret_str += '</tr>'
                                                    counter += 1;
                                                 });
