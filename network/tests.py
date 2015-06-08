@@ -84,9 +84,55 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.driver.find_element_by_css_selector('a[href="/HitWalker2/download/"]').click()
         
         time.sleep(20)
+    
+    def test_metanode_subsetting(self):
+        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
+        self.driver.find_element_by_css_selector(".select2-result-label").click()
         
+        element = WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.ID, "query"))
+        )
+        
+        element.click()
+        
+        panel_1 = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.ID,"panel_1"))
+        )
+        
+        liver_meta = panel_1.find_element_by_css_selector("g > circle.MetaNode")
+        
+        webdriver.ActionChains(self.driver).move_to_element(liver_meta).context_click(liver_meta).perform()
+        
+        first_button = self.driver.find_element_by_css_selector("#summary_table > tbody > tr > td > span")
+        
+        first_button.click()
+        
+        #then limit the second metanode by another feature
+        
+        panel_2 = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.ID,"panel_2"))
+        )
+        
+        p2_meta = panel_2.find_element_by_css_selector("g > circle.MetaNode")
+        
+        webdriver.ActionChains(self.driver).move_to_element(p2_meta).context_click(p2_meta).perform()
+        
+        avail_buttons = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
+        
+        avail_buttons[-1].click()
+        
+        panel_3 = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.ID,"panel_3"))
+        )
+        
+        gene_node = panel_3.find_elements_by_css_selector("g > circle.MetaNode")
+        
+        self.assertTrue(len(gene_node) == 1)
+    
     def test_gene_addition(self):
-        #self.skipTest('not quite to this test yet')
+        self.skipTest('not quite to this test yet')
         
         graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
         #
