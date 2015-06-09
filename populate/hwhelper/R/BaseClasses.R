@@ -432,12 +432,21 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.mo
     
     gene.model <- match.arg(gene.model)
     
-    if (length(annotation(obj@exprs)) == 0 || require(annotation(obj@exprs), character.only=T) == F)
-    {
-        stop("ERROR: need to specify an annotation package ")
+    if (length(annotation(obj@exprs)) > 0){
+        
+        if (grepl("\\.db$", annotation(obj@exprs), perl=T)){
+            
+            annotation.package <- annotation(obj@exprs)
+            
+        }else{
+            
+            annotation.package <- paste0(annotation(obj@exprs), ".db")
+        }
     }else{
-        annotation.package <- annotation(obj@exprs)
+        stop("ERROR: Need to specify an annotation package as part of the ExpressionSet")
     }
+    
+    require(annotation.package, character.only=T)
     
     #Then create a mapping file from probeset to gene
     
