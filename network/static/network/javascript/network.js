@@ -2029,15 +2029,38 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                              
                                              ret_str += '</tbody>'
                                              ret_str += '</table>'
+                                             
+                                             ret_str +=  '<div class="select2-wrapper input-group">' +
+                                                                '<input type="hidden" name="metanode_search" class="form-control select2 select2-offscreen"></input>' +
+                                                                '<span class="input-group-btn">'+
+                                                                  '<button class="btn btn-default" onclick="subset_meta_node(\'id\', null ,\''+use_data.id+'\')", type="button">Subset</button>'+
+                                                                '</span>' +
+                                                                '<option></option>' +
+                                                            '</div><p>'
                                              ret_str += '<div><a class="btn btn-default" id="nf_button" onclick="export_html_summary_csv(\'summary_table\')">Export Summary</a>'
-                                             ret_str += '<a class="btn btn-default" id="node_specific_button">Search Nodes</a>'
                                              ret_str += '</div>'
                                              
                                               $(p_node_obj).popover({content:ret_str, title:use_data.attributes.node_type + ": " + use_data.display_name, container:"body", html:true, trigger:"manual",
                                                                                placement: 'right'});
                                                 $(p_node_obj).popover('show');
                                                 popover_ref = p_node_obj;
-                                                      
+                                             
+                                             // var cur_panel = $(popover_ref).parentsUntil("svg").attr("id");
+                                             //
+                                             //var sub_graph =  all_vis[cur_panel].graph;
+                                             
+                                             var child_names = $.map(use_data.children, function(c_node, i){
+                                                return({id:i, text:c_node.display_name});
+                                             });
+                                             
+                                             
+                                             $(".select2").select2({
+                                                      minimumInputLength: 0,
+                                                      placeholder: "Click to search nodes",
+                                                      multiple:true,
+                                                      data:child_names
+                                              });
+                                             
                                                       
                                                 //necessary to initialize popovers for inclusion with html elements...http://stackoverflow.com/questions/18410922/bootstrap-3-0-popovers-and-tooltips
                                                 
