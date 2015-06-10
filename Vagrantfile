@@ -47,7 +47,7 @@ Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |vb|
   #   # Display the VirtualBox GUI when booting the machine
   #vb.gui = true
-  vb.name="adhd"
+  vb.name="ccle"
   #   # Customize the amount of memory on the VM:
   vb.memory = "16384"
   vb.cpus = 4   
@@ -185,7 +185,7 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
 < #wrapper.java.maxmemory=512
 ---
 > wrapper.java.initmemory=512
-> wrapper.java.maxmemory=7168
+> wrapper.java.maxmemory=10240
 " > /vagrant/temp_2.diff
 
   sudo patch /opt/neo4j-community-2.1.8/conf/neo4j-wrapper.conf /vagrant/temp_2.diff
