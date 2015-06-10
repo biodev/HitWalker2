@@ -86,6 +86,9 @@ class BasicSeleniumTests(LiveServerTestCase):
         time.sleep(20)
     
     def test_metanode_subsetting(self):
+        
+        ##NOTE: Make sure to replace liver with another subject attr
+        
         self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
         self.driver.find_element_by_css_selector(".select2-choice").click()
         self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
@@ -121,15 +124,37 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         avail_buttons = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
         
+        expected_subset_len = int(avail_buttons[-1].get_attribute("innerHTML"))
+        
         avail_buttons[-1].click()
         
         panel_3 = WebDriverWait(self.driver, 20).until(
             EC.presence_of_element_located((By.ID,"panel_3"))
         )
         
-        gene_node = panel_3.find_elements_by_css_selector("g > circle.MetaNode")
+        meta_node = panel_3.find_elements_by_css_selector("g > circle.MetaNode")
         
-        self.assertTrue(len(gene_node) == 1)
+        #there should only be a single metanode on the panel
+        
+        self.assertTrue(len(meta_node) == 1)
+        
+        #count the number of nodes in the metanode and check that against the tag from above
+        
+        samp_nodes = panel_3.find_elements_by_css_selector("g > g > circle.Subject")
+        
+        samp_node_len = len(samp_nodes)
+        
+        self.assertTrue(samp_node_len == expected_subset_len)
+        
+        #also by node selection
+        
+        webdriver.ActionChains(self.driver).move_to_element(meta_node[0]).context_click(meta_node[0]).perform()
+        
+        self.driver.find_element_by_css_selector("input.metanode_search").click()
+        
+        time.sleep(5)
+        #self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
+        #self.driver.find_element_by_css_selector(".select2-result-label").click()
     
     def test_gene_addition(self):
         self.skipTest('not quite to this test yet')

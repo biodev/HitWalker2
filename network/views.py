@@ -620,8 +620,8 @@ def multi_node_query(request):
         if  (len(type_intersect) == 1 and type_intersect == set(['Subject'])) or len(type_intersect) == 2:
             pathway_dis_text = ""
         
-        group_buttons = '<div class="btn-group"><button type="button" class="btn btn-default" '+ungroup_dis_text+' onclick="ungroup_nodes(this)">Ungroup</button></div>'
-        group_buttons += '<div class="btn-group"><button type="button" class="btn btn-default" '+pathway_dis_text+' onclick="pathway_context(this)">Pathway Context</button></div>'
+        #group_buttons = '<div class="btn-group"><button type="button" class="btn btn-default" '+ungroup_dis_text+' onclick="ungroup_nodes(this)">Ungroup</button></div>'
+        group_buttons = '<div class="btn-group"><button type="button" class="btn btn-default" '+pathway_dis_text+' onclick="pathway_context(this)">Pathway Context</button></div>'
         
         if cur_dict != None:
         

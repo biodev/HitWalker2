@@ -890,7 +890,87 @@
             delete_popover();
         }
         
-        function subset_meta_node(child_type, subset_value, node_id)
+        function subset_meta_node (child_type, subset_value, node_id){
+            
+            if (child_type == "id"){
+                
+                subset_meta_node_id(node_id)
+                
+            }else{
+                subset_meta_node_category(child_type, subset_value, node_id)
+            }
+        }
+        
+        function subset_meta_node_id(node_id){
+            
+            var id_set = d3.set($.map($(".select2").select2('data'), function(x){
+                return(x.text);
+            }))
+            
+            var cur_panel = $(popover_ref).parentsUntil("svg").attr("id");
+            //var cur_panel_ind = panel_num_from_id (cur_panel);
+            var sub_graph =  all_vis[cur_panel].graph;
+            
+            var use_nodes = [];
+            var meta_node_count = 0;
+            
+            //for each metanode
+            sub_graph.nodes.forEach(function(d,i,ar)
+                              {
+                                if (d.id == node_id)
+                                {
+                                    meta_node_count += 1;
+                                    d.children.forEach(function(d2,i2,ar2)
+                                          {
+                                                
+                                                if (id_set.has(d2.display_name))
+                                                {
+                                                    use_nodes.push(JSON.parse(JSON.stringify(d2)));
+                                                }
+                                          });
+                                }
+                                
+                              });
+            
+            if (meta_node_count != 1)
+            {
+                console.log("ERROR: Issue encountered subsetting MetaNodes, probably ID related")
+            }
+            
+            //respect config.py:max_nodes
+            if (use_nodes.length > metanode_thresh)
+            {
+                var child_nest = d3.nest().key(function(d) {return d.attributes.node_type}).rollup(function(d) {return d.length}).map(use_nodes);
+            
+                var samp_name = '';
+                
+                for (i in child_nest)
+                {
+                    samp_name += i + ' (' + child_nest[i] + ')';
+                }
+                
+                use_graph = {nodes:[{id:make_unique_meta_id(all_vis), display_name:samp_name, attributes:{node_type:'MetaNode', indexed_name:'name', meta:{}}, children:use_nodes}], links:[]};
+                
+            }else{
+                
+                use_graph = {nodes:use_nodes, links:[]};
+                
+            }
+            
+            //create a new metanode
+            
+            //console.log(JSON.stringify(use_graph));
+            var new_panel_id = make_unique_id();
+            
+            history_dict[new_panel_id] = {action:'subset', status:'active', values:{prev:cur_panel, subset:id_set.values()}};
+            all_vis[new_panel_id] = {graph:use_graph};
+            update_image (all_vis);
+            
+            delete_popover();
+            
+        }
+        
+        function subset_meta_node_category(child_type, subset_value, node_id)
         {
             //popover ref should be uniquely defined as there can only be a single popover on the screen at a time
             
@@ -1513,6 +1593,8 @@
         function query_pathways(panel_name, obj, ok_func)
         {
             
+            console.log(obj);
+            
             content = '<div  class="container" style="width:300px">' +
                         '<div id="spin_div"  class="row">' +
                             '<p>Select a Pathway</p>' + 
@@ -1535,6 +1617,9 @@
                     '</div>'
                     
             var pop_div = $(obj).parent().parent().parent();
+            
+            console.log(pop_div);
+            
             pop_div.popover({content:content, title:'Search', container:"body", html:true, trigger:"manual",
                                                                      placement: "right"
                                                                });
