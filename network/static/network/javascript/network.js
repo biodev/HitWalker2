@@ -2033,7 +2033,7 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                              ret_str +=  '<div class="select2-wrapper input-group">' +
                                                                 '<input type="hidden" name="metanode_search" class="form-control select2 select2-offscreen"></input>' +
                                                                 '<span class="input-group-btn">'+
-                                                                  '<button class="btn btn-default" onclick="subset_meta_node(\'id\', null ,\''+use_data.id+'\')", type="button">Subset</button>'+
+                                                                  '<button id="subset_samp_button" class="btn btn-default" onclick="subset_meta_node(\'id\', null ,\''+use_data.id+'\')", type="button">Subset</button>'+
                                                                 '</span>' +
                                                                 '<option></option>' +
                                                             '</div><p>'

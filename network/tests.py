@@ -150,9 +150,34 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         webdriver.ActionChains(self.driver).move_to_element(meta_node[0]).context_click(meta_node[0]).perform()
         
-        self.driver.find_element_by_css_selector("input.metanode_search").click()
+        self.driver.find_element_by_css_selector(".select2-input").click()
+        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
         
-        time.sleep(5)
+        all_lis[0].click()
+        
+        self.driver.find_element_by_css_selector(".select2-input").click()
+        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
+        
+        all_lis[-1].click()
+        
+        self.driver.find_element_by_css_selector("#subset_samp_button").click()
+        
+        panel_4 = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.ID,"panel_4"))
+        )
+        
+        meta_node = panel_4.find_elements_by_css_selector("g > circle.MetaNode")
+        
+        #there should only be a single metanode on the panel
+        
+        self.assertTrue(len(meta_node) == 1)
+        
+        #count the number of nodes in the metanode and check that against the tag from above
+        
+        samp_nodes = panel_4.find_elements_by_css_selector("g > g > circle.Subject")
+        
+        self.assertTrue(len(samp_nodes)==2)
+       
         #self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
         #self.driver.find_element_by_css_selector(".select2-result-label").click()
     
