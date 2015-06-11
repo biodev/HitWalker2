@@ -1049,11 +1049,14 @@ function add_to_image(parsed_data, action, values)
 
 function post_to_fullfill (obj)
 {
-    var target = document.getElementById('network_spinner');
-    var spinner = new Spinner(spinner_opts).spin(target);
-    spinner.spin(target);
+   var cur_data_val = d3.select(obj).attr("data-value")
+   
+   var spin_div_ref = document.getElementById('heading'+cur_data_val.split('-')[1]);
+   var cur_spin = new Spinner({left:'90%', radius:5, width:3, length:5, lines:10}).spin(spin_div_ref);
     
-    var post_node = {choice:d3.select(obj).attr("data-value"), nodes:''};
+    var post_node = {choice:cur_data_val, nodes:''};
+    
+    console.log(post_node);
     
     var node_dict = {};
     
@@ -1086,13 +1089,56 @@ function post_to_fullfill (obj)
     
     post_node.nodes = JSON.stringify(node_dict);
     
-    $.post("/HitWalker2/fullfill_node_query/", post_node, function(data, status, xhr)
+    $.post("/HitWalker2/fullfill_node_query/", post_node, function(data, status, xhr){
+      
+      if (status == "success"){
+         
+         parsed_data = JSON.parse(data);
+         
+         var sel_id = post_node.choice.split('-')[1];
+         
+         var add_html = ['<table class="table">', '<thead><tr><th>'+parsed_data.ret_node_type+'s</th><th>Frequency</th></tr></thead><tbody>'];
+         
+         var sort_data = [];
+         
+         for(i in parsed_data.results){
+            sort_data.push({freq:parseInt(i), count:parsed_data.results[i]});
+         }
+         
+         sort_data.sort(function(x,y){ return (y.freq - x.freq);});
+         
+         sort_data.forEach(function(x){
+            add_html.push('<tr><td>'+x.count+'</td><td>'+x.freq+'%</td><td><span style="cursor:pointer" onclick="provide_data('+cur_data_val.split('-')[1]+', '+x.freq+', \''+parsed_data.ret_node_type+'\')" class="badge">View</span></td></tr>')
+         })
+         
+         
+         add_html.push('</tbody></table>')
+         
+         $('#collapse'+sel_id + ' > div').append(add_html.join(" "));
+         
+         $('#collapse'+sel_id).collapse('show')
+         
+         
+      }else{
+         console.log(status);
+      }
+      
+      cur_spin.stop();
+      
+    }, "text")
+}
+
+function provide_data (query_selection,freq_choice, ret_node_type){
+   
+   console.log(ret_node_type);
+   
+   var request_data = {'query_choice':query_selection, 'freq_choice':freq_choice, 'ret_node_type':ret_node_type};
+   
+    $.post("/HitWalker2/provide_data_for_request/", request_data, function(data, status, xhr)
        {
             if (status == "success")
             {
                 //now add the nodes, etc to the overall graph
-                
-                //if no data was found, add another popover pointing to obj stating such
                 
                 parsed_data = JSON.parse(data);
                 
@@ -1100,30 +1146,30 @@ function post_to_fullfill (obj)
                 
                 if (parsed_data.is_graph == true)
                 {
-                  if (parsed_data.graph.nodes.length == 0)
-                  {
-                    
-                    $(obj).siblings('a.list-group-item').each(function()
-                                                              {
-                                                                 $(this).popover('destroy');
-                                                              });
-                    
-                    var pop_content = '<p class="text-danger">Sorry, no results were found for this query.</p>';
-                      
-                    $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
-                      
-                    $(obj).popover('show');
-                    
-                    adjust_screen_right(".popover");
-                  }
-                  else{
+                  //if (parsed_data.graph.nodes.length == 0)
+                  //{
+                  //  
+                  //  $(obj).siblings('a.list-group-item').each(function()
+                  //                                            {
+                  //                                               $(this).popover('destroy');
+                  //                                            });
+                  //  
+                  //  var pop_content = '<p class="text-danger">Sorry, no results were found for this query.</p>';
+                  //    
+                  //  $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
+                  //    
+                  //  $(obj).popover('show');
+                  //  
+                  //  adjust_screen_right(".popover");
+                  //}
+                  //else{
                       add_to_image(parsed_data, 'query', selected_node.keys());
                   
                       if (popover_ref != null)
                       {
                           delete_popover();
                       }
-                  }
+                  //}
                 }else{
                   
                      $(obj).siblings('a.list-group-item').each(function()

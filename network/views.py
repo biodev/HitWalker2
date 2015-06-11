@@ -627,20 +627,43 @@ def multi_node_query(request):
         
             question_list = map(lambda x: x['text'], cur_dict['options'])
             
-            header = '<div class=container style="width:300px">'
-            header += '<div class="row"><div class="list-group">'
-            
+            header = '<div class="row"><div class="list-group">'
             header += '<a class="list-group-item list-group-item-heading text-center" style="background-color:#f5f5f5">'+cur_dict['title']+'</a>'
-            for i_ind, i in enumerate(question_list):
-                header += '<a class="list-group-item text-center" onclick="post_to_fullfill(this)" style="cursor:pointer" data-value='+reduce(lambda x,y:x+'.'+y, unique_types)+'-'+str(i_ind)+'>'+i+'</a>'
             
-            header += '<br>' + group_buttons + '</div></div>'
+            header += '<div class="panel-group" id="pg1" role="tablist" aria-multiselectable="true">'
+            
+            for i_ind, i in enumerate(question_list):
+                header += '''
+                    <div id="ppd$id$" class="panel panel-default">
+                      <div class="panel-heading" role="tab" id="heading$id$" position="relative">
+                        <h4 class="panel-title">
+                          <a data-toggle="false" onclick="post_to_fullfill(this)"  style="cursor:pointer" data-parent="#pg1" data-value=$data$ aria-expanded="false" aria-controls="collapse$id$">
+                            $data_title$
+                          </a>
+                        </h4>
+                      </div>
+                    <div id="collapse$id$" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading$id$">
+                        <div class="panel-body"></div>
+                    </div>
+                </div>
+                '''.replace("$data$", reduce(lambda x,y:x+'.'+y, unique_types)+'-'+str(i_ind)).replace("$id$", str(i_ind)).replace("$data_title$", i)
+                
+            
+            #header = '<div class=container style="width:300px">'
+            #header += '<div class="row"><div class="list-group">'
+            #
+            #header += '<a class="list-group-item list-group-item-heading text-center" style="background-color:#f5f5f5">'+cur_dict['title']+'</a>'
+            #for i_ind, i in enumerate(question_list):
+            #    header += '<a class="list-group-item text-center" onclick="post_to_fullfill(this)" style="cursor:pointer" data-value='+reduce(lambda x,y:x+'.'+y, unique_types)+'-'+str(i_ind)+'>'+i+'</a>'
+            #
+            header += '<br>' + group_buttons + '</div></div></div>'
         else:
             header = '<div class=container style="width:300px"><p class="text-danger">Sorry, no queries are currently defined for type(s): '+string.joinfields(unique_type_list, ' and ')+'.  Try selecting a different type or only one type at a time.</p><br>' +group_buttons+'</div>'
             
         
         return HttpResponse(json.dumps({"content":header}), mimetype="application/json")
-    except:
+    except Exception as e:
+        print e
         return HttpResponseServerError()
 
 def download(request):
@@ -768,9 +791,11 @@ def fullfill_node_query(request):
         
         node_queries = {}
         
+        cur_len = 0
+        
         for i in ret_node_queries.keys():
             node_queries[i] = map(lambda x: x['id'], ret_node_queries[i])
-            node_queries[i+'_length'] = len(ret_node_queries[i])
+            cur_len = len(ret_node_queries[i])
         
         #retrieve the query by parsing node_req
         
@@ -802,60 +827,104 @@ def fullfill_node_query(request):
         #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
         query = neo4j.CypherQuery(graph_db, use_query)
         
+        
         temp_node_list = []
         #node_queries
-        max_val = 0
+        max_vals = []
+        
         for i in query.stream(**node_queries):
             print i.values
-            if i.values[1] >= max_val:
-                max_val = i.values[1]
-                temp_node_list.append(i.values[0])
+            if (len(max_vals) == 0) or ((i.values[1] < max_vals[-1]) and (len(max_vals) < 5)):
+                max_vals.append(i.values[1])
+                temp_node_list.append((str(int(round((i.values[1]/float(cur_len))*100))), i.values[0]))
+            elif i.values[1] >= max_vals[-1]:
+                temp_node_list.append((str(int(round((i.values[1]/float(cur_len))*100))), i.values[0]))
             else:
                 break
-            
-        print temp_node_list
         
-        if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
-            if len(ret_node_queries['Gene']) > 3:
-                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
-            else:
-                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
-        elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Subject'):
-            if len(ret_node_queries['Subject']) > 3:
-                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Subject'][0]['display_name'] + '...' + ret_node_queries['Subject'][-1]['display_name'])
-            else:
-                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Subject']), ','))
+        ret_dict = collections.defaultdict(list)
+        
+        for k,v in temp_node_list:
+            ret_dict[k].append(v)
+        
+        if request.session.has_key('tmp_query_results') == False:
+        
+            request.session['tmp_query_results'] = {str(req_table[1]):{'ret_dict':ret_dict, 'ret_node_queries':ret_node_queries,
+                                                                       'query_info':query_info, 'use_query':use_query, 'node_queries':node_queries,
+                                                                       }}
         else:
-            use_title = 'ERROR: Unknown title...'
+            request.session['tmp_query_results'][str(req_table[1])] = {'ret_dict':ret_dict, 'ret_node_queries':ret_node_queries,
+                                                                       'query_info':query_info, 'use_query':use_query, 'node_queries':node_queries}
         
-        #convert the IDs to nodes
+        count_coll = map(lambda x: (x[0], len(x[1])), ret_dict.items())
         
-        ret_nodes = core.get_nodes(temp_node_list, query_type['returned_node_type'], request,  missing_param="skip")
+        print count_coll
         
-        #too many nodes to render efficiently, will allow user to download csv file...
-        if len(ret_nodes) > 2000:
-            
-            request.session['tmp_title'] = use_title
-            
-            request.session['tmp_var_type'] = query_info['text']
-            request.session['tmp_use_query'] = use_query
-            request.session['tmp_node_queries'] = node_queries
-            request.session['tmp_ret_nodes'] = ret_nodes
-            request.session['tmp_expected_count'] = len(temp_node_list)
-            
-            ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
-            
-        else:
-        
-            ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
-            
-            ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
-        
-        return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
+        return HttpResponse(json.dumps({'ret_node_type':query_type['returned_node_type'], 'results':dict(count_coll)}),mimetype="application/json")
     
     except Exception as e:
         raise e
-        return HttpResponseServerError()
+        return HttpResponse
+
+
+def provide_data_for_request(request):
+
+    query_choice = request.POST["query_choice"]
+    frequency_choice = request.POST["freq_choice"]
+    returned_node_type = request.POST["ret_node_type"]
+    
+    print query_choice
+    
+    session_data = request.session['tmp_query_results'][str(query_choice)]
+
+    ret_node_queries = session_data['ret_node_queries']
+    query_info = session_data['query_info']
+    use_query = session_data['use_query']
+    node_queries = session_data['node_queries']
+    
+    #temp_node_list will be formed from whichever frequency the user choses...
+    
+    temp_node_list = session_data['ret_dict'][frequency_choice]
+    
+    #we also need node_queries and query_info
+    
+    if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
+        if len(ret_node_queries['Gene']) > 3:
+            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
+        else:
+            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
+    elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Subject'):
+        if len(ret_node_queries['Subject']) > 3:
+            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Subject'][0]['display_name'] + '...' + ret_node_queries['Subject'][-1]['display_name'])
+        else:
+            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Subject']), ','))
+    else:
+        use_title = 'ERROR: Unknown title...'
+    
+    #convert the IDs to nodes
+    
+    ret_nodes = core.get_nodes(temp_node_list, returned_node_type, request,  missing_param="skip")
+    
+    #too many nodes to render efficiently, will allow user to download csv file...
+    if len(ret_nodes) > 2000:
+        
+        request.session['tmp_title'] = use_title
+        
+        request.session['tmp_var_type'] = query_info['text']
+        request.session['tmp_use_query'] = use_query
+        request.session['tmp_node_queries'] = node_queries
+        request.session['tmp_ret_nodes'] = ret_nodes
+        request.session['tmp_expected_count'] = len(temp_node_list)
+        
+        ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
+        
+    else:
+    
+        ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
+        
+        ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
+    
+    return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
 
 def get_data (request):
     
