@@ -30,6 +30,51 @@ from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
 
+class NodeSelectors(object):
+    
+    _selector=""
+    
+    def selector(self):
+        return self._selector
+
+class SingleMetaNodeSelector(NodeSelectors):
+    
+    def __init__(self):
+        self._selector = "g > circle.MetaNode"
+
+class HitWalkerInteraction(object):
+    
+    def __init__(self, driver, live_server_url):
+        self.driver = driver
+        self.live_server_url = live_server_url
+        
+    def panel_by_query(self, selection_name):
+        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys(selection_name)
+        self.driver.find_element_by_css_selector(".select2-result-label").click()
+        
+        element = WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.ID, "query"))
+        )
+        
+        element.click()
+        
+    def to_panel(self, panel_num):
+    
+        return WebDriverWait(self.driver, 20).until(
+                EC.presence_of_element_located((By.ID,"panel_"+panel_num))
+            )
+    
+    def select_context_node(self, panel, node_sel):
+        cur_node = panel.find_element_by_css_selector(node_sel.selector())
+        
+        node_move = webdriver.ActionChains(self.driver).move_to_element(cur_node)
+        
+        node_move.click()
+        
+        node_move.context_click(cur_node).perform()
+
 #@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
     
@@ -63,232 +108,247 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.driver.quit()
     
     
-    def test_large_downloads(self):
-        
-        self.skipTest('not quite to this test yet')
-        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
-        self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("103051")
-        self.driver.find_element_by_css_selector(".select2-result-label").click()
-        self.driver.find_element_by_css_selector("#query").click()
-        time.sleep(10)
-        #check click events
-        
-        use_panel = self.driver.find_element_by_css_selector(".Subject~circle")
-        
-        #to go into the pathway view
-        webdriver.ActionChains(self.driver).move_to_element(use_panel).click(use_panel).context_click(use_panel).perform()
-        
-        self.driver.find_element_by_css_selector('a.list-group-item[data-value="Subject-0"]').click()
-        
-        self.driver.find_element_by_css_selector('a[href="/HitWalker2/download/"]').click()
-        
-        time.sleep(20)
+    #def test_large_downloads(self):
+    #    
+    #    self.skipTest('not quite to this test yet')
+    #    self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+    #    self.driver.find_element_by_css_selector(".select2-choice").click()
+    #    self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("103051")
+    #    self.driver.find_element_by_css_selector(".select2-result-label").click()
+    #    self.driver.find_element_by_css_selector("#query").click()
+    #    time.sleep(10)
+    #    #check click events
+    #    
+    #    use_panel = self.driver.find_element_by_css_selector(".Subject~circle")
+    #    
+    #    #to go into the pathway view
+    #    webdriver.ActionChains(self.driver).move_to_element(use_panel).click(use_panel).context_click(use_panel).perform()
+    #    
+    #    self.driver.find_element_by_css_selector('a.list-group-item[data-value="Subject-0"]').click()
+    #    
+    #    self.driver.find_element_by_css_selector('a[href="/HitWalker2/download/"]').click()
+    #    
+    #    time.sleep(20)
     
-    def test_metanode_subsetting(self):
+    def test_metanode_querying(self):
         
-        ##NOTE: Make sure to replace liver with another subject attr
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
         
-        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
-        self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
-        self.driver.find_element_by_css_selector(".select2-result-label").click()
+        hw_obj.panel_by_query("@liver")
         
-        element = WebDriverWait(self.driver, 20).until(
-            EC.element_to_be_clickable((By.ID, "query"))
-        )
+        panel_1 = hw_obj.to_panel("1")
         
-        element.click()
+        hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
         
-        panel_1 = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.ID,"panel_1"))
-        )
-        
-        liver_meta = panel_1.find_element_by_css_selector("g > circle.MetaNode")
-        
-        webdriver.ActionChains(self.driver).move_to_element(liver_meta).context_click(liver_meta).perform()
-        
-        first_button = self.driver.find_element_by_css_selector("#summary_table > tbody > tr > td > span")
-        
-        first_button.click()
-        
-        #then limit the second metanode by another feature
-        
-        panel_2 = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.ID,"panel_2"))
-        )
-        
-        p2_meta = panel_2.find_element_by_css_selector("g > circle.MetaNode")
-        
-        webdriver.ActionChains(self.driver).move_to_element(p2_meta).context_click(p2_meta).perform()
-        
-        avail_buttons = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
-        
-        expected_subset_len = int(avail_buttons[-1].get_attribute("innerHTML"))
-        
-        avail_buttons[-1].click()
-        
-        panel_3 = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.ID,"panel_3"))
-        )
-        
-        meta_node = panel_3.find_elements_by_css_selector("g > circle.MetaNode")
-        
-        #there should only be a single metanode on the panel
-        
-        self.assertTrue(len(meta_node) == 1)
-        
-        #count the number of nodes in the metanode and check that against the tag from above
-        
-        samp_nodes = panel_3.find_elements_by_css_selector("g > g > circle.Subject")
-        
-        samp_node_len = len(samp_nodes)
-        
-        self.assertTrue(samp_node_len == expected_subset_len)
-        
-        #also by node selection
-        
-        webdriver.ActionChains(self.driver).move_to_element(meta_node[0]).context_click(meta_node[0]).perform()
-        
-        self.driver.find_element_by_css_selector(".select2-input").click()
-        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
-        
-        all_lis[0].click()
-        
-        self.driver.find_element_by_css_selector(".select2-input").click()
-        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
-        
-        all_lis[-1].click()
-        
-        self.driver.find_element_by_css_selector("#subset_samp_button").click()
-        
-        panel_4 = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.ID,"panel_4"))
-        )
-        
-        meta_node = panel_4.find_elements_by_css_selector("g > circle.MetaNode")
-        
-        #there should only be a single metanode on the panel
-        
-        self.assertTrue(len(meta_node) == 1)
-        
-        #count the number of nodes in the metanode and check that against the tag from above
-        
-        samp_nodes = panel_4.find_elements_by_css_selector("g > g > circle.Subject")
-        
-        self.assertTrue(len(samp_nodes)==2)
-       
-        #self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
-        #self.driver.find_element_by_css_selector(".select2-result-label").click()
-    
-    def test_gene_addition(self):
-        self.skipTest('not quite to this test yet')
-        
-        graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
-        #
-        #gene_query = neo4j.CypherQuery(graph_db,config.gene_names['query'].replace("{name:{GENE}}", "") + " LIMIT 10")
-        #
-        #for i in gene_query.execute().data:
-        #    print i
-        
-        #get samples
-        
-        #current css
-        static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
-        new_css_path = os.path.join(static_storage.location, "network/css/HitWalker2_selenium.css")
-        print new_css_path
-        
-        sample_query = neo4j.CypherQuery(graph_db,config.subject['query'].replace("{name:{SUBJECTID}}", "") + " LIMIT 10") 
-        
-        for i in sample_query.execute().data:
-            print i.values
-            print i.values[0].get_properties()
-        
-        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
-        self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
-        self.driver.find_element_by_css_selector(".select2-result-label").click()
-        
-        element = WebDriverWait(self.driver, 20).until(
-            EC.element_to_be_clickable((By.ID, "query"))
-        )
-        
-        element.click()
-        
-        panel = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "rect.BorderRect"))
-        )
-        
-        webdriver.ActionChains(self.driver).move_to_element(panel).context_click(panel).perform()
-        
-        self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
-        
-        self.driver.find_element_by_css_selector("ul li:first-child a").click()
-        
-        #get a gene
-        
-        ##enter the gene name
-        self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
-        
-        input_highlight = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
-            )
-        
-        input_highlight.click()
-        
-        self.driver.find_element_by_xpath("//button[.='OK']").click()
-        
-        #now wait for the new panel and check its contents against its expected result
-        panel_2 = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.ID,"panel_2"))
-        )
-        
-        #within panel_2
-        
-        #there should be at least both a Subject and a gene node
-        
-        #look for g class node with circle of class 'Subject' and/or gene
-        
-        subj_node = panel_2.find_elements_by_css_selector("g > circle.Subject")
-        gene_node = panel_2.find_elements_by_css_selector("g > circle.Gene")
-        
-        self.assertTrue(len(subj_node) == 1 and len(gene_node) == 1)
-        
-        #at the same level of circle look for g within g-> circle of appriate class per css 
-        
-        print temp_1
-        print temp_2
-        
-        #at the same level as the top g can look for a path tag with suitable class link css_class selected/unselected
+        for i in ['Expression', 'GeneScore', 'Variants']:
+            self.driver.find_element_by_css_selector("a:contains('"+i+"')").click()
         
         time.sleep(5)
-        
-        #self.driver.find_element_by_css_selector("#").click()
-        
-        #right click on a panel
-        
-        #use_panel = self.driver.find_element_by_css_selector("rect.BorderRect")
-        #
-        #webdriver.ActionChains(self.driver).move_to_element(use_panel).context_click(use_panel).perform()
-        #
-        #self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
-        #
-        #self.driver.find_element_by_css_selector("ul li:first-child a").click()
-        #
-        ##enter the gene name
-        #self.driver.find_element_by_css_selector(".select2-choice").click()
-        ##self.driver.find_element_by_css_selector("input.select2-input").send_keys("CLSTN2")
-        #self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
-        #self.driver.find_element_by_css_selector(".select2-result-label").click()
-        #time.sleep(1)
-        #
-        #self.driver.find_element_by_xpath("//button[.='OK']").click()
-        
-        #check the sanity of the result
-        
-        
-        #time.sleep(10)
+    
+    #def test_metanode_subsetting(self):
+    #    
+    #    ##NOTE: Make sure to replace liver with another subject attr
+    #    
+    #    self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+    #    self.driver.find_element_by_css_selector(".select2-choice").click()
+    #    self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
+    #    self.driver.find_element_by_css_selector(".select2-result-label").click()
+    #    
+    #    element = WebDriverWait(self.driver, 20).until(
+    #        EC.element_to_be_clickable((By.ID, "query"))
+    #    )
+    #    
+    #    element.click()
+    #    
+    #    panel_1 = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.ID,"panel_1"))
+    #    )
+    #    
+    #    liver_meta = panel_1.find_element_by_css_selector("g > circle.MetaNode")
+    #    
+    #    webdriver.ActionChains(self.driver).move_to_element(liver_meta).context_click(liver_meta).perform()
+    #    
+    #    first_button = self.driver.find_element_by_css_selector("#summary_table > tbody > tr > td > span")
+    #    
+    #    first_button.click()
+    #    
+    #    #then limit the second metanode by another feature
+    #    
+    #    panel_2 = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.ID,"panel_2"))
+    #    )
+    #    
+    #    p2_meta = panel_2.find_element_by_css_selector("g > circle.MetaNode")
+    #    
+    #    webdriver.ActionChains(self.driver).move_to_element(p2_meta).context_click(p2_meta).perform()
+    #    
+    #    avail_buttons = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
+    #    
+    #    expected_subset_len = int(avail_buttons[-1].get_attribute("innerHTML"))
+    #    
+    #    avail_buttons[-1].click()
+    #    
+    #    panel_3 = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.ID,"panel_3"))
+    #    )
+    #    
+    #    meta_node = panel_3.find_elements_by_css_selector("g > circle.MetaNode")
+    #    
+    #    #there should only be a single metanode on the panel
+    #    
+    #    self.assertTrue(len(meta_node) == 1)
+    #    
+    #    #count the number of nodes in the metanode and check that against the tag from above
+    #    
+    #    samp_nodes = panel_3.find_elements_by_css_selector("g > g > circle.Subject")
+    #    
+    #    samp_node_len = len(samp_nodes)
+    #    
+    #    self.assertTrue(samp_node_len == expected_subset_len)
+    #    
+    #    #also by node selection
+    #    
+    #    webdriver.ActionChains(self.driver).move_to_element(meta_node[0]).context_click(meta_node[0]).perform()
+    #    
+    #    self.driver.find_element_by_css_selector(".select2-input").click()
+    #    all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
+    #    
+    #    all_lis[0].click()
+    #    
+    #    self.driver.find_element_by_css_selector(".select2-input").click()
+    #    all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
+    #    
+    #    all_lis[-1].click()
+    #    
+    #    self.driver.find_element_by_css_selector("#subset_samp_button").click()
+    #    
+    #    panel_4 = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.ID,"panel_4"))
+    #    )
+    #    
+    #    meta_node = panel_4.find_elements_by_css_selector("g > circle.MetaNode")
+    #    
+    #    #there should only be a single metanode on the panel
+    #    
+    #    self.assertTrue(len(meta_node) == 1)
+    #    
+    #    #count the number of nodes in the metanode and check that against the tag from above
+    #    
+    #    samp_nodes = panel_4.find_elements_by_css_selector("g > g > circle.Subject")
+    #    
+    #    self.assertTrue(len(samp_nodes)==2)
+    #   
+    #    #self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
+    #    #self.driver.find_element_by_css_selector(".select2-result-label").click()
+    #
+    #def test_gene_addition(self):
+    #    self.skipTest('not quite to this test yet')
+    #    
+    #    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
+    #    #
+    #    #gene_query = neo4j.CypherQuery(graph_db,config.gene_names['query'].replace("{name:{GENE}}", "") + " LIMIT 10")
+    #    #
+    #    #for i in gene_query.execute().data:
+    #    #    print i
+    #    
+    #    #get samples
+    #    
+    #    #current css
+    #    static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
+    #    new_css_path = os.path.join(static_storage.location, "network/css/HitWalker2_selenium.css")
+    #    print new_css_path
+    #    
+    #    sample_query = neo4j.CypherQuery(graph_db,config.subject['query'].replace("{name:{SUBJECTID}}", "") + " LIMIT 10") 
+    #    
+    #    for i in sample_query.execute().data:
+    #        print i.values
+    #        print i.values[0].get_properties()
+    #    
+    #    self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+    #    self.driver.find_element_by_css_selector(".select2-choice").click()
+    #    self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
+    #    self.driver.find_element_by_css_selector(".select2-result-label").click()
+    #    
+    #    element = WebDriverWait(self.driver, 20).until(
+    #        EC.element_to_be_clickable((By.ID, "query"))
+    #    )
+    #    
+    #    element.click()
+    #    
+    #    panel = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.CSS_SELECTOR, "rect.BorderRect"))
+    #    )
+    #    
+    #    webdriver.ActionChains(self.driver).move_to_element(panel).context_click(panel).perform()
+    #    
+    #    self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
+    #    
+    #    self.driver.find_element_by_css_selector("ul li:first-child a").click()
+    #    
+    #    #get a gene
+    #    
+    #    ##enter the gene name
+    #    self.driver.find_element_by_css_selector(".select2-choice").click()
+    #    self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
+    #    
+    #    input_highlight = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
+    #        )
+    #    
+    #    input_highlight.click()
+    #    
+    #    self.driver.find_element_by_xpath("//button[.='OK']").click()
+    #    
+    #    #now wait for the new panel and check its contents against its expected result
+    #    panel_2 = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.ID,"panel_2"))
+    #    )
+    #    
+    #    #within panel_2
+    #    
+    #    #there should be at least both a Subject and a gene node
+    #    
+    #    #look for g class node with circle of class 'Subject' and/or gene
+    #    
+    #    subj_node = panel_2.find_elements_by_css_selector("g > circle.Subject")
+    #    gene_node = panel_2.find_elements_by_css_selector("g > circle.Gene")
+    #    
+    #    self.assertTrue(len(subj_node) == 1 and len(gene_node) == 1)
+    #    
+    #    #at the same level of circle look for g within g-> circle of appriate class per css 
+    #    
+    #    print temp_1
+    #    print temp_2
+    #    
+    #    #at the same level as the top g can look for a path tag with suitable class link css_class selected/unselected
+    #    
+    #    time.sleep(5)
+    #    
+    #    #self.driver.find_element_by_css_selector("#").click()
+    #    
+    #    #right click on a panel
+    #    
+    #    #use_panel = self.driver.find_element_by_css_selector("rect.BorderRect")
+    #    #
+    #    #webdriver.ActionChains(self.driver).move_to_element(use_panel).context_click(use_panel).perform()
+    #    #
+    #    #self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
+    #    #
+    #    #self.driver.find_element_by_css_selector("ul li:first-child a").click()
+    #    #
+    #    ##enter the gene name
+    #    #self.driver.find_element_by_css_selector(".select2-choice").click()
+    #    ##self.driver.find_element_by_css_selector("input.select2-input").send_keys("CLSTN2")
+    #    #self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
+    #    #self.driver.find_element_by_css_selector(".select2-result-label").click()
+    #    #time.sleep(1)
+    #    #
+    #    #self.driver.find_element_by_xpath("//button[.='OK']").click()
+    #    
+    #    #check the sanity of the result
+    #    
+    #    
+    #    #time.sleep(10)
     
 
 ##globally useful functions and classes
