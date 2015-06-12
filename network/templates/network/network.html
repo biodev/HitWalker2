@@ -72,6 +72,15 @@
         <input type="hidden" id="plot_type" name="plot_type" value="">
         <input type="hidden" id="panel_context" name="panel_context" value="">
     </form>
+    
+    <form id="download_csv" action="{{prog_type}}/HitWalker2/provide_data_for_request/" method="post">
+        {% csrf_token %}
+        <input type="hidden" id="query_choice" name="query_choice" value="">
+        <input type="hidden" id="freq_choice" name="freq_choice" value="">
+        <input type="hidden" id="ret_node_type" name="ret_node_type" value="">
+        <input type="hidden" id="display_type" name="display_type" value="">
+    </form>
+    
 <!--    end adaptation-->
     <div class="container">
         <div class="navbar navbar-default" role="navigation">

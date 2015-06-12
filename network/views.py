@@ -666,7 +666,8 @@ def multi_node_query(request):
         print e
         return HttpResponseServerError()
 
-def download(request):
+
+def download(request, title, var_type, base_query, base_params, use_nodes, expected_count):
     
     #this entire thing is a little too hard-coded for comfort...
     
@@ -697,14 +698,10 @@ def download(request):
     
     #write the title
     
-    writer.writerow(["Title:" + request.session['tmp_title']])
+    writer.writerow(["Title:" + title])
     writer.writerow([])
     
     #start writing the results
-    
-    var_type = request.session['tmp_var_type']
-    base_query = request.session['tmp_use_query']
-    base_params = request.session['tmp_node_queries']
     
     base_query = base_query.replace("RETURN ret_type", "")
     
@@ -747,11 +744,9 @@ def download(request):
     tx.append(run_query, base_params)
     res_list = tx.commit()
     
-    use_nodes = request.session['tmp_ret_nodes']
+    print len(res_list[0]), expected_count
     
-    print len(res_list[0]), request.session['tmp_expected_count']
-    
-    if request.session['tmp_expected_count'] != len(res_list[0]):
+    if expected_count != len(res_list[0]):
         raise Exception("Was not able to retrieve the expected number of results")
     
     end_query_str['handler'](map(lambda x: [x], res_list[0]), use_nodes, request)
@@ -858,73 +853,75 @@ def fullfill_node_query(request):
         
         count_coll = map(lambda x: (x[0], len(x[1])), ret_dict.items())
         
-        print count_coll
+        #this is necessary as the keys to the session were not modified
+        request.session.modified = True
         
         return HttpResponse(json.dumps({'ret_node_type':query_type['returned_node_type'], 'results':dict(count_coll)}),mimetype="application/json")
     
     except Exception as e:
         raise e
-        return HttpResponse
+        return HttpResponseServerError()
 
 
 def provide_data_for_request(request):
 
-    query_choice = request.POST["query_choice"]
-    frequency_choice = request.POST["freq_choice"]
-    returned_node_type = request.POST["ret_node_type"]
+    try:
+        
+        query_choice = request.POST["query_choice"]
+        frequency_choice = request.POST["freq_choice"]
+        returned_node_type = request.POST["ret_node_type"]
+        display_type = request.POST["display_type"]
+        
+        print display_type
+        
+        session_data = request.session['tmp_query_results'][str(query_choice)]
     
-    print query_choice
-    
-    session_data = request.session['tmp_query_results'][str(query_choice)]
-
-    ret_node_queries = session_data['ret_node_queries']
-    query_info = session_data['query_info']
-    use_query = session_data['use_query']
-    node_queries = session_data['node_queries']
-    
-    #temp_node_list will be formed from whichever frequency the user choses...
-    
-    temp_node_list = session_data['ret_dict'][frequency_choice]
-    
-    #we also need node_queries and query_info
-    
-    if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
-        if len(ret_node_queries['Gene']) > 3:
-            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
+        ret_node_queries = session_data['ret_node_queries']
+        query_info = session_data['query_info']
+        use_query = session_data['use_query']
+        node_queries = session_data['node_queries']
+        
+        #temp_node_list will be formed from whichever frequency the user choses...
+        
+        temp_node_list = session_data['ret_dict'][frequency_choice]
+        
+        #we also need node_queries and query_info
+        
+        if len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Gene'):
+            if len(ret_node_queries['Gene']) > 3:
+                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Gene'][0]['display_name'] + '...' + ret_node_queries['Gene'][-1]['display_name'])
+            else:
+                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
+        elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Subject'):
+            if len(ret_node_queries['Subject']) > 3:
+                use_title = query_info['title'].replace('$$result$$', ret_node_queries['Subject'][0]['display_name'] + '...' + ret_node_queries['Subject'][-1]['display_name'])
+            else:
+                use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Subject']), ','))
         else:
-            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Gene']), ','))
-    elif len(ret_node_queries.keys()) == 1 and ret_node_queries.has_key('Subject'):
-        if len(ret_node_queries['Subject']) > 3:
-            use_title = query_info['title'].replace('$$result$$', ret_node_queries['Subject'][0]['display_name'] + '...' + ret_node_queries['Subject'][-1]['display_name'])
+            use_title = 'ERROR: Unknown title...'
+        
+        #convert the IDs to nodes
+        
+        ret_nodes = core.get_nodes(temp_node_list, returned_node_type, request,  missing_param="skip")
+        
+        #too many nodes to render efficiently, will allow user to download csv file...
+        if display_type == "Download":
+            
+            return download(request, use_title, query_info['text'], use_query, node_queries, ret_nodes, len(temp_node_list))
+            
+            #ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
+            
         else:
-            use_title = query_info['title'].replace('$$result$$', string.joinfields(map(lambda x: x['display_name'], ret_node_queries['Subject']), ','))
-    else:
-        use_title = 'ERROR: Unknown title...'
-    
-    #convert the IDs to nodes
-    
-    ret_nodes = core.get_nodes(temp_node_list, returned_node_type, request,  missing_param="skip")
-    
-    #too many nodes to render efficiently, will allow user to download csv file...
-    if len(ret_nodes) > 2000:
         
-        request.session['tmp_title'] = use_title
+            ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
+            
+            ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
         
-        request.session['tmp_var_type'] = query_info['text']
-        request.session['tmp_use_query'] = use_query
-        request.session['tmp_node_queries'] = node_queries
-        request.session['tmp_ret_nodes'] = ret_nodes
-        request.session['tmp_expected_count'] = len(temp_node_list)
-        
-        ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
-        
-    else:
+            return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
     
-        ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
-        
-        ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
-    
-    return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
+    except Exception as e:
+        print e
+        HttpResponseServerError()
 
 def get_data (request):
     

@@ -1051,7 +1051,18 @@ function post_to_fullfill (obj)
 {
    var cur_data_val = d3.select(obj).attr("data-value")
    
-   var spin_div_ref = document.getElementById('heading'+cur_data_val.split('-')[1]);
+   var cur_elem = cur_data_val.split('-')[1]
+   
+   if($('#collapse'+cur_elem + ' > div > table').length && $('#collapse'+cur_elem + '.panel-collapse.in').length){
+      
+      $('#collapse'+cur_elem).collapse('hide');
+      
+   }else if (($('#collapse'+cur_elem + ' > div > table').length) && ($('#collapse'+cur_elem + '.panel-collapse.in').length == 0)){
+      
+      $('#collapse'+cur_elem).collapse('show');
+      
+   }else{
+      var spin_div_ref = document.getElementById('heading'+cur_data_val.split('-')[1]);
    var cur_spin = new Spinner({left:'90%', radius:5, width:3, length:5, lines:10}).spin(spin_div_ref);
     
     var post_node = {choice:cur_data_val, nodes:''};
@@ -1108,7 +1119,16 @@ function post_to_fullfill (obj)
          sort_data.sort(function(x,y){ return (y.freq - x.freq);});
          
          sort_data.forEach(function(x){
-            add_html.push('<tr><td>'+x.count+'</td><td>'+x.freq+'%</td><td><span style="cursor:pointer" onclick="provide_data('+cur_data_val.split('-')[1]+', '+x.freq+', \''+parsed_data.ret_node_type+'\')" class="badge">View</span></td></tr>')
+            
+            var display_type = "View"
+            
+            if (parseInt(x.count) > 2000){
+               
+               display_type = "Download";
+               
+            }
+            
+            add_html.push('<tr><td>'+x.count+'</td><td>'+x.freq+'%</td><td><span style="cursor:pointer" onclick="provide_data('+cur_data_val.split('-')[1]+', '+x.freq+', \''+parsed_data.ret_node_type+'\', \''+display_type+'\')" class="badge">'+display_type+'</span></td></tr>')
          })
          
          
@@ -1125,91 +1145,67 @@ function post_to_fullfill (obj)
       
       cur_spin.stop();
       
-    }, "text")
+    }, "text");
+    
+   }
+   
 }
 
-function provide_data (query_selection,freq_choice, ret_node_type){
+function provide_data (query_selection,freq_choice, ret_node_type, display_type){
    
-   console.log(ret_node_type);
+   var request_data = {'query_choice':query_selection, 'freq_choice':freq_choice, 'ret_node_type':ret_node_type, 'display_type':display_type};
    
-   var request_data = {'query_choice':query_selection, 'freq_choice':freq_choice, 'ret_node_type':ret_node_type};
+    var target = document.getElementById('network_spinner');
+    var spinner = new Spinner(spinner_opts).spin(target);
+    spinner.spin(target);
    
-    $.post("/HitWalker2/provide_data_for_request/", request_data, function(data, status, xhr)
+   if (display_type == "Download"){
+      
+      delete_popover();
+      
+      var form = document.getElementById("download_csv");
+      form['query_choice'].value = query_selection;
+      form['freq_choice'].value = freq_choice;
+      form['ret_node_type'].value = ret_node_type;
+      form['display_type'].value = display_type;
+      form.submit();
+      spinner.stop();
+   }else{
+      
+      $.post("/HitWalker2/provide_data_for_request/", request_data, function(data, status, xhr)
        {
             if (status == "success")
             {
                 //now add the nodes, etc to the overall graph
-                
-                parsed_data = JSON.parse(data);
-                
-                console.log(parsed_data.is_graph)
-                
-                if (parsed_data.is_graph == true)
-                {
-                  //if (parsed_data.graph.nodes.length == 0)
-                  //{
-                  //  
-                  //  $(obj).siblings('a.list-group-item').each(function()
-                  //                                            {
-                  //                                               $(this).popover('destroy');
-                  //                                            });
-                  //  
-                  //  var pop_content = '<p class="text-danger">Sorry, no results were found for this query.</p>';
-                  //    
-                  //  $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
-                  //    
-                  //  $(obj).popover('show');
-                  //  
-                  //  adjust_screen_right(".popover");
-                  //}
-                  //else{
-                      add_to_image(parsed_data, 'query', selected_node.keys());
-                  
-                      if (popover_ref != null)
-                      {
-                          delete_popover();
-                      }
-                  //}
-                }else{
-                  
-                     $(obj).siblings('a.list-group-item').each(function()
-                                                              {
-                                                                 $(this).popover('destroy');
-                                                              });
-                    
-                    var pop_content = '<p class="text-danger">'+parsed_data.title+'</p><a onclick=delete_popover() href="/HitWalker2/download/" class="btn btn-default">Download</button>';
-                     
-                    $(obj).popover({container:"body", html:true, placement: 'right', title:'', content:pop_content, trigger:"manual"});
-                      
-                    $(obj).popover('show');
-                    
-                    adjust_screen_right(".popover");
-                  
-                }
-                
+               
+               parsed_data = JSON.parse(data);
+             
+               add_to_image(parsed_data, 'query', selected_node.keys());
+           
+               if (popover_ref != null)
+               {
+                   delete_popover();
+               }
                
             }
             else
             {
                 console.log(status);
             }
-            
-            spinner.stop();
+        
+        spinner.stop();
         
        }, "text")
     .fail(function()
           {
             spinner.stop();
             
-            var pop_content = '<p class="text-danger">Sorry, An error has occured while executing this query.</p>';
-                      
-            $(obj).popover({container:"body", html:true, placement: 'right', title:'Query Error', content:pop_content, trigger:"manual"});
-              
-            $(obj).popover('show');
-            
-            adjust_screen_right(".popover");
+            $('<p class="text-danger">Sorry, An error has occured while executing this query.</p>').insertBefore("#pg1");
             
           });
+   }
+   
+    
 }
 
 
