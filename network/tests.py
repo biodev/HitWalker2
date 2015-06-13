@@ -33,14 +33,19 @@ test_cypher_session = "http://localhost:7474"
 class NodeSelectors(object):
     
     _selector=""
+    _text_selector=""
     
     def selector(self):
         return self._selector
+    
+    def text_selector(self):
+        return self._text_selector;
 
 class SingleMetaNodeSelector(NodeSelectors):
     
     def __init__(self):
-        self._selector = "g > circle.MetaNode"
+        self._selector = "g.node > circle.MetaNode"
+        self._text_selector = "g.labelNode > text"
 
 class HitWalkerInteraction(object):
     
@@ -74,6 +79,21 @@ class HitWalkerInteraction(object):
         node_move.click()
         
         node_move.context_click(cur_node).perform()
+
+    def get_metanode_attrs(self, panel, node_sel):
+        cur_node = panel.find_element_by_css_selector(node_sel.selector())
+        
+        text = panel.find_element_by_css_selector(node_sel.text_selector()).text
+        
+        #for a metanode text should be of the form:
+        #type (count)
+        
+        children = cur_node.find_elements_by_css_selector(node_sel.selector() + " + g > circle")
+        
+        
+        
+        #return {'type':, 'count':, 'children':}
+            
 
 #@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
@@ -140,10 +160,52 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
         
-        for i in ['Expression', 'GeneScore', 'Variants']:
-            self.driver.find_element_by_css_selector("a:contains('"+i+"')").click()
+        datatype_divs = self.driver.find_elements_by_css_selector("#pg1 > div.panel.panel-default")
         
-        time.sleep(5)
+        for i in datatype_divs:
+            cur_link = i.find_element_by_css_selector("div > h4 > a")
+            link_text = cur_link.text
+            cur_link.click()
+            #wait until table appears
+            element = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR,"#"+i.get_attribute("id") + " > div > div > table"))
+            )
+            #Assuming table is of the form: Genes/Subjects, Frequency, View/Download statements
+            cur_table = []
+            tab_row = element.find_elements_by_css_selector("tbody > tr")
+            
+            for i in tab_row:
+                temp_row = map(lambda x: x.text,i.find_elements_by_tag_name("td"))
+                cur_table.append(temp_row)
+            
+            #try to cross check these numbers using a serialized HWConfig instance via Rserve and the getFrequency method
+            
+            #assuming they check out, press the View/Download button and check the results
+            
+            link_badge = tab_row.find_element_by_css_selector("td:nth-of-type(3) > span")
+            
+            meta_attrs = []
+            
+            #for View the resulting metanode should agree with the value in the 'Genes/Subjects' column
+            if link_badge.text == "View":
+                link_badge.click()
+                panel_2 = hw_obj.to_panel("2")
+                meta_attrs = hw_obj.get_metanode_attrs(panel_2, SingleMetaNodeSelector())
+                
+            elif link_badge.text == "Download":
+                #for Download the resulting file should agree with the getDataFile method
+                print 'is a download'
+            else:
+                self.assertTrue(False)
+            
+            
+            
+           
+            
+            print link_text
+            print cur_table
+            
+            time.sleep(5)
     
     #def test_metanode_subsetting(self):
     #    
