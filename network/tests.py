@@ -30,6 +30,18 @@ from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
 
+class SelectedNodes(object):
+    
+    _display_names = []
+    _css_classes = []
+    _child_classes = []
+    
+    def __init__(self, sel_obj):
+        #display names would come from the text fields
+        #css classes would come from the node obj itself
+        #child classes would be the subcircles (if any)
+        print 'in progress'
+
 class NodeSelectors(object):
     
     _selector=""
@@ -72,6 +84,7 @@ class HitWalkerInteraction(object):
             )
     
     def select_context_node(self, panel, node_sel):
+        
         cur_node = panel.find_element_by_css_selector(node_sel.selector())
         
         node_move = webdriver.ActionChains(self.driver).move_to_element(cur_node)
@@ -81,6 +94,7 @@ class HitWalkerInteraction(object):
         node_move.context_click(cur_node).perform()
 
     def get_metanode_attrs(self, panel, node_sel):
+        
         cur_node = panel.find_element_by_css_selector(node_sel.selector())
         
         text = panel.find_element_by_css_selector(node_sel.text_selector()).text
@@ -88,12 +102,13 @@ class HitWalkerInteraction(object):
         #for a metanode text should be of the form:
         #type (count)
         
+        split_text = re.findall("(\w+)\\s+\((\d+)\)", text)
+        
+        return {'type':split_text[0], 'count':int(split_text[1])}
+    
+    def get_metanode_children(self, panel, node_sel):
+        
         children = cur_node.find_elements_by_css_selector(node_sel.selector() + " + g > circle")
-        
-        
-        
-        #return {'type':, 'count':, 'children':}
-            
 
 #@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
@@ -128,28 +143,6 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.driver.quit()
     
     
-    #def test_large_downloads(self):
-    #    
-    #    self.skipTest('not quite to this test yet')
-    #    self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
-    #    self.driver.find_element_by_css_selector(".select2-choice").click()
-    #    self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("103051")
-    #    self.driver.find_element_by_css_selector(".select2-result-label").click()
-    #    self.driver.find_element_by_css_selector("#query").click()
-    #    time.sleep(10)
-    #    #check click events
-    #    
-    #    use_panel = self.driver.find_element_by_css_selector(".Subject~circle")
-    #    
-    #    #to go into the pathway view
-    #    webdriver.ActionChains(self.driver).move_to_element(use_panel).click(use_panel).context_click(use_panel).perform()
-    #    
-    #    self.driver.find_element_by_css_selector('a.list-group-item[data-value="Subject-0"]').click()
-    #    
-    #    self.driver.find_element_by_css_selector('a[href="/HitWalker2/download/"]').click()
-    #    
-    #    time.sleep(20)
-    
     def test_metanode_querying(self):
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
@@ -174,29 +167,35 @@ class BasicSeleniumTests(LiveServerTestCase):
             cur_table = []
             tab_row = element.find_elements_by_css_selector("tbody > tr")
             
+            #need to do each chunk of selecting at a single time otherwise get a stale reference exception
             for i in tab_row:
                 temp_row = map(lambda x: x.text,i.find_elements_by_tag_name("td"))
                 cur_table.append(temp_row)
             
-            #try to cross check these numbers using a serialized HWConfig instance via Rserve and the getFrequency method
-            
-            #assuming they check out, press the View/Download button and check the results
-            
-            link_badge = tab_row.find_element_by_css_selector("td:nth-of-type(3) > span")
-            
-            meta_attrs = []
-            
-            #for View the resulting metanode should agree with the value in the 'Genes/Subjects' column
-            if link_badge.text == "View":
-                link_badge.click()
-                panel_2 = hw_obj.to_panel("2")
-                meta_attrs = hw_obj.get_metanode_attrs(panel_2, SingleMetaNodeSelector())
+                #try to cross check these numbers using a serialized HWConfig instance via Rserve and the getFrequency method
                 
-            elif link_badge.text == "Download":
-                #for Download the resulting file should agree with the getDataFile method
-                print 'is a download'
-            else:
-                self.assertTrue(False)
+                #assuming they check out, press the View/Download button and check the results
+                
+                link_badge = i.find_element_by_css_selector("td:nth-of-type(3) > span")
+                
+                meta_attrs = []
+                
+                #for View the resulting metanode should agree with the value in the 'Genes/Subjects' column
+                if link_badge.text == "View":
+                    link_badge.click()
+                    panel_2 = hw_obj.to_panel("2")
+                    print temp_row[0]
+                    if int(temp_row[0]) > 1:
+                        meta_attrs = hw_obj.get_metanode_attrs(panel_2, SingleMetaNodeSelector())
+                        self.assertTrue(int(temp_row[0]) == meta_attrs['count'])
+                        #should also get a hold of the children names, types etc and compare with the R result
+                    #otherwise it will be a Subject/Gene node
+                    
+                elif link_badge.text == "Download":
+                    #for Download the resulting file should agree with the getDataFile method
+                    print 'is a download'
+                else:
+                    self.assertTrue(False)
             
             
             
@@ -204,8 +203,6 @@ class BasicSeleniumTests(LiveServerTestCase):
             
             print link_text
             print cur_table
-            
-            time.sleep(5)
     
     #def test_metanode_subsetting(self):
     #    
