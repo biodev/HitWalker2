@@ -36,9 +36,9 @@ class RTestSession(object):
     def __init__(self):
         self._conn = pyRserve.connect()
         self._conn.voidEval('library(hwhelper)')
-        self._conn.voidEval('source("'+config.test_methods_path+'")')
         self._conn.voidEval('load("'+config.hw_config_path+'")')
         self._conn.voidEval('assign("hw2_obj", get(ls()))')
+        self._conn.voidEval('source("'+config.test_methods_path+'")')
         
     def getConn(self):
         return self._conn
@@ -221,14 +221,20 @@ class BasicSeleniumTests(LiveServerTestCase):
         if r_obj != None:
             print 'r object exists! testing...'
             
+            print table_dict
+            
             for i in table_dict.items():
                 
                 print i
                 
                 if i[0] != '':
-                
+                    
+                    print r_obj.getConn().eval('class(hw2_obj)')
+                    
                     dta = r_obj.getConn().r.getFrequency(r_obj.getConn().ref.hw2_obj, i[0], 'liver', 'Subject_Category')
-                
+                    
+                    print dta
+                    
                     if isinstance(dta, pyRserve.TaggedList):
                         
                         for j_ind, j in enumerate(i[1]):
