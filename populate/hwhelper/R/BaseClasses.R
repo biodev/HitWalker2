@@ -13,6 +13,18 @@ setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 
+#' Testing Generics
+#'
+#' These methods are used for testing the Neo4j database and defined cypher queries as well as the web front end
+#'
+#' @name test_helpers
+NULL
+
+#' @rdname test_helpers
+#' @param obj An object of class \code{HW2Config} or \code{NeoData}
+#' @param ... Additional values to pass to the method such as the name of a datatype defined in \code{obj}
+setGeneric("getFrequency", def=function(obj,...) standardGeneric("getFrequency"))
+
 #' Class Helper Functions
 #'
 #' These functions are the preferred way to initialize the classes defined in \code{hwhelper}

@@ -26,9 +26,22 @@ import time
 import bs4
 import subprocess
 import sys
+import pyRserve
 from py2neo import neo4j, cypher
 
 test_cypher_session = "http://localhost:7474"
+
+class RTestSession(object):
+    
+    def __init__(self):
+        self._conn = pyRserve.connect()
+        self._conn.voidEval('library(hwhelper)')
+        self._conn.voidEval('source("'+config.test_methods_path+'")')
+        self._conn.voidEval('load("'+config.hw_config_path+'")')
+        self._conn.voidEval('assign("hw2_obj", get(ls()))')
+        
+    def getConn(self):
+        return self._conn
 
 class SelectedNodes(object):
     
@@ -142,8 +155,35 @@ class BasicSeleniumTests(LiveServerTestCase):
     def tearDown(self):
         self.driver.quit()
     
+    #def test_metanode_query_click(self):
+    #    print 'hello'
+        #try to cross check these numbers using a serialized HWConfig instance via Rserve and the getFrequency method
+                
+            #assuming they check out, press the View/Download button and check the results
+            
+            #link_badge = i.find_element_by_css_selector("td:nth-of-type(3) > span")
+            #
+            #meta_attrs = []
+            #
+            ##for View the resulting metanode should agree with the value in the 'Genes/Subjects' column
+            #if link_badge.text == "View":
+            #    link_badge.click()
+            #    panel_2 = hw_obj.to_panel("2")
+            #    print temp_row[0]
+            #    if int(temp_row[0]) > 1:
+            #        meta_attrs = hw_obj.get_metanode_attrs(panel_2, SingleMetaNodeSelector())
+            #        self.assertTrue(int(temp_row[0]) == meta_attrs['count'])
+            #        #should also get a hold of the children names, types etc and compare with the R result
+            #    #otherwise it will be a Subject/Gene node
+            #    
+            #elif link_badge.text == "Download":
+            #    #for Download the resulting file should agree with the getDataFile method
+            #    print 'is a download'
+            #else:
+            #    self.assertTrue(False)
+        
     
-    def test_metanode_querying(self):
+    def test_metanode_query_table(self):
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
         
@@ -155,6 +195,8 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         datatype_divs = self.driver.find_elements_by_css_selector("#pg1 > div.panel.panel-default")
         
+        table_dict = {}
+        
         for i in datatype_divs:
             cur_link = i.find_element_by_css_selector("div > h4 > a")
             link_text = cur_link.text
@@ -164,46 +206,43 @@ class BasicSeleniumTests(LiveServerTestCase):
             EC.presence_of_element_located((By.CSS_SELECTOR,"#"+i.get_attribute("id") + " > div > div > table"))
             )
             #Assuming table is of the form: Genes/Subjects, Frequency, View/Download statements
+            
             cur_table = []
             tab_row = element.find_elements_by_css_selector("tbody > tr")
             
             #need to do each chunk of selecting at a single time otherwise get a stale reference exception
             for i in tab_row:
-                temp_row = map(lambda x: x.text,i.find_elements_by_tag_name("td"))
-                cur_table.append(temp_row)
+                temp_row = tuple(map(lambda x: x.text,i.find_elements_by_tag_name("td")))
+                cur_table.append(temp_row[:2])
             
-                #try to cross check these numbers using a serialized HWConfig instance via Rserve and the getFrequency method
-                
-                #assuming they check out, press the View/Download button and check the results
-                
-                link_badge = i.find_element_by_css_selector("td:nth-of-type(3) > span")
-                
-                meta_attrs = []
-                
-                #for View the resulting metanode should agree with the value in the 'Genes/Subjects' column
-                if link_badge.text == "View":
-                    link_badge.click()
-                    panel_2 = hw_obj.to_panel("2")
-                    print temp_row[0]
-                    if int(temp_row[0]) > 1:
-                        meta_attrs = hw_obj.get_metanode_attrs(panel_2, SingleMetaNodeSelector())
-                        self.assertTrue(int(temp_row[0]) == meta_attrs['count'])
-                        #should also get a hold of the children names, types etc and compare with the R result
-                    #otherwise it will be a Subject/Gene node
-                    
-                elif link_badge.text == "Download":
-                    #for Download the resulting file should agree with the getDataFile method
-                    print 'is a download'
-                else:
-                    self.assertTrue(False)
-            
-            
-            
+            table_dict[link_text] = cur_table
            
+        
+        if r_obj != None:
+            print 'r object exists! testing...'
             
-            print link_text
-            print cur_table
-    
+            for i in table_dict.items():
+                
+                print i
+                
+                if i[0] != '':
+                
+                    dta = r_obj.getConn().r.getFrequency(r_obj.getConn().ref.hw2_obj, i[0], 'liver', 'Subject_Category')
+                
+                    if isinstance(dta, pyRserve.TaggedList):
+                        
+                        for j_ind, j in enumerate(i[1]):
+                            if j[0] != '':
+                                self.assertEqual(int(j[0]), dta['Genes'][j_ind])
+                                self.assertEqual(str(j[1]), str(dta['Frequency'][j_ind]))
+                        
+                    else:
+                        print 'skipping test for '+i[0]+' due to invalid returned object'
+            
+        else:
+            print 'r object does not exist... skipping tests'
+            
+            
     #def test_metanode_subsetting(self):
     #    
     #    ##NOTE: Make sure to replace liver with another subject attr
@@ -467,6 +506,11 @@ test_params = {
                         }
 }
 
+try:
+
+    r_obj = RTestSession()
+except:
+    r_obj = None
 
 class Test_views(TestCase):
     
