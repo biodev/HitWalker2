@@ -172,12 +172,18 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         for i in datatype_divs:
             cur_link = i.find_element_by_css_selector("div > h4 > a")
+            
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", cur_link);
+            
             link_text = cur_link.text
             cur_link.click()
             #wait until table appears
             element = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR,"#"+i.get_attribute("id") + " > div > div > table"))
+                EC.presence_of_element_located((By.CSS_SELECTOR,"#"+i.get_attribute("id") + " > div > div > table"))
             )
+            
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element);
+            
             #Assuming table is of the form: Genes/Subjects, Frequency, View/Download statements
             
             cur_table = []
@@ -198,18 +204,44 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         found_tables = self.get_metanode_query_tables()
         
+        print found_tables
+        
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
         
         panel_1 = hw_obj.to_panel("1")
         
-        panel_1.click()
+        empty_portion_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(panel_1, 0, 0).click().perform()
         
         for i_ind, i in enumerate(found_tables.items()):
             for j_ind, j in enumerate(i[1]):
+                
+                print j,j_ind
+                
                 panel_1 = hw_obj.to_panel("1")
                 hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
                 #need to click the link here...
-                self.driver.find_element_by_css_selector("#pg1 > div.panel.panel-default:nth-of-type("+str(i_ind+1)+") span:nth-of-type("+str(j_ind+1)+")").click()
+                
+                self.driver.find_element_by_css_selector("#pg1 a:nth-of-type("+str(i_ind+1)+")").click()
+               
+                element = WebDriverWait(self.driver, 20).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR,"#pg1 > div.panel.panel-default:nth-of-type("+str(i_ind+1)+") table"))
+                )
+                
+                #this just makes sure that everything is able to be clicked (assuming they are ready when one of them is...)
+                span_el = WebDriverWait(element, 20).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR,"span"))
+                )
+                
+                all_spans = element.find_elements_by_css_selector("span")
+                
+                all_spans[j_ind].click()
+                
+                #check the retrieved metanode
+                
+                #delete the new panel
+                
+                time.sleep(5)
+                
         
     #    print table_sizes
             #assuming they check out, press the View/Download button and check the results
