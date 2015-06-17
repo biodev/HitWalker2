@@ -1,3 +1,56 @@
+#These generics should be added to hwhelper
+setGeneric("subjectAttrs", def=function(obj,...) standardGeneric("subjectAttrs"))
+setGeneric("subjectSubset", def=function(obj,...) standardGeneric("subjectSubset"))
+
+#returns a vector of subject names in prinical to be part of a given metanode
+setMethod("subjectSubset", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
+  
+    subj <- obj@subject
+    
+    subset_type = match.arg(subset_type)
+    
+    if (subset_type == "Subject_Category"){
+        
+        which.subset <- apply(subj@subject.info[,-c(1:2)] == subset, 1, any)
+        
+        use.subjs <- subj@subject.info[which.subset,1]
+        
+    }else{
+        
+        use.subjs <- subset
+    }
+    
+    return (use.subjs)
+})
+
+setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
+    
+    use.subjs <- subjectSubset(obj, subset, subset_type)
+    
+    sub.info <- obj@subject@subject.info
+    
+    sub.info <- sub.info[sub.info[,1] %in% use.subjs,]
+    
+    if (ncol(sub.info) > 2){
+        
+        melt.sub <- melt(measure.vars=names(sub.info)[3:ncol(sub.info)], data=sub.info[,3:ncol(sub.info), drop=F],as.is=T)
+        
+        melt.sub$count <- 1
+        
+        sum.tab <- aggregate(count~variable+value, sum, data=melt.sub)
+        
+        names(sum.tab) <- c("Type", "Value", "Count")
+        
+        sum.tab$Type <- as.character(sum.tab$Type)
+        
+        return(sum.tab)
+        
+    }else{
+        return(data.frame(Type=character(), Value=character(), Count=character(), stringsAsFactors=F))
+    }
+    
+})
+
 setMethod("getFrequency", signature("HW2Config"), function(obj,datatype, subset, subset_type=c("Subject", "Subject_Category", "Gene")){
     
     #should probably add this to the class definition and have it populated using addSamples<-

@@ -28,6 +28,7 @@ import subprocess
 import sys
 import pyRserve
 from py2neo import neo4j, cypher
+import numpy as np
 
 test_cypher_session = "http://localhost:7474"
 
@@ -102,7 +103,15 @@ class HitWalkerInteraction(object):
         )
         
         del_button.click()
+    
+    def get_metanode(self, panel_num, node_sel):
         
+        cur_panel = self.to_panel(panel_num)
+        
+        return WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR,node_sel.selector()))
+            )
+    
     def to_panel(self, panel_num):
     
         return WebDriverWait(self.driver, 20).until(
@@ -231,137 +240,80 @@ class BasicSeleniumTests(LiveServerTestCase):
             
         return table_dict
     
-    #"#pg1 > div.panel.panel-default:nth-of-type(1) span"
-    
-    def test_metanode_query_click(self):
-        
-        found_tables = self.get_metanode_query_tables()
-        
-        print found_tables
-        
-        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-        
-        panel_1 = hw_obj.to_panel("1")
-        
-        empty_portion_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(panel_1, 0, 0).click().perform()
-        
-        cur_panel = 1
-        
-        for i_ind, i in enumerate(found_tables.items()):
-            for j_ind, j in enumerate(i[1]):
-                
-                print i
-                
-                panel_1 = hw_obj.to_panel("1")
-                hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
-                #need to click the link here...
-                
-                all_links = self.driver.find_elements_by_css_selector("#pg1 a")
-                
-                all_links[i_ind].click()
-               
-                element = WebDriverWait(self.driver, 20).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR,"#pg1 > div.panel.panel-default table"))
-                )
-                
-                #this just makes sure that everything is able to be clicked (assuming they are ready when one of them is...)
-                span_el = WebDriverWait(element, 20).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR,"span"))
-                )
-                
-                all_spans = element.find_elements_by_css_selector("span")
-                
-                all_spans[j_ind].click()
-                
-                cur_panel += 1
-                
-                result_panel = WebDriverWait(self.driver, 20).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR,"g.g1[id='panel_"+str(cur_panel)+"']"))
-                )
-                
-                #check the retrieved metanode against the results from the table
-                
-                if j[0] != '' and int(j[0]) > 1:
-                
-                    attrs = hw_obj.get_metanode_attrs(result_panel, SingleMetaNodeSelector())
-                    
-                    print attrs
-                    print j, j_ind
-                    
-                    self.assertTrue(attrs['type'] == 'Gene')
-                    
-                    if j[0] != '':
-                    
-                        self.assertTrue(attrs['count'] == int(j[0]))
-                        self.assertTrue(hw_obj.count_metanode_children(cur_panel, SingleMetaNodeSelector()) == attrs['count'])
-                elif j[0] != '':
-                    self.assertTrue(hw_obj.count_nodes(cur_panel, "Gene") == 1)
-                    
-                #delete the new panel
-                
-                hw_obj.delete_panel(cur_panel)
-               
-                
-        
-    #    print table_sizes
-            #assuming they check out, press the View/Download button and check the results
-            #
-            #link_badge = i.find_element_by_css_selector("td:nth-of-type(3) > span")
-            #
-            #meta_attrs = []
-            #
-            ##for View the resulting metanode should agree with the value in the 'Genes/Subjects' column
-            #if link_badge.text == "View":
-            #    link_badge.click()
-            #    panel_2 = hw_obj.to_panel("2")
-            #    print temp_row[0]
-            #    if int(temp_row[0]) > 1:
-            #        meta_attrs = hw_obj.get_metanode_attrs(panel_2, SingleMetaNodeSelector())
-            #        self.assertTrue(int(temp_row[0]) == meta_attrs['count'])
-            #        #should also get a hold of the children names, types etc and compare with the R result
-            #    #otherwise it will be a Subject/Gene node
-            #    
-            #elif link_badge.text == "Download":
-            #    #for Download the resulting file should agree with the getDataFile method
-            #    print 'is a download'
-            #else:
-            #    self.assertTrue(False)
-        
-    
-    #def test_metanode_query_table(self):
+    #def test_metanode_query_click(self):
+    #    
+    #    found_tables = self.get_metanode_query_tables()
+    #    
+    #    print found_tables
     #    
     #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
     #    
-    #    hw_obj.panel_by_query("@liver")
-    #    
     #    panel_1 = hw_obj.to_panel("1")
     #    
-    #    hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
+    #    empty_portion_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(panel_1, 0, 0).click().perform()
     #    
-    #    datatype_divs = self.driver.find_elements_by_css_selector("#pg1 > div.panel.panel-default")
+    #    cur_panel = 1
     #    
-    #    table_dict = {}
+    #    for i_ind, i in enumerate(found_tables.items()):
+    #        for j_ind, j in enumerate(i[1]):
+    #            
+    #            print i
+    #            
+    #            panel_1 = hw_obj.to_panel("1")
+    #            hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
+    #            #need to click the link here...
+    #            
+    #            all_links = self.driver.find_elements_by_css_selector("#pg1 a")
+    #            
+    #            all_links[i_ind].click()
+    #           
+    #            element = WebDriverWait(self.driver, 20).until(
+    #                EC.presence_of_element_located((By.CSS_SELECTOR,"#pg1 > div.panel.panel-default table"))
+    #            )
+    #            
+    #            #this just makes sure that everything is able to be clicked (assuming they are ready when one of them is...)
+    #            span_el = WebDriverWait(element, 20).until(
+    #                EC.element_to_be_clickable((By.CSS_SELECTOR,"span"))
+    #            )
+    #            
+    #            all_spans = element.find_elements_by_css_selector("span")
+    #            
+    #            all_spans[j_ind].click()
+    #            
+    #            cur_panel += 1
+    #            
+    #            #TODO: Need to deal with the 'Download' possibility
+    #            
+    #            result_panel = WebDriverWait(self.driver, 20).until(
+    #                EC.element_to_be_clickable((By.CSS_SELECTOR,"g.g1[id='panel_"+str(cur_panel)+"']"))
+    #            )
+    #            
+    #            #check the retrieved metanode against the results from the table
+    #            
+    #            if j[0] != '' and int(j[0]) > 1:
+    #            
+    #                attrs = hw_obj.get_metanode_attrs(result_panel, SingleMetaNodeSelector())
+    #                
+    #                print attrs
+    #                print j, j_ind
+    #                
+    #                self.assertTrue(attrs['type'] == 'Gene')
+    #                
+    #                if j[0] != '':
+    #                
+    #                    self.assertTrue(attrs['count'] == int(j[0]))
+    #                    self.assertTrue(hw_obj.count_metanode_children(cur_panel, SingleMetaNodeSelector()) == attrs['count'])
+    #            elif j[0] != '':
+    #                self.assertTrue(hw_obj.count_nodes(cur_panel, "Gene") == 1)
+    #                
+    #            #delete the new panel
+    #            
+    #            hw_obj.delete_panel(cur_panel)
     #    
-    #    for i in datatype_divs:
-    #        cur_link = i.find_element_by_css_selector("div > h4 > a")
-    #        link_text = cur_link.text
-    #        cur_link.click()
-    #        #wait until table appears
-    #        element = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.CSS_SELECTOR,"#"+i.get_attribute("id") + " > div > div > table"))
-    #        )
-    #        #Assuming table is of the form: Genes/Subjects, Frequency, View/Download statements
-    #        
-    #        cur_table = []
-    #        tab_row = element.find_elements_by_css_selector("tbody > tr")
-    #        
-    #        #need to do each chunk of selecting at a single time otherwise get a stale reference exception
-    #        for i in tab_row:
-    #            temp_row = tuple(map(lambda x: x.text,i.find_elements_by_tag_name("td")))
-    #            cur_table.append(temp_row[:2])
-    #        
-    #        table_dict[link_text] = cur_table
-    #       
+    
+    #def test_metanode_query_table(self):
+    #    
+    #    table_dict = self.get_metanode_query_tables()
     #    
     #    if r_obj != None:
     #        print 'r object exists! testing...'
@@ -394,102 +346,136 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        print 'r object does not exist... skipping tests'
     #        
             
-    #def test_metanode_subsetting(self):
-    #    
-    #    ##NOTE: Make sure to replace liver with another subject attr
-    #    
-    #    self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
-    #    self.driver.find_element_by_css_selector(".select2-choice").click()
-    #    self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
-    #    self.driver.find_element_by_css_selector(".select2-result-label").click()
-    #    
-    #    element = WebDriverWait(self.driver, 20).until(
-    #        EC.element_to_be_clickable((By.ID, "query"))
-    #    )
-    #    
-    #    element.click()
-    #    
-    #    panel_1 = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.ID,"panel_1"))
-    #    )
-    #    
-    #    liver_meta = panel_1.find_element_by_css_selector("g > circle.MetaNode")
-    #    
-    #    webdriver.ActionChains(self.driver).move_to_element(liver_meta).context_click(liver_meta).perform()
-    #    
-    #    first_button = self.driver.find_element_by_css_selector("#summary_table > tbody > tr > td > span")
-    #    
-    #    first_button.click()
-    #    
-    #    #then limit the second metanode by another feature
-    #    
-    #    panel_2 = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.ID,"panel_2"))
-    #    )
-    #    
-    #    p2_meta = panel_2.find_element_by_css_selector("g > circle.MetaNode")
-    #    
-    #    webdriver.ActionChains(self.driver).move_to_element(p2_meta).context_click(p2_meta).perform()
-    #    
-    #    avail_buttons = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
-    #    
-    #    expected_subset_len = int(avail_buttons[-1].get_attribute("innerHTML"))
-    #    
-    #    avail_buttons[-1].click()
-    #    
-    #    panel_3 = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.ID,"panel_3"))
-    #    )
-    #    
-    #    meta_node = panel_3.find_elements_by_css_selector("g > circle.MetaNode")
-    #    
-    #    #there should only be a single metanode on the panel
-    #    
-    #    self.assertTrue(len(meta_node) == 1)
-    #    
-    #    #count the number of nodes in the metanode and check that against the tag from above
-    #    
-    #    samp_nodes = panel_3.find_elements_by_css_selector("g > g > circle.Subject")
-    #    
-    #    samp_node_len = len(samp_nodes)
-    #    
-    #    self.assertTrue(samp_node_len == expected_subset_len)
-    #    
-    #    #also by node selection
-    #    
-    #    webdriver.ActionChains(self.driver).move_to_element(meta_node[0]).context_click(meta_node[0]).perform()
-    #    
-    #    self.driver.find_element_by_css_selector(".select2-input").click()
-    #    all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
-    #    
-    #    all_lis[0].click()
-    #    
-    #    self.driver.find_element_by_css_selector(".select2-input").click()
-    #    all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
-    #    
-    #    all_lis[-1].click()
-    #    
-    #    self.driver.find_element_by_css_selector("#subset_samp_button").click()
-    #    
-    #    panel_4 = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.ID,"panel_4"))
-    #    )
-    #    
-    #    meta_node = panel_4.find_elements_by_css_selector("g > circle.MetaNode")
-    #    
-    #    #there should only be a single metanode on the panel
-    #    
-    #    self.assertTrue(len(meta_node) == 1)
-    #    
-    #    #count the number of nodes in the metanode and check that against the tag from above
-    #    
-    #    samp_nodes = panel_4.find_elements_by_css_selector("g > g > circle.Subject")
-    #    
-    #    self.assertTrue(len(samp_nodes)==2)
-    #   
-    #    #self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("@liver")
-    #    #self.driver.find_element_by_css_selector(".select2-result-label").click()
-    #
+    def test_metanode_subsetting(self):
+        
+        ##NOTE: Make sure to replace liver with another subject attr
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+        
+        hw_obj.panel_by_query("@liver")
+        
+        cur_meta = hw_obj.get_metanode("1", SingleMetaNodeSelector())
+        
+        webdriver.ActionChains(self.driver).move_to_element(cur_meta).context_click(cur_meta).perform()
+        
+        #first the subset spans, check the numbers versus the data in R
+        
+        trs = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr")
+        
+        cur_th = ""
+        
+        ret_table = []
+        
+        for i in trs:
+            try:
+                cur_th = i.find_element_by_css_selector("th").text
+            except Exception as e:
+                pass
+            
+            cur_row = [cur_th]
+            
+            cur_row.extend(map(lambda x: x.text, i.find_elements_by_css_selector("td")))
+            
+            ret_table.append(cur_row)
+        
+        print ret_table
+        
+        if r_obj != None:
+            print 'r object exists! testing...'
+            
+            dta = r_obj.getConn().r.subjectAttrs(r_obj.getConn().ref.hw2_obj, 'liver', 'Subject_Category')
+            
+            print dta
+            
+            for i in ret_table:
+                if i[1].endswith("..."):
+                    
+                    find_str = i[1].replace(" ...", "")
+                    val_ind = np.where(np.char.find(np.char.capitalize(dta['Value']), find_str) > -1)
+                    
+                else:
+                    val_ind = np.where(np.char.capitalize(dta['Value']) == i[1])
+                
+                type_ind = np.where(dta['Type'] == i[0])
+                
+                common_ind = set(val_ind[0]).intersection(set(type_ind[0]))
+                
+                if len(common_ind) > 0:
+                    
+                    self.assertTrue(int(dta['Count'][common_ind.pop()]) == int(i[2]))
+                
+                else:
+                    print 'common index not found: ' + str(val_ind) + str(type_ind)
+                    self.assertTrue(False)
+                
+            
+        else:
+            print 'r object does not exist, skipping r tests'
+        
+        #then perform several subsets and check them relative to the span text
+        
+        subset_spans = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
+        
+        #just the first for now
+        
+        first_span_size = int(subset_spans[0].text)
+        
+        subset_spans[0].click()
+        
+        #check the metanode size by the value in the span element
+        
+        p2_meta_count = hw_obj.count_metanode_children("2", SingleMetaNodeSelector())
+        
+        self.assertTrue(first_span_size == p2_meta_count)
+        
+        #then limit the second metanode by another feature
+        
+        p2_meta = hw_obj.get_metanode("2", SingleMetaNodeSelector())
+        
+        webdriver.ActionChains(self.driver).move_to_element(p2_meta).context_click(p2_meta).perform()
+        
+        second_spans = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
+        
+        second_span_size = int(second_spans[-1].text)
+        
+        second_spans[-1].click()
+        
+        p3_meta_count = hw_obj.count_metanode_children("3", SingleMetaNodeSelector())
+        
+        self.assertTrue(second_span_size == p3_meta_count)
+        
+        #now do the single/multiple node select box which should be the actual names back on the first panel
+        
+        cur_meta = hw_obj.get_metanode("1", SingleMetaNodeSelector())
+        
+        webdriver.ActionChains(self.driver).move_to_element(cur_meta).context_click(cur_meta).perform()
+        
+        self.driver.find_element_by_css_selector(".select2-input").click()
+        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
+        
+        select_text = map(lambda x: str(x.text), all_lis)
+        
+        subj_names = r_obj.getConn().r.subjectSubset(r_obj.getConn().ref.hw2_obj, 'liver', 'Subject_Category')
+        
+        self.assertListEqual(sorted(select_text), sorted(subj_names))
+        
+        all_lis[0].click()
+        
+        self.driver.find_element_by_css_selector(".select2-input").click()
+        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
+        
+        all_lis[-1].click()
+       
+        self.driver.find_element_by_css_selector("#subset_samp_button").click()
+        
+        #there should only be a single metanode on the panel with 2 children
+        
+        p4_meta_count = hw_obj.count_metanode_children("4", SingleMetaNodeSelector())
+        
+        self.assertTrue(p4_meta_count == 2)
+        
+        
+        
     #def test_gene_addition(self):
     #    self.skipTest('not quite to this test yet')
     #    
