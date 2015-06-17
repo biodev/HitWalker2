@@ -89,12 +89,30 @@ class HitWalkerInteraction(object):
         )
         
         element.click()
+    
+    def delete_panel(self, panel_num):
+        rm_panel = self.to_panel(panel_num)
+        
+        to_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(rm_panel, 1, 100)
+        
+        to_panel.context_click().perform()
+        
+        del_button = WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "div.popover-content > div > div > div > div:nth-of-type(1) > button"))
+        )
+        
+        del_button.click()
         
     def to_panel(self, panel_num):
     
         return WebDriverWait(self.driver, 20).until(
-                EC.presence_of_element_located((By.ID,"panel_"+panel_num))
+                EC.element_to_be_clickable((By.ID,"panel_"+str(panel_num)))
             )
+    
+    #to find all panels
+                #panels = self.driver.find_elements_by_css_selector("g.g1[id^='panel_']")
+                #
+                #panel_nums = map(lambda x:x.get_attribute("id").replace("panel_",""),panels)
     
     def select_context_node(self, panel, node_sel):
         
@@ -110,18 +128,33 @@ class HitWalkerInteraction(object):
         
         cur_node = panel.find_element_by_css_selector(node_sel.selector())
         
-        text = panel.find_element_by_css_selector(node_sel.text_selector()).text
+        text_els = panel.find_elements_by_css_selector(node_sel.text_selector())
+        
+        #should be the second one
+        
+        text = text_els[1].text
         
         #for a metanode text should be of the form:
         #type (count)
         
         split_text = re.findall("(\w+)\\s+\((\d+)\)", text)
         
-        return {'type':split_text[0], 'count':int(split_text[1])}
+        return {'type':split_text[0][0], 'count':int(split_text[0][1])}
     
-    def get_metanode_children(self, panel, node_sel):
+    def count_nodes(self, panel, node_type):
+        count_panel = self.to_panel(panel)
         
-        children = cur_node.find_elements_by_css_selector(node_sel.selector() + " + g > circle")
+        nodes = count_panel.find_elements_by_css_selector("g > circle."+node_type)
+        
+        return len(nodes)
+    
+    def count_metanode_children(self, panel, node_sel):
+        
+        count_panel = self.to_panel(panel)
+        
+        children = count_panel.find_elements_by_css_selector(node_sel.selector() + " ~ g > circle")
+        
+        return len(children)
 
 #@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
@@ -168,7 +201,7 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         datatype_divs = self.driver.find_elements_by_css_selector("#pg1 > div.panel.panel-default")
         
-        table_dict = {}
+        table_dict = collections.OrderedDict()
         
         for i in datatype_divs:
             cur_link = i.find_element_by_css_selector("div > h4 > a")
@@ -212,19 +245,23 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         empty_portion_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(panel_1, 0, 0).click().perform()
         
+        cur_panel = 1
+        
         for i_ind, i in enumerate(found_tables.items()):
             for j_ind, j in enumerate(i[1]):
                 
-                print j,j_ind
+                print i
                 
                 panel_1 = hw_obj.to_panel("1")
                 hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
                 #need to click the link here...
                 
-                self.driver.find_element_by_css_selector("#pg1 a:nth-of-type("+str(i_ind+1)+")").click()
+                all_links = self.driver.find_elements_by_css_selector("#pg1 a")
+                
+                all_links[i_ind].click()
                
                 element = WebDriverWait(self.driver, 20).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR,"#pg1 > div.panel.panel-default:nth-of-type("+str(i_ind+1)+") table"))
+                    EC.presence_of_element_located((By.CSS_SELECTOR,"#pg1 > div.panel.panel-default table"))
                 )
                 
                 #this just makes sure that everything is able to be clicked (assuming they are ready when one of them is...)
@@ -236,11 +273,34 @@ class BasicSeleniumTests(LiveServerTestCase):
                 
                 all_spans[j_ind].click()
                 
-                #check the retrieved metanode
+                cur_panel += 1
                 
+                result_panel = WebDriverWait(self.driver, 20).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR,"g.g1[id='panel_"+str(cur_panel)+"']"))
+                )
+                
+                #check the retrieved metanode against the results from the table
+                
+                if j[0] != '' and int(j[0]) > 1:
+                
+                    attrs = hw_obj.get_metanode_attrs(result_panel, SingleMetaNodeSelector())
+                    
+                    print attrs
+                    print j, j_ind
+                    
+                    self.assertTrue(attrs['type'] == 'Gene')
+                    
+                    if j[0] != '':
+                    
+                        self.assertTrue(attrs['count'] == int(j[0]))
+                        self.assertTrue(hw_obj.count_metanode_children(cur_panel, SingleMetaNodeSelector()) == attrs['count'])
+                elif j[0] != '':
+                    self.assertTrue(hw_obj.count_nodes(cur_panel, "Gene") == 1)
+                    
                 #delete the new panel
                 
-                time.sleep(5)
+                hw_obj.delete_panel(cur_panel)
+               
                 
         
     #    print table_sizes

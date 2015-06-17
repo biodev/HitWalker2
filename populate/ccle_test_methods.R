@@ -60,16 +60,25 @@ setMethod("getFrequency", signature("HW2exprSet"), function(obj, subset, type, s
     require(annot.pack, character.only=T)
     require(reshape2)
     
-    mapping <- select(get(annot.pack), columns="ENTREZID", featureNames(obj@exprs))
+    #below is kind of a slow process so will save it and reuse if available
     
-    probeset.dta <- melt(exprs(obj@exprs), as.is=T)
+    if (file.exists("saved_exprs.RData")){
+        
+        load("saved_exprs.RData")
+        
+    }else{
+        mapping <- select(get(annot.pack), columns="ENTREZID", featureNames(obj@exprs))
     
-    probeset.gene <- merge(probeset.dta, mapping, by.x="Var1", by.y="PROBEID", sort=F)
-    
-    sum.gene <- aggregate(value~Var2+ENTREZID, max, data=probeset.gene)
+        probeset.dta <- melt(exprs(obj@exprs), as.is=T)
+        
+        probeset.gene <- merge(probeset.dta, mapping, by.x="Var1", by.y="PROBEID", sort=F)
+        
+        sum.gene <- aggregate(value~Var2+ENTREZID, max, data=probeset.gene)
+        
+        save(sum.gene, file="saved_exprs.RData")
+    }
     
     sum.gene <- sum.gene[sum.gene$value > obj@default,]
-    
     
     if (type == "Subject"){
     

@@ -817,7 +817,7 @@ def fullfill_node_query(request):
         for var_elem in request.session['where_vars']:
             use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
         
-        print use_query, node_queries
+        #print use_query, node_queries
         
         #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
         query = neo4j.CypherQuery(graph_db, use_query)
@@ -828,7 +828,7 @@ def fullfill_node_query(request):
         max_vals = []
         
         for i in query.stream(**node_queries):
-            print i.values
+            #print i.values
             if (len(max_vals) == 0) or ((i.values[1] < max_vals[-1]) and (len(max_vals) < 5)):
                 max_vals.append(i.values[1])
                 temp_node_list.append((str(int(round((i.values[1]/float(cur_len))*100))), i.values[0]))
