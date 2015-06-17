@@ -1,6 +1,8 @@
 #These generics should be added to hwhelper
 setGeneric("subjectAttrs", def=function(obj,...) standardGeneric("subjectAttrs"))
 setGeneric("subjectSubset", def=function(obj,...) standardGeneric("subjectSubset"))
+setGeneric("findHits", def=function(obj,...) standardGeneric("findHits"))
+
 
 #returns a vector of subject names in prinical to be part of a given metanode
 setMethod("subjectSubset", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
@@ -51,7 +53,16 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
     
 })
 
-setMethod("getFrequency", signature("HW2Config"), function(obj,datatype, subset, subset_type=c("Subject", "Subject_Category", "Gene")){
+setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
+    
+    subject_types = match.arg(subject_types)
+    gene_types = match.arg(gene_types)
+    
+    
+    
+})
+
+setMethod("getFrequency", signature("HW2Config"), function(obj, datatype, subset, subset_type=c("Subject", "Subject_Category", "Gene")){
     
     #should probably add this to the class definition and have it populated using addSamples<-
     sample.rel.names <- c(Expression="Affy_Expression", Variants="DNASeq", GeneScore="Drug_Assay")
