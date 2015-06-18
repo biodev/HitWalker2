@@ -329,8 +329,6 @@ class BasicSeleniumTests(LiveServerTestCase):
     #            
     #            if i[0] != '':
     #                
-    #                print r_obj.getConn().eval('class(hw2_obj)')
-    #                
     #                dta = r_obj.getConn().r.getFrequency(r_obj.getConn().ref.hw2_obj, i[0], 'liver', 'Subject_Category')
     #                
     #                print dta
@@ -344,10 +342,9 @@ class BasicSeleniumTests(LiveServerTestCase):
     #                    
     #                else:
     #                    print 'skipping test for '+i[0]+' due to invalid returned object'
-    #        
     #    else:
     #        print 'r object does not exist... skipping tests'
-    #        
+            
             
     #def test_metanode_subsetting(self):
     #    
@@ -489,6 +486,18 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         self.driver.find_element_by_css_selector("ul li:first-child a").click()
         
+        #select a gene that probably has hits, say MYC
+        
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("input.select2-input").send_keys("TP53")
+        
+        input_highlight = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
+            )
+        
+        input_highlight.click()
+        
+        self.driver.find_element_by_xpath("//button[.='OK']").click()
         
         
         time.sleep(5)
