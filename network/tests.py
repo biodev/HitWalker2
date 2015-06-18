@@ -489,7 +489,7 @@ class BasicSeleniumTests(LiveServerTestCase):
         #select a gene that probably has hits, say MYC
         
         self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("input.select2-input").send_keys("TP53")
+        self.driver.find_element_by_css_selector("input.select2-input").send_keys("KIT")
         
         input_highlight = WebDriverWait(self.driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
