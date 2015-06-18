@@ -115,6 +115,11 @@ class HitWalkerInteraction(object):
                 EC.element_to_be_clickable((By.CSS_SELECTOR,node_sel.selector()))
             )
     
+    def get_panel_metanodes(self, panel_num):
+        cur_panel = self.to_panel(panel_num)
+        
+        return cur_panel.find_elements_by_css_selector(SingleMetaNodeSelector().selector())
+    
     def to_panel(self, panel_num):
     
         return WebDriverWait(self.driver, 20).until(
@@ -162,9 +167,15 @@ class HitWalkerInteraction(object):
     
     def count_metanode_children(self, panel, node_sel):
         
-        count_panel = self.to_panel(panel)
+        if isinstance(node_sel, NodeSelectors):
         
-        children = count_panel.find_elements_by_css_selector(node_sel.selector() + " ~ g > circle")
+            count_panel = self.to_panel(panel)
+            
+            children = count_panel.find_elements_by_css_selector(node_sel.selector() + " ~ g > circle")
+            
+        else:
+            #assumes its a WebElement...
+            children = node_sel.find_elements_by_css_selector("g > circle")
         
         return len(children)
 
@@ -489,7 +500,7 @@ class BasicSeleniumTests(LiveServerTestCase):
         #select a gene that probably has hits, say MYC
         
         self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("input.select2-input").send_keys("KIT")
+        self.driver.find_element_by_css_selector("input.select2-input").send_keys("TP53")
         
         input_highlight = WebDriverWait(self.driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
@@ -499,6 +510,26 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         self.driver.find_element_by_xpath("//button[.='OK']").click()
         
+        #figure out which samples have hits for TP53 via R
+        
+        if r_obj != None:
+        
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'liver', 'TP53', 'Subject_Category')
+        
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
+            
+            print subj_groups
+            
+            hit_cat_set = collections.Counter(subj_groups['FixedDt'])
+            
+            print hit_cat_set
+            
+            metanode_list = hw_obj.get_panel_metanodes("2")
+            
+            for i in metanode_list:
+                print hw_obj.count_metanode_children(None, i)
+            
+            print metanode_list
         
         time.sleep(5)
         

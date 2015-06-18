@@ -79,22 +79,48 @@ setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, sub
     graph = startGraph("http://localhost:7474/db/data/")
     gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFFERED_TO]-(m) RETURN n.name AS gene, m.name AS symbol")
     
-    stopinfot(gene_type == "Gene")
+    stopifnot(gene_types == "Gene")
     
     genes <- gene.name$gene[gene.name$symbol %in% genes]
     
     do.call(rbind, lapply(names(hw2.conf@data.list), function(x){
         
-        subset.samples <- obj@subject@subject.to.sample$sample[(obj@subject@subject.to.sample$type == sample.rel.names[i]) & (obj@subject@subject.to.sample[,1] %in% subjects)]
+        print (x)
         
-        hit.dta <- findHits(hw2.conf@data.list[[i]], subset.samples, genes)
+        subset.samples <- obj@subject@subject.to.sample[(obj@subject@subject.to.sample$type == sample.rel.names[x]) & (obj@subject@subject.to.sample[,1] %in% subjects),]
+        
+        hit.dta <- findHits(hw2.conf@data.list[[x]], subset.samples$sample, genes, F)
+        
+        if (nrow(hit.dta) == 0){
+            return(data.frame(Subject=character(), Gene=character(), IsHit=logical(), Datatype=character()))
+        }
         
         hit.dta$Datatype <- x
+        
+        #translate samples -> subjects
+        sample.subject <- subset.samples[,1]
+        names(sample.subject) <- subset.samples$sample
+        
+        hit.dta$Subject <- as.character(sample.subject[as.character(hit.dta$Sample)])
+        
+        hit.dta <- hit.dta[,c("Subject", "Gene", "IsHit", "Datatype")]
+        
+        #if any of the samples are a hit, then the entire subject is...
+        hit.dta <- hit.dta[!duplicated(hit.dta),]
         
         return(hit.dta)
     }))
     
 })
+
+encode_groups <- function(hit.dta){
+    
+    hit.dta$FixedDt <- ifelse(hit.dta$IsHit, paste0("Observed_", hit.dta$Datatype), paste0("Possible_",hit.dta$Datatype))
+    
+    sum.dta <- aggregate(FixedDt~Subject + Gene, paste, collapse=",", data=hit.dta)
+    
+    return(sum.dta) 
+}
 
 setMethod("getFrequency", signature("HW2Config"), function(obj, datatype, subset, subset_type=c("Subject", "Subject_Category", "Gene")){
     
@@ -151,7 +177,7 @@ freq.by <- function(dta, freq.name, agg.name, subset, type, subset.length){
     return(ret.dta)
 }
 
-setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL){
+setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL, limit.to.hits=T){
     
     print ('expression method')
     
@@ -183,9 +209,7 @@ setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL
             sub.mapping <- mapping[mapping$ENTREZID %in% genes,]
         }
         
-        print (samples)
         common.samples <- intersect(samples, sampleNames(obj@exprs))
-        print (common.samples)
         
         probeset.dta <- melt(exprs(obj@exprs)[,common.samples], as.is=T)
         
@@ -196,14 +220,24 @@ setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL
         #save(sum.gene, file="saved_exprs.RData")
     #}
     
-    sum.gene <- sum.gene[sum.gene$value > obj@default,]
+    names(sum.gene) <- c("Sample", "Gene", "value")
     
-    names(sum.gene) <- c("Sample", "Gene")
+    if (limit.to.hits){
+        
+        sum.gene <- sum.gene[sum.gene$value > obj@default,]
+        
+        sum.gene <- sum.gene[,c("Sample", "Gene")]
+        
+    }else{
+        
+        sum.gene$IsHit <- sum.gene$value > obj@default
+        sum.gene <- sum.gene[,c("Sample", "Gene", "IsHit")]
+    }
     
     return(sum.gene)
 })
 
-setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL){
+setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL, limit.to.hits=T){
     
     if (missing(genes) || is.null(genes) || all(is.na(genes))){
         gene.maf <- obj@maf    
@@ -215,13 +249,23 @@ setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL){
     
     names(sub.maf) <- c("Sample", "Gene")
     
+    if (limit.to.hits==F){
+        sub.maf$IsHit <- T
+    }
+    
     return(sub.maf)
     
 })
 
-setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL){
+setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL, limit.to.hits=T){
     
     require(reshape2)
+    
+    if (missing(genes) || is.null(genes) || all(is.na(genes))){
+        use.mapping <- obj@mapping    
+    }else{
+        use.mapping <- obj@mapping[obj@mapping$gene %in% genes,]
+    }
     
     drug.dta <- melt(obj@matrix, as.is=T)
     
@@ -232,7 +276,16 @@ setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL
     
     drug.dta.merge$is.hit <- with(drug.dta.merge, value <= (median*.2))
     
-    drug.dta.genes <- merge(drug.dta.merge, obj@mapping, by.x="Var1", by.y="drug")
+    drug.dta.genes <- merge(drug.dta.merge, use.mapping, by.x="Var1", by.y="drug")
+    
+    if (nrow(drug.dta.genes) == 0){
+        
+        if (limit.to.hits){
+            return(data.frame(Sample=character(), Gene=character()))
+        }else{
+            return(data.frame(Sample=character(), Gene=character(), IsHit=logical()))
+        }
+    }
     
     drug.dta.genes$score <- with(drug.dta.genes, ifelse(is.hit, weight, -weight))
     
@@ -240,9 +293,17 @@ setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL
     
     names(drug.sum) <- c("Sample", "Gene", "score")
     
-    use.hits <- drug.sum[drug.sum$score > obj@default,]
+    if (limit.to.hits){
+        use.hits <- drug.sum[drug.sum$score > obj@default,]
     
-    use.hits <- use.hits[,c("Sample", "Gene")]
+        use.hits <- use.hits[,c("Sample", "Gene")]
+    }else{
+     
+        drug.sum$IsHit <- drug.sum$score > obj@default
+        
+        use.hits <- drug.sum[,c("Sample", "Gene", "IsHit")]
+        
+    }
     
     return(use.hits)
 })
