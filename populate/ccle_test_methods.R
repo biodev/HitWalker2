@@ -11,6 +11,67 @@ setGeneric("subjectSubset", def=function(obj,...) standardGeneric("subjectSubset
 setGeneric("findHits", def=function(obj,...) standardGeneric("findHits"))
 
 
+process_matrix_graph <- function(mm_file_base, string_conf){
+    
+    mm_file_base <- "/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm"
+    
+    require(igraph)
+    require(Matrix)
+    
+    init.mat <- readMM(paste0(mm_file_base, ".mtx"))
+    
+    new.graph.names <- read.delim(paste0(mm_file_base, ".names"), header=FALSE, stringsAsFactors=FALSE)
+    
+    colnames(init.mat) <- new.graph.names[,1]
+    
+    cur.graph <- graph.adjacency(init.mat,mode="directed", weighted="score")
+    
+    new.graph <- subgraph.edges(cur.graph, E(cur.graph)[ score > string_conf ], delete.vertices = TRUE)
+    
+    return(cur.graph)    
+}
+
+get_gene_connections <- function(use.graph, seeds, targs){
+    
+    #seeds =c('MAP2K7', 'ALK', 'HSP90AA1')
+    #targs=c('MAP3K13', 'MAP3K1', 'KRAS')
+    
+    require(RNeo4j)
+    
+    graph = startGraph("http://localhost:7474/db/data/")
+    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-()-[:REFFERED_TO]-(m) RETURN n.name AS string, m.name AS symbol")
+    
+    gene.grid <- expand.grid(list(seeds=seeds, targs=targs), stringsAsFactors = FALSE)
+    
+    string.graph.dta <- do.call(rbind, lapply(1:nrow(gene.grid), function(i){
+        
+        var.names <- string.name$string[string.name$symbol == gene.grid$targs[i]]
+        seed.names <- string.name$string[string.name$symbol == gene.grid$seeds[i]]
+        
+        stopifnot(length(var.names) == 1 && length(seed.names) == 1)
+        
+        paths <-  get.all.shortest.paths(use.graph, from=V(use.graph)[name %in% var.names], to = V(use.graph)[ name %in% seed.names], mode = "out", weights=NULL)
+        
+        if (length(paths$res) > 0 && length(paths$res) <= 4){
+            
+            which.path <- which.max(sapply(paths$res, function(x) sum(E(use.graph, path=x)$score)))
+            
+            edge.mat <- get.edges(use.graph, E(use.graph, path=paths$res[[which.path]]))
+            
+            return(data.frame(from=V(use.graph)$name[edge.mat[,1]], to=V(use.graph)$name[edge.mat[,2]], stringsAsFactors=F))
+        
+        }else{
+            return(NULL)
+        }
+        
+    }))
+    
+   #then add in all the direct connections between these nodes
+   
+   #return the graph in the form: data.frame(to=, from=)
+    
+}
+
 #returns a vector of subject names in prinical to be part of a given metanode
 setMethod("subjectSubset", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
   

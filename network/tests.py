@@ -91,6 +91,52 @@ class HitWalkerInteraction(object):
         )
         
         element.click()
+        
+    def panel_by_prioritize(self, selection_name, collect_genes=True):
+        self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys(selection_name)
+        self.driver.find_element_by_css_selector(".select2-result-label").click()
+        
+        p_button = WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.ID, "prioritize"))
+        )
+        
+        p_button.click()
+        
+        modal_button = WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-target='#select_modal']"))
+        )
+        
+        modal_button.click()
+        
+        if collect_genes:
+            WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "option[selected='true']"))
+            )
+            
+            targs = self.driver.find_elements_by_css_selector("#var_select > option[selected='true']")
+            
+            targ_text = map(lambda x: x.text, targs)
+            
+            seeds = self.driver.find_elements_by_css_selector("#seed_select > option[selected='true']")
+            
+            seed_text = map(lambda x: x.text, seeds)
+            
+            gene_text = {'targs':targ_text, 'seeds':seed_text}
+            
+        else:
+            
+            gene_text = None
+        
+        submit_button = self.driver.find_element_by_css_selector("button[type='submit']")
+        submit_button.click()
+        
+        WebDriverWait(self.driver, 100).until(
+                 EC.element_to_be_clickable((By.ID,"panel_1"))
+        )
+        
+        return gene_text
     
     def click_context_button(self, panel_num, button_num):
         use_panel = self.to_panel(panel_num)
@@ -584,8 +630,21 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        
     #        self.assertDictEqual(hit_cat_set, res_dict)
         
+    def test_hitwalker_panel(self):
         
-    
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+        
+        default_thresh_mat_base = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", "")
+        
+        if r_obj != None:
+            
+            gene_text = hw_obj.panel_by_prioritize("Hep G2")
+            
+            print gene_text
+        
+        
+        
+        
         
     #    
     #    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
