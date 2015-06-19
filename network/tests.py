@@ -3,7 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
+from selenium.common.exceptions import NoSuchElementException
 
 from django.utils import unittest
 from django.contrib.auth.models import User
@@ -29,6 +29,7 @@ import sys
 import pyRserve
 from py2neo import neo4j, cypher
 import numpy as np
+import scipy.spatial
 
 test_cypher_session = "http://localhost:7474"
 
@@ -115,10 +116,30 @@ class HitWalkerInteraction(object):
                 EC.element_to_be_clickable((By.CSS_SELECTOR,node_sel.selector()))
             )
     
-    def get_panel_metanodes(self, panel_num):
+    def get_panel_nodes(self, panel_num):
         cur_panel = self.to_panel(panel_num)
         
-        return cur_panel.find_elements_by_css_selector(SingleMetaNodeSelector().selector())
+        all_nodes = cur_panel.find_elements_by_css_selector("g.node")
+        
+        return all_nodes
+    
+    def check_if_metanode(self, node_sel):
+        try:
+            
+            node_sel.find_element_by_css_selector("circle.MetaNode")
+            
+            return True
+            
+        except NoSuchElementException:
+            
+            return False
+            
+        
+    def get_panel_metanodes(self, panel_num):
+        
+        panel_nodes = self.get_panel_nodes(panel_num)
+        
+        return filter(self.check_if_metanode, panel_nodes)
     
     def to_panel(self, panel_num):
     
@@ -165,7 +186,7 @@ class HitWalkerInteraction(object):
         
         return len(nodes)
     
-    def count_metanode_children(self, panel, node_sel):
+    def count_metanode_children(self, panel, node_sel, child_type="Subject"):
         
         if isinstance(node_sel, NodeSelectors):
         
@@ -175,7 +196,8 @@ class HitWalkerInteraction(object):
             
         else:
             #assumes its a WebElement...
-            children = node_sel.find_elements_by_css_selector("g > circle")
+            #just want the outer g's...
+            children = node_sel.find_elements_by_css_selector("g > circle." + child_type)
         
         return len(children)
 
@@ -485,53 +507,85 @@ class BasicSeleniumTests(LiveServerTestCase):
     #    
     #    self.assertTrue(p4_meta_count == 2)
         
-    def test_gene_addition_metanode(self):
+    #def test_gene_addition_metanode(self):
+    #    
+    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    #    
+    #    hw_obj.panel_by_query("@liver")
+    #    
+    #    panel_1 = hw_obj.to_panel("1")
+    #    
+    #    hw_obj.click_context_button("1", 2)
+    #    
+    #    self.driver.find_element_by_css_selector("ul li:first-child a").click()
+    #    
+    #    #select a gene that probably has hits, say MYC
+    #    
+    #    self.driver.find_element_by_css_selector(".select2-choice").click()
+    #    self.driver.find_element_by_css_selector("input.select2-input").send_keys("TP53")
+    #    
+    #    input_highlight = WebDriverWait(self.driver, 20).until(
+    #        EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
+    #        )
+    #    
+    #    input_highlight.click()
+    #    
+    #    self.driver.find_element_by_xpath("//button[.='OK']").click()
+    #    
+    #    #figure out which samples have hits for TP53 via R
+    #    
+    #    if r_obj != None:
+    #    
+    #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'liver', 'TP53', 'Subject_Category')
+    #    
+    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
+    #        
+    #        print subj_groups
+    #        
+    #        hit_cat_set = collections.Counter(subj_groups['FixedDt'])
+    #        
+    #        print hit_cat_set
+    #        
+    #        metanode_list = hw_obj.get_panel_metanodes("2")
+    #        
+    #        trans_vals = map(lambda x: map(float, re.split("[,\)\(]", x.get_attribute("transform"))[1:3]), metanode_list)
+    #        
+    #        print trans_vals
+    #        
+    #        kd_tree = scipy.spatial.KDTree(np.array(trans_vals))
+    #        
+    #        metanode_count = []
+    #        
+    #        for i in metanode_list:
+    #            metanode_count.append(hw_obj.count_metanode_children(None, i))
+    #        
+    #        print metanode_count
+    #        
+    #        links = hw_obj.to_panel("2")
+    #        
+    #        link_els = links.find_elements_by_css_selector("path.link")
+    #        
+    #        link_pos = map(lambda x: map(float, re.split("[M,L]", x.get_attribute("d"))[1:]) , link_els)
+    #        
+    #        #in this case all the links should point to the same position, so we are just looking at which metanode should be assigned the relationship
+    #        
+    #        link_type = map(lambda x: x.get_attribute("class").replace("link ", ""), link_els)
+    #        
+    #        link_dict = collections.defaultdict(list)
+    #        
+    #        for i_ind, i in enumerate(link_pos):
+    #            link_match = kd_tree.query(np.array(i[:2]))
+    #            link_dict[str(link_match[1])].append(link_type[i_ind])
+    #            
+    #        res_dict = {}
+    #        
+    #        for i in link_dict.items():
+    #            res_dict[string.joinfields(i[1], ",")] = metanode_count[int(i[0])]
+    #        
+    #        self.assertDictEqual(hit_cat_set, res_dict)
         
-        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
         
-        hw_obj.panel_by_query("@liver")
-        
-        panel_1 = hw_obj.to_panel("1")
-        
-        hw_obj.click_context_button("1", 2)
-        
-        self.driver.find_element_by_css_selector("ul li:first-child a").click()
-        
-        #select a gene that probably has hits, say MYC
-        
-        self.driver.find_element_by_css_selector(".select2-choice").click()
-        self.driver.find_element_by_css_selector("input.select2-input").send_keys("TP53")
-        
-        input_highlight = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
-            )
-        
-        input_highlight.click()
-        
-        self.driver.find_element_by_xpath("//button[.='OK']").click()
-        
-        #figure out which samples have hits for TP53 via R
-        
-        if r_obj != None:
-        
-            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'liver', 'TP53', 'Subject_Category')
-        
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
-            
-            print subj_groups
-            
-            hit_cat_set = collections.Counter(subj_groups['FixedDt'])
-            
-            print hit_cat_set
-            
-            metanode_list = hw_obj.get_panel_metanodes("2")
-            
-            for i in metanode_list:
-                print hw_obj.count_metanode_children(None, i)
-            
-            print metanode_list
-        
-        time.sleep(5)
+    
         
     #    
     #    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
