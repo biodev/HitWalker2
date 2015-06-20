@@ -11,9 +11,7 @@ setGeneric("subjectSubset", def=function(obj,...) standardGeneric("subjectSubset
 setGeneric("findHits", def=function(obj,...) standardGeneric("findHits"))
 
 
-process_matrix_graph <- function(mm_file_base, string_conf){
-    
-    mm_file_base <- "/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm"
+process_matrix_graph <- function(mm_file_base, string_conf){ 
     
     require(igraph)
     require(Matrix)
@@ -33,6 +31,7 @@ process_matrix_graph <- function(mm_file_base, string_conf){
 
 get_gene_connections <- function(use.graph, seeds, targs){
     
+    #use.graph <- process_matrix_graph("/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm", .4)
     #seeds =c('MAP2K7', 'ALK', 'HSP90AA1')
     #targs=c('MAP3K13', 'MAP3K1', 'KRAS')
     
@@ -52,7 +51,8 @@ get_gene_connections <- function(use.graph, seeds, targs){
         
         paths <-  get.all.shortest.paths(use.graph, from=V(use.graph)[name %in% var.names], to = V(use.graph)[ name %in% seed.names], mode = "out", weights=NULL)
         
-        if (length(paths$res) > 0 && length(paths$res) <= 4){
+        #just check the first as these should all be the same length...s
+        if (length(paths$res) > 0 && length(paths$res[[1]]) <= 4){
             
             which.path <- which.max(sapply(paths$res, function(x) sum(E(use.graph, path=x)$score)))
             
@@ -66,9 +66,32 @@ get_gene_connections <- function(use.graph, seeds, targs){
         
     }))
     
-   #then add in all the direct connections between these nodes
+   #then add in all the direct connections between these nodes (and the initial set if not present)
    
-   #return the graph in the form: data.frame(to=, from=)
+   node_set <- union(unlist(string.graph.dta), string.name$string[string.name$symbol %in% c(gene.grid$seeds, gene.grid$targs)])
+   
+   node.comb <- data.frame(t(combn(node_set, 2)), stringsAsFactors=F)
+   names(node.comb) <- c("from", "to")
+   
+   should.keep <- sapply(1:nrow(node.comb), function(x){
+        are.connected(use.graph,V(use.graph)[name == node.comb[x,1]], V(use.graph)[name == node.comb[x,2]])
+   })
+   
+   direct.cons <- node.comb[should.keep,]
+   
+   all.edges <- rbind(string.graph.dta, direct.cons)
+   
+   all.edges <- all.edges[!duplicated(all.edges),]
+   
+   merged.from <- merge(all.edges, string.name, by.x="from", by.y="string")
+   merged.ft <- merge(merged.from, string.name, by.x="to", by.y="string")
+   
+   ret.edges <- merged.ft[,c("symbol.x", "symbol.y")]
+   names(ret.edges) <- c("from", "to")
+   
+   return(ret.edges)
+   
+   #return the graph in the form: data.frame(from=, to=)
     
 }
 

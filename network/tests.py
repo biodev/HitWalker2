@@ -640,6 +640,16 @@ class BasicSeleniumTests(LiveServerTestCase):
             
             gene_text = hw_obj.panel_by_prioritize("Hep G2")
             
+            r_obj.getConn().r.sub_graph = r_obj.getConn().r.process_matrix_graph(default_thresh_mat_base, .4)
+            
+            gene_links = r_obj.getConn().r.get_gene_connections(r_obj.getConn().r.sub_graph, gene_text['seeds'], gene_text['targs'])
+            
+            #make this into a unique set
+            gene_set = set(gene_links)
+            
+            subj_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEP_G2_LIVER', gene_set, 'Subject', 'Gene')
+            
+            
             print gene_text
         
         
