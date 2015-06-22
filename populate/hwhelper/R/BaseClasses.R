@@ -261,7 +261,13 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     subj.dta <- obj@subject@subject.info
     
-    use.cols <- subj.dta[,names(subj.dta) %in% c(subj.name, "alias") == F]
+    #as subj.name is capitalized above
+    
+    lc.subj.name <- subj.name
+    
+    substr(lc.subj.name, 1, 1) <- tolower(substr(lc.subj.name, 1, 1))
+    
+    use.cols <- subj.dta[,names(subj.dta) %in% c(lc.subj.name, "alias") == F]
     
     subj_atts <- "{"
     
