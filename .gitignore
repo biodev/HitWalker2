@@ -57,3 +57,7 @@ network/static/network/css/HitWalker2_*.css
 *.tex
 #virtualenv file
 .project
+*.Rd
+*.Rcheck
+*.Rhistory
+*.tar.gz
