@@ -81,7 +81,6 @@ end
       
       sudo apt-get install -y gunicorn python-cssselect python-cssutils
      
-      sudo pip install pandas==0.15.2
       sudo pip install eventlet==0.17.1
      
     sudo bash -c "echo 'vagrant   soft    nofile  40000' >> /etc/security/limits.conf"
@@ -99,7 +98,7 @@ end
       
       sudo apt-get install -y r-base-dev libxml2-dev libcurl4-openssl-dev
       
-      sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("igraph", "reshape2", "Biobase", "rjson", "SCAN.UPC","hgu133plus2.db", "tm", "devtools"))'
+      sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("igraph", "reshape2", "Biobase", "rjson", "affy","hgu133plus2.db", "tm", "devtools", "sva", "genefilter"))'
       
       sudo Rscript -e 'library(devtools)' -e 'install_github("mlbernauer/Entrez")'
       
