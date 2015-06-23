@@ -669,7 +669,17 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        
     #        self.assertDictEqual(hit_cat_set, res_dict)
     
-    
+    def compare_dicts(self, dict1, dict2):
+        for i in dict1.items():
+                for j in i[1].items():
+                    if dict2.has_key(i[0]):
+                        if dict2[i[0]].has_key(j[0]):
+                            if dict2[i[0]][j[0]] != j[1]:
+                                raise Exception('sets not the same:' + str(dict2[i[0]][j[0]]) + ' ' + str(j[1]))
+                        else:
+                            raise Exception('dict2 missing key: ' + i[0] + '->' + j[0])
+                    else:
+                        raise Exception('dict2 missing key: ' + i[0])
     
     def test_hitwalker_panel(self):
         
@@ -703,37 +713,21 @@ class BasicSeleniumTests(LiveServerTestCase):
             
             r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', np.array(list(gene_set)), 'Subject', 'Gene')
             
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True)
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, True)
             
             for i in range(0, len(subj_groups['Subject'])):
-                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(subj_groups['FixedDt'][i])
-                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(subj_groups['FixedDt'][i])
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
             
             #for i in subj_groups['Subject']:
             #    for j in subj_groups['Gene']:
             #
-            
-            for i in r_found_dta.items():
-                for j in i[1].items():
-                    if found_rels.has_key(i[0]):
-                        if found_rels[i[0]].has_key(j[0]):
-                            if found_rels[i[0]][j[0]] != j[1]:
-                                print 'sets not the same:' + str(found_rels[i[0]][j[0]]) + ' ' + str(j[1])
-                            else:
-                                print 'sets the same'
-                        else:
-                            print 'found_rels missing key: ' + i[0] + '->' + j[0]
-                    else:
-                        print 'found_rels missing key: ' + i[0]
-                        
-            print found_rels
-            
-            print r_found_dta
-            
-            self.assertDictEqual(found_rels, r_found_dict)
-            
-            
-            #print gene_text
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, found_rels)
+            print 'Screen vs R'
+            self.compare_dicts(found_rels, r_found_dta)
         
         
         

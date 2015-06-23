@@ -49,7 +49,7 @@ get_gene_connections <- function(use.graph, seeds, targs){
         
         stopifnot(length(var.names) == 1 && length(seed.names) == 1)
         
-        paths <-  get.all.shortest.paths(use.graph, from=V(use.graph)[name %in% var.names], to = V(use.graph)[ name %in% seed.names], mode = "out", weights=NULL)
+        paths <-  get.all.shortest.paths(use.graph, from=V(use.graph)[name %in% var.names], to = V(use.graph)[ name %in% seed.names], mode = "all", weights=NULL)
         
         #just check the first as these should all be the same length...s
         if (length(paths$res) > 0 && length(paths$res[[1]]) <= 4){
