@@ -2,7 +2,6 @@ setGeneric("fromSample", def=function(obj,...) standardGeneric("fromSample"))
 setGeneric("toGene", def=function(obj,...) standardGeneric("toGene"))
 
 setGeneric("configure", def=function(obj,...) standardGeneric("configure"))
-
 setGeneric("populate", def=function(obj,...) standardGeneric("populate"))
 
 setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
@@ -36,6 +35,7 @@ NULL
 #'
 #' Basic class representing common components that all classes which load data into Neo4j for HitWalker2 should be derived from.
 #'
+#' @aliases fromSample toGene nodeName sampleEdge geneEdge
 #' @slot sample.edge.name The name of the edge going from sample to assay unit (e.g. SNP ID or probe ID).
 #' @slot gene.edge.name The name of the edge going from assay unit to gene
 #' @slot node.name The name of the node representation of the assay unit
@@ -72,6 +72,7 @@ setMethod("geneEdge", signature("NeoData"), function(obj){
 #'
 #' A class representing the subject and sample-level information in HitWalker2
 #'
+#' @aliases nodeName
 #' @slot subject.info, a \code{data.frame} containing subject level information.  The name of the first column will become the name associated with the subjects.
 #' An alias column can be provided which will allow the end-user the ability to search on more than just the subject name.  It must be '&' delimited.
 #' @slot subject.to.sample A \code{data.frame} containing the mapping from subject to sample, is best populated through \code{addSamples}.
@@ -82,6 +83,7 @@ setClass(Class="Subject", representation=list(subject.info="data.frame", subject
 #'
 #' A class representing a HitWalker2 configuration
 #'
+#' @aliases populate configure dataTypes relNames
 #' @slot subject A Subject object to be used as the basis for this HitWalker2 database
 #' @slot data.list Named list containing the experiemntal data
 #' @slot data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names in data.list
@@ -591,6 +593,7 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.mode
 #'
 #' A basic class for representing drug panel results for a set of samples
 #'
+#' @aliases getMatrix getAnnotation
 #' @slot matrix, a matrix containing a sinlge summary value for each drug (rows) and each sample (columns).  
 #' @slot mapping A \code{data.frame} containing the mapping from drug to gene.  It should contain a 'drug' column, a 'gene' column and a 'weight' column which indicates the confidence of the mapping.
 DrugMatrix_class <- setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains=c("NeoData", "HwHit"),
