@@ -1,3 +1,5 @@
+require(igraph)
+
 #uses Rneo4j https://github.com/nicolewhite/RNeo4j--should add to hwhelper
 
 #library(devtools)
@@ -13,7 +15,6 @@ setGeneric("findHits", def=function(obj,...) standardGeneric("findHits"))
 
 process_matrix_graph <- function(mm_file_base, string_conf){ 
     
-    require(igraph)
     require(Matrix)
     
     init.mat <- readMM(paste0(mm_file_base, ".mtx"))
@@ -26,7 +27,7 @@ process_matrix_graph <- function(mm_file_base, string_conf){
     
     new.graph <- subgraph.edges(cur.graph, E(cur.graph)[ score > string_conf ], delete.vertices = TRUE)
     
-    return(cur.graph)    
+    return(new.graph)    
 }
 
 get_gene_connections <- function(use.graph, seeds, targs){
@@ -34,6 +35,8 @@ get_gene_connections <- function(use.graph, seeds, targs){
     #use.graph <- process_matrix_graph("/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm", .4)
     #seeds =c('MAP2K7', 'ALK', 'HSP90AA1')
     #targs=c('MAP3K13', 'MAP3K1', 'KRAS')
+    
+    print(class(use.graph))
     
     require(RNeo4j)
     
@@ -143,6 +146,8 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
     }
     
 })
+
+#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'MAP3K13', 'MAP2K7', 'UBC', 'HSP90AA1', 'KRAS'), 'Subject', 'Gene')
 
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
@@ -295,7 +300,7 @@ setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL
         
         common.samples <- intersect(samples, sampleNames(obj@exprs))
         
-        probeset.dta <- melt(exprs(obj@exprs)[,common.samples], as.is=T)
+        probeset.dta <- melt(exprs(obj@exprs)[,common.samples,drop=F], as.is=T)
         
         probeset.gene <- merge(probeset.dta, sub.mapping, by.x="Var1", by.y="PROBEID", sort=F)
         
@@ -361,6 +366,8 @@ setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL
     drug.dta.merge$is.hit <- with(drug.dta.merge, value <= (median*.2))
     
     drug.dta.genes <- merge(drug.dta.merge, use.mapping, by.x="Var1", by.y="drug")
+    
+    drug.dta.genes <- drug.dta.genes[as.character(drug.dta.genes$Var2) %in% samples,]
     
     if (nrow(drug.dta.genes) == 0){
         
