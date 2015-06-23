@@ -246,48 +246,19 @@ class HitWalkerInteraction(object):
             children = node_sel.find_elements_by_css_selector("g > circle." + child_type)
         
         return len(children)
-    
-    def get_labels(self, node_el, panel_num, require_single=True):
-        
-        mouse_over = webdriver.ActionChains(self.driver).move_to_element(node_el).perform()
-        
-        cur_panel = self.to_panel(panel_num)
-        
-        #find the selected text elements as the ones that stay selected after mousing over the given node
-        sel_labels = cur_panel.find_elements_by_css_selector("g.labelNode > text:not(.Unselected)")
-        
-        print map(lambda x: x.text, sel_labels)
-        
-        if len(sel_labels) == 0:
-            print "cannot highlight node"
-        else:
-            print "node highlight"
-        
-        filt_res = filter(lambda x: x != "", map(lambda x: x.text, sel_labels))
-        
-        res_list = []
-        
-        if require_single:
-            
-            if len(filt_res) > 1:
-                raise Exception("Expected a single element got: " + str(filt_res))
-        
-            return filt_res[0]
-        else:
-            filt_res
         
     
     def get_node_rels(self, panel_num):
         
         node_list = self.get_panel_nodes(panel_num)
         
+        #should settle enough after a couple of seconds
+        
+        time.sleep(2)
+        
         trans_vals = map(lambda x: map(float, re.split("[,\)\(]", x.get_attribute("transform"))[1:3]), node_list)
         
-        print trans_vals
-        
-        node_labels = map(lambda x: self.get_labels(x, panel_num), node_list)
-        
-        print node_labels
+        node_labels = map(lambda x: x.find_element_by_css_selector("circle").get_attribute("name"), node_list)
         
         kd_tree = scipy.spatial.KDTree(np.array(trans_vals))
         
@@ -295,62 +266,25 @@ class HitWalkerInteraction(object):
             
         link_els = links.find_elements_by_css_selector("path.link")
         
-        print len(link_els)
-        
-        #link_pos = map(lambda x: map(float, re.split("[M,L]", x.get_attribute("d"))[1:]) , link_els)
-        
         link_pos = map(lambda x: map(float, re.split("[M,L]", x.get_attribute("d"))[1:]) , link_els)
         
         #in this case all the links should point to the same position, so we are just looking at which metanode should be assigned the relationship
         
         link_type = map(lambda x: x.get_attribute("class").replace("link ", ""), link_els)
         
-        link_dict = collections.defaultdict(lambda:collections.defaultdict(list))
+        link_dict = collections.defaultdict(lambda:collections.defaultdict(set))
         
         for i_ind, i in enumerate(link_pos):
             left_match = kd_tree.query(np.array(i[:2]))
-            print i
             right_match = kd_tree.query(np.array(i[2:]))
-            link_dict[node_labels[left_match[1]]][node_labels[right_match[1]]].append(link_type[i_ind])
+            link_dict[node_labels[left_match[1]]][node_labels[right_match[1]]].add(link_type[i_ind])
+            link_dict[node_labels[right_match[1]]][node_labels[left_match[1]]].add(link_type[i_ind])
         
-        for i in link_dict.items():
-            for j in i[1].items():
-                print i[0] + "\t" + j[0] + "\t" + str(j[1])
+        #for i in link_dict.items():
+        #    for j in i[1].items():
+        #        print i[0] + "\t" + j[0] + "\t" + str(j[1])
         
-        sys.exit()
-    #        print trans_vals
-    #        
-    #        
-    #        
-    #        metanode_count = []
-    #        
-    #        for i in metanode_list:
-    #            metanode_count.append(hw_obj.count_metanode_children(None, i))
-    #        
-    #        print metanode_count
-    #        
-    #        links = hw_obj.to_panel("2")
-    #        
-    #        link_els = links.find_elements_by_css_selector("path.link")
-    #        
-    #        link_pos = map(lambda x: map(float, re.split("[M,L]", x.get_attribute("d"))[1:]) , link_els)
-    #        
-    #        #in this case all the links should point to the same position, so we are just looking at which metanode should be assigned the relationship
-    #        
-    #        link_type = map(lambda x: x.get_attribute("class").replace("link ", ""), link_els)
-    #        
-    #        link_dict = collections.defaultdict(list)
-    #        
-    #        for i_ind, i in enumerate(link_pos):
-    #            link_match = kd_tree.query(np.array(i[:2]))
-    #            link_dict[str(link_match[1])].append(link_type[i_ind])
-    #            
-    #        res_dict = {}
-    #        
-    #        for i in link_dict.items():
-    #            res_dict[string.joinfields(i[1], ",")] = metanode_count[int(i[0])]
-    #        
-    #        self.assertDictEqual(hit_cat_set, res_dict)
+        return link_dict
 
 #@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
@@ -740,6 +674,7 @@ class BasicSeleniumTests(LiveServerTestCase):
     def test_hitwalker_panel(self):
         
         
+        
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
         
         default_thresh_mat_base = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", "")
@@ -748,14 +683,18 @@ class BasicSeleniumTests(LiveServerTestCase):
             
             gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
             
-            hw_obj.get_node_rels("1")
+            found_rels = hw_obj.get_node_rels("1")
             
             #needed to do it this way as it kept interpreting sub_graph as a list using the .ref approach
             r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', .4)")
             
             gene_links = r_obj.getConn().r.get_gene_connections(r_obj.getConn().ref.sub_graph, gene_text['seeds'], gene_text['targs'])
             
-            print gene_links
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
+            for i in range(0, len(gene_links['from'])):
+                r_found_dta[gene_links['from'][i]][gene_links['to'][i]].add('STRING')
+                r_found_dta[gene_links['to'][i]][gene_links['from'][i]].add('STRING')
             
             #make this into a unique set
             gene_set = set(list(gene_links['from']) + list(gene_links['to']))
@@ -764,9 +703,35 @@ class BasicSeleniumTests(LiveServerTestCase):
             
             r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', np.array(list(gene_set)), 'Subject', 'Gene')
             
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True)
             
-            print subj_groups
+            for i in range(0, len(subj_groups['Subject'])):
+                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(subj_groups['FixedDt'][i])
+                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(subj_groups['FixedDt'][i])
+            
+            #for i in subj_groups['Subject']:
+            #    for j in subj_groups['Gene']:
+            #
+            
+            for i in r_found_dta.items():
+                for j in i[1].items():
+                    if found_rels.has_key(i[0]):
+                        if found_rels[i[0]].has_key(j[0]):
+                            if found_rels[i[0]][j[0]] != j[1]:
+                                print 'sets not the same:' + str(found_rels[i[0]][j[0]]) + ' ' + str(j[1])
+                            else:
+                                print 'sets the same'
+                        else:
+                            print 'found_rels missing key: ' + i[0] + '->' + j[0]
+                    else:
+                        print 'found_rels missing key: ' + i[0]
+                        
+            print found_rels
+            
+            print r_found_dta
+            
+            self.assertDictEqual(found_rels, r_found_dict)
+            
             
             #print gene_text
         

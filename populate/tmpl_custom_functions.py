@@ -455,8 +455,6 @@ def get_shortest_paths (request, request_post):
             
         all_path = tx.execute()
         
-        print all_path
-        
         nodes_to_recon = []
         
         prot_to_gene = string.joinfields([
@@ -513,10 +511,16 @@ def get_shortest_paths (request, request_post):
                 sample_dict[i[0]] = [i[1]]
             else:
                 sample_dict[i[0]] = []
+                
+         
+        from config import node_queries
         
-        print cur_node_set
+        use_node_queries = copy.deepcopy(node_queries)
         
-        gene_nodes_list = core.get_nodes(list(cur_node_set), 'Gene', request, param_list=[sample_dict])
+        for i in range(0, len(use_node_queries['Gene'])):
+            use_node_queries['Gene'][i] = core.customize_query(use_node_queries['Gene'][i], query=lambda x: x.replace("subject.name IN", "sample.name IN"))
+            
+        gene_nodes_list = core.get_nodes(list(cur_node_set), 'Gene', request, config_struct = use_node_queries, param_list=[sample_dict])
         
         #print sample_dict
         

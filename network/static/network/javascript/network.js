@@ -1843,7 +1843,8 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
             node.enter().append("svg:g").attr("class", "node");
             node.append("svg:circle")
             .attr("r", function(d) { return d.size|| 10; })
-            .attr("class", function(d,i){return d.attributes.node_type;});
+            .attr("class", function(d,i){return d.attributes.node_type;})
+            .attr("name", function(d) { return d.display_name});
            
             node.each(function(p_node,i)
                       {

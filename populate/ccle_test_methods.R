@@ -1,5 +1,3 @@
-require(igraph)
-
 #uses Rneo4j https://github.com/nicolewhite/RNeo4j--should add to hwhelper
 
 #library(devtools)
@@ -16,6 +14,7 @@ setGeneric("findHits", def=function(obj,...) standardGeneric("findHits"))
 process_matrix_graph <- function(mm_file_base, string_conf){ 
     
     require(Matrix)
+    require(igraph)
     
     init.mat <- readMM(paste0(mm_file_base, ".mtx"))
     
@@ -35,8 +34,6 @@ get_gene_connections <- function(use.graph, seeds, targs){
     #use.graph <- process_matrix_graph("/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm", .4)
     #seeds =c('MAP2K7', 'ALK', 'HSP90AA1')
     #targs=c('MAP3K13', 'MAP3K1', 'KRAS')
-    
-    print(class(use.graph))
     
     require(RNeo4j)
     
@@ -202,11 +199,36 @@ setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, sub
     
 })
 
-encode_groups <- function(hit.dta){
-    
+# structure(list(Subject = c("HEPG2_LIVER", "HEPG2_LIVER", "HEPG2_LIVER",
+# "HEPG2_LIVER", "HEPG2_LIVER", "HEPG2_LIVER", "HEPG2_LIVER"), 
+# Gene = c("4214", "238", "3320", "5609", "3845", "9175", "4214"), 
+# IsHit = c(TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE), Datatype = c("Expression",
+# "GeneScore", "GeneScore", "GeneScore", "Variants", "Variants",
+# "Variants")), .Names = c("Subject", "Gene", "IsHit", "Datatype"))
+
+encode_groups <- function(hit.dta, ids.to.symbs=F, is.prioritization=F){
+  
     hit.dta$FixedDt <- ifelse(hit.dta$IsHit, paste0("Observed_", hit.dta$Datatype), paste0("Possible_",hit.dta$Datatype))
     
+    if (is.prioritization){
+      hit.dta$FixedDt[hit.dta$IsHit == T & hit.dta$Datatype == "Variants"] <- "Ranked_Variants"
+    }
+    
     sum.dta <- aggregate(FixedDt~Subject + Gene, paste, collapse=",", data=hit.dta)
+    
+    if (ids.to.symbs){
+      require(RNeo4j)
+      
+      graph = startGraph("http://localhost:7474/db/data/")
+      gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFFERED_TO]-(m) RETURN n.name AS Gene, m.name AS symbol")
+      
+      sum.dta$Gene <- as.character(sum.dta$Gene)
+      
+      sum.dta <- merge(sum.dta, gene.name, by="Gene", all.x=T, all.y=F, sort=F)
+      
+      sum.dta$Gene <- sum.dta$symbol
+      sum.dta <- sum.dta[,-which(names(sum.dta) == "symbol")]
+    }
     
     return(sum.dta) 
 }
