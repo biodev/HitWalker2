@@ -26,6 +26,8 @@ process_matrix_graph <- function(mm_file_base, string_conf){
     
     new.graph <- subgraph.edges(cur.graph, E(cur.graph)[ score > string_conf ], delete.vertices = TRUE)
     
+    new.graph <- as.undirected(new.graph, mode="collapse", edge.attr.comb="max")
+    
     return(new.graph)    
 }
 

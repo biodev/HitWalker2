@@ -285,6 +285,35 @@ class HitWalkerInteraction(object):
         #        print i[0] + "\t" + j[0] + "\t" + str(j[1])
         
         return link_dict
+    
+    def add_gene(self, panel_num, gene_name):
+    
+        self.click_context_button(panel_num, 2)
+        
+        self.driver.find_element_by_css_selector("ul li:first-child a").click()
+        
+        #select a gene that probably has hits, say TP53
+        
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("input.select2-input").send_keys(gene_name)
+        
+        input_highlight = WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-result-label"))
+            )
+        
+        input_highlight.click()
+        
+        #time.sleep(5)
+        
+        buttons = self.driver.find_elements_by_css_selector("button")
+        
+        ok_button = filter(lambda x: x.text == "OK", buttons)
+        
+        assert len(ok_button) == 1
+        
+        ok_button[0].click()
+        
+        #self.driver.find_element_by_xpath("//button[.='OK']").click()
 
 #@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
@@ -604,7 +633,7 @@ class BasicSeleniumTests(LiveServerTestCase):
     #    
     #    self.driver.find_element_by_css_selector("ul li:first-child a").click()
     #    
-    #    #select a gene that probably has hits, say MYC
+    #    #select a gene that probably has hits, say TP53
     #    
     #    self.driver.find_element_by_css_selector(".select2-choice").click()
     #    self.driver.find_element_by_css_selector("input.select2-input").send_keys("TP53")
@@ -669,69 +698,90 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        
     #        self.assertDictEqual(hit_cat_set, res_dict)
     
-    def compare_dicts(self, dict1, dict2):
-        for i in dict1.items():
-                for j in i[1].items():
-                    if dict2.has_key(i[0]):
-                        if dict2[i[0]].has_key(j[0]):
-                            if dict2[i[0]][j[0]] != j[1]:
-                                raise Exception('sets not the same:' + str(dict2[i[0]][j[0]]) + ' ' + str(j[1]))
-                        else:
-                            raise Exception('dict2 missing key: ' + i[0] + '->' + j[0])
-                    else:
-                        raise Exception('dict2 missing key: ' + i[0])
+    #def compare_dicts(self, dict1, dict2):
+    #    for i in dict1.items():
+    #            for j in i[1].items():
+    #                if dict2.has_key(i[0]):
+    #                    if dict2[i[0]].has_key(j[0]):
+    #                        if dict2[i[0]][j[0]] != j[1]:
+    #                            raise Exception('sets not the same:' + str(dict2[i[0]][j[0]]) + ' ' + str(j[1]))
+    #                    else:
+    #                        raise Exception('dict2 missing key: ' + i[0] + '->' + j[0])
+    #                else:
+    #                    raise Exception('dict2 missing key: ' + i[0])
+    #
+    #def test_hitwalker_panel(self):
+    #    
+    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    #    
+    #    default_thresh_mat_base = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", "")
+    #    
+    #    if r_obj != None:
+    #        
+    #        gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
+    #        
+    #        found_rels = hw_obj.get_node_rels("1")
+    #        
+    #        #needed to do it this way as it kept interpreting sub_graph as a list using the .ref approach
+    #        r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', .4)")
+    #        
+    #        gene_links = r_obj.getConn().r.get_gene_connections(r_obj.getConn().ref.sub_graph, gene_text['seeds'], gene_text['targs'])
+    #        
+    #        r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+    #        
+    #        for i in range(0, len(gene_links['from'])):
+    #            r_found_dta[gene_links['from'][i]][gene_links['to'][i]].add('STRING')
+    #            r_found_dta[gene_links['to'][i]][gene_links['from'][i]].add('STRING')
+    #        
+    #        #make this into a unique set
+    #        gene_set = set(list(gene_links['from']) + list(gene_links['to']))
+    #        
+    #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', np.array(list(gene_set)), 'Subject', 'Gene')
+    #        
+    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, True)
+    #        
+    #        for i in range(0, len(subj_groups['Subject'])):
+    #            split_dt = subj_groups['FixedDt'][i].split(',')
+    #            for j in split_dt:
+    #                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+    #                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+    #        
+    #        #for i in subj_groups['Subject']:
+    #        #    for j in subj_groups['Gene']:
+    #        #
+    #        print 'R vs Screen'
+    #        self.compare_dicts(r_found_dta, found_rels)
+    #        print 'Screen vs R'
+    #        self.compare_dicts(found_rels, r_found_dta)
+    #    
+    #    self.assertEqual(r_found_dta, found_rels)
     
-    def test_hitwalker_panel(self):
-        
-        
+    def test_gene_addition_prioritize(self):
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    
+        gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
         
-        default_thresh_mat_base = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", "")
+        print gene_text
         
-        if r_obj != None:
-            
-            gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
-            
-            found_rels = hw_obj.get_node_rels("1")
-            
-            #needed to do it this way as it kept interpreting sub_graph as a list using the .ref approach
-            r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', .4)")
-            
-            gene_links = r_obj.getConn().r.get_gene_connections(r_obj.getConn().ref.sub_graph, gene_text['seeds'], gene_text['targs'])
-            
-            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
-            
-            for i in range(0, len(gene_links['from'])):
-                r_found_dta[gene_links['from'][i]][gene_links['to'][i]].add('STRING')
-                r_found_dta[gene_links['to'][i]][gene_links['from'][i]].add('STRING')
-            
-            #make this into a unique set
-            gene_set = set(list(gene_links['from']) + list(gene_links['to']))
-            
-            print gene_set
-            
-            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', np.array(list(gene_set)), 'Subject', 'Gene')
-            
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, True)
-            
-            for i in range(0, len(subj_groups['Subject'])):
-                split_dt = subj_groups['FixedDt'][i].split(',')
-                for j in split_dt:
-                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
-                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
-            
-            #for i in subj_groups['Subject']:
-            #    for j in subj_groups['Gene']:
-            #
-            print 'R vs Screen'
-            self.compare_dicts(r_found_dta, found_rels)
-            print 'Screen vs R'
-            self.compare_dicts(found_rels, r_found_dta)
+        #add a new gene
+        hw_obj.add_gene("1", "TP53")
         
         
-        
-        
+        #if r_obj != None:
+        #
+        #    r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_text, 'Subject', 'Gene')
+        #
+        #    subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
+        #    
+        #    print subj_groups
+        #    
+        #    hit_cat_set = collections.Counter(subj_groups['FixedDt'])
+        #    
+        #    print hit_cat_set
+        #    
+        #    time.sleep(5)
+        #
     #    
     #    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
     #    #
