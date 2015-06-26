@@ -286,6 +286,47 @@ class HitWalkerInteraction(object):
         
         return link_dict
     
+    def add_pathway(self, panel_num, gene_names):
+        self.click_context_button(panel_num, 2)
+        
+        clickers = self.driver.find_elements_by_css_selector("ul.dropdown-menu li a")
+        
+        pathway_clicker = filter(lambda x: x.text == "Pathway", clickers)
+        
+        assert len(pathway_clicker) == 1
+        
+        pathway_clicker[0].click()
+        
+        for i in gene_names:
+        
+            self.driver.find_element_by_css_selector("input.select2-input").send_keys(i)
+            input_highlight = WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-result-label"))
+            )
+        
+            labels = self.driver.find_elements_by_css_selector(".select2-result-label")
+            
+            labels[0].click()
+        
+        time.sleep(2)
+        
+        pathway_sel = self.driver.find_elements_by_css_selector("select > option")[0].text
+        
+        buttons = self.driver.find_elements_by_css_selector("button")
+        
+        #print buttons
+        
+        ok_button = filter(lambda x: x.text == "OK", buttons)
+        
+        #print ok_button
+        
+        assert len(ok_button) == 1
+        
+        ok_button[0].click()
+        
+        return pathway_sel
+        
+    
     def add_gene(self, panel_num, gene_name):
     
         self.click_context_button(panel_num, 2)
@@ -762,35 +803,80 @@ class BasicSeleniumTests(LiveServerTestCase):
     #    
     #    self.assertEqual(r_found_dta, found_rels)
     
-    def test_gene_addition_prioritize(self):
-        
+    #def test_gene_addition_prioritize(self):
+    #    
+    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    #
+    #    gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
+    #    
+    #    #add a new gene
+    #    hw_obj.add_gene("1", "TP53")
+    #    
+    #    node_rels = hw_obj.get_node_rels("2")
+    #    
+    #    #assume that all went well with the formation of the graph and just add in the nodes from the page...
+    #    gene_list = hw_obj.get_node_rels("1").keys() + ['TP53']
+    #    
+    #    if r_obj != None:
+    #        
+    #        print gene_list
+    #        
+    #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_list, 'Subject', 'Gene')
+    #        
+    #        r_obj.getConn().voidEval('print(deparse(gene_hits))')
+    #        
+    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
+    #        
+    #        #as there is a single subject, then group the genes into metanodes
+    #        
+    #        #gene_counter = collections.Counter(subj_groups['FixedDt'])
+    #        
+    #        r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+    #        
+    #        for i in range(0, len(subj_groups['Subject'])):
+    #            split_dt = subj_groups['FixedDt'][i].split(',')
+    #            for j in split_dt:
+    #                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+    #                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+    #        
+    #        print 'R vs Screen'
+    #        self.compare_dicts(r_found_dta, node_rels)
+    #        print 'Screen vs R'
+    #        self.compare_dicts(node_rels, r_found_dta)
+    #        
+    #        self.assertEqual(r_found_dta, node_rels)
+    
+    def test_pathway_addition_prioritize(self):
+    
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
     
         gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
         
-        print gene_text
-        
-        #add a new gene
-        hw_obj.add_gene("1", "TP53")
+        #add a pathway this time
+        pathway_name = hw_obj.add_pathway("1", ["TP53"])
         
         node_rels = hw_obj.get_node_rels("2")
         
-        #assume that all went well with the formation of the graph and just add in the nodes from the page...
-        gene_list = hw_obj.get_node_rels("1").keys() + ['TP53']
+        gene_list = hw_obj.get_node_rels("1")
+        
+        clean_pathway_name = re.sub("\s+\(n=\d+\)\s*", "", pathway_name)
+        
+        print clean_pathway_name
+        print gene_list.keys()
         
         if r_obj != None:
             
-            print gene_list
+            r_obj.getConn().r.gene_hits1 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", clean_pathway_name, 'Subject', 'Pathway')
             
-            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_list, 'Subject', 'Gene')
+            #also need to collect the genes that were on panel 1
             
-            r_obj.getConn().voidEval('print(deparse(gene_hits))')
+            r_obj.getConn().r.gene_hits2 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_list.keys(), 'Subject', 'Gene')
             
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
+            r_obj.getConn().voidEval('gene_hits_all <- rbind(gene_hits1, gene_hits2)')
+            
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits_all, True, "HEPG2_LIVER", "Gene")
             
             #as there is a single subject, then group the genes into metanodes
-            
-            #gene_counter = collections.Counter(subj_groups['FixedDt'])
             
             r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
             
@@ -806,14 +892,7 @@ class BasicSeleniumTests(LiveServerTestCase):
             self.compare_dicts(node_rels, r_found_dta)
             
             self.assertEqual(r_found_dta, node_rels)
-        #    
-        #    hit_cat_set = collections.Counter(subj_groups['FixedDt'])
-        #    
-        #    print hit_cat_set
-        #    
-        #    time.sleep(5)
-        #
-    #    
+    
     #    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
     #    #
     #    #gene_query = neo4j.CypherQuery(graph_db,config.gene_names['query'].replace("{name:{GENE}}", "") + " LIMIT 10")
