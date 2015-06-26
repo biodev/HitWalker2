@@ -147,8 +147,8 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
 })
 
 #load("~/Desktop/hitwalker2_paper/temp_hw_conf.RData")
-#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'FYN', 'IKBKB', 'HEPG2_LIVER', 'MAP3K13', 'MAP2K7', 'UBC', 'HSP90AA1', 'KRAS', 'TP53'), 'Subject', 'Gene')
-
+#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'FYN', 'IKBKB', 'HEPG2_LIVER', 'MAP3K13', 'MAP2K7', 'UBC', 'HSP90AA1', 'KRAS'), 'Subject', 'Gene')
+#temp <- findHits(hw2.conf, 'HEPG2_LIVER', 'Insulin/IGF pathway-protein kinase B signaling cascade (panther) (n=24)', 'Subject', 'Pathway')
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
     require(RNeo4j)
@@ -166,11 +166,14 @@ setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, sub
     #get the entrez IDs and display names for the involved genes
     
     graph = startGraph("http://localhost:7474/db/data/")
-    gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFFERED_TO]-(m) RETURN n.name AS gene, m.name AS symbol")
     
-    stopifnot(gene_types == "Gene")
-    
-    genes <- gene.name$gene[gene.name$symbol %in% genes]
+    if (gene_types == "Gene"){
+      gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFFERED_TO]-(m) RETURN n.name AS gene, m.name AS symbol")
+      genes <- gene.name$gene[gene.name$symbol %in% genes]
+      
+    }else{
+      genes <- cypher(graph, paste0('MATCH (path:Pathway)-[:PATHWAY_CONTAINS]->(gene) WHERE path.name="',genes,'" RETURN gene.name'))[,1]
+    }
     
     do.call(rbind, lapply(names(hw2.conf@data.list), function(x){
         
