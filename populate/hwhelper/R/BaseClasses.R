@@ -7,10 +7,22 @@ setGeneric("populate", def=function(obj,...) standardGeneric("populate"))
 setGeneric("getMatrix", def=function(obj,...) standardGeneric("getMatrix"))
 setGeneric("getAnnotation", def=function(obj,...) standardGeneric("getAnnotation"))
 setGeneric("dataTypes", def=function(obj,...) standardGeneric("dataTypes"))
-setGeneric("nodeName", def=function(obj,...) standardGeneric("nodeName"))
 setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
+
+#' Shared Generics
+#'
+#' Methods that perform similar tasks for currently defined classes
+#'
+#' @name shared_generics
+NULL
+
+#' @rdname shared_generics
+#' @param obj Either an object of class \code{Subject} or an object inheriting from \code{NeoData}
+#' @return The name of the subject or node respectively
+setGeneric("nodeName", def=function(obj) standardGeneric("nodeName"))
+
 
 #' Testing Generics
 #'
@@ -35,7 +47,7 @@ NULL
 #'
 #' Basic class representing common components that all classes which load data into Neo4j for HitWalker2 should be derived from.
 #'
-#' @aliases fromSample toGene nodeName sampleEdge geneEdge
+#' @aliases fromSample toGene sampleEdge geneEdge
 #' @slot sample.edge.name The name of the edge going from sample to assay unit (e.g. SNP ID or probe ID).
 #' @slot gene.edge.name The name of the edge going from assay unit to gene
 #' @slot node.name The name of the node representation of the assay unit
@@ -72,7 +84,6 @@ setMethod("geneEdge", signature("NeoData"), function(obj){
 #'
 #' A class representing the subject and sample-level information in HitWalker2
 #'
-#' @aliases nodeName
 #' @slot subject.info, a \code{data.frame} containing subject level information.  The name of the first column will become the name associated with the subjects.
 #' An alias column can be provided which will allow the end-user the ability to search on more than just the subject name.  It must be '&' delimited.
 #' @slot subject.to.sample A \code{data.frame} containing the mapping from subject to sample, is best populated through \code{addSamples}.
@@ -93,7 +104,9 @@ HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", 
 #' @rdname class_helpers
 #' @param subject An object of class \code{Subject}
 #' @param gene.model String naming the type of gene model to be used, currently only entrez is supported.
-#' @param data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names in data.list
+#' @param data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names specified to the function.
+#' @param ... A series of name=value pairs which are to be loaded into the Neo4j database. All of the values in \code{data.types} should correspond to these names though
+#' it is not required that all the datatypes specified here correspond to those needed for prioritization.
 makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL,...)
 {
     gene.model <- match.arg(gene.model)
@@ -147,7 +160,7 @@ setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel
 })
 
 #' @describeIn HW2Config Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
-#' @param skip If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.
+#' @param neo.path If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.
 #' @param skip If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
 setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL){
     
@@ -318,6 +331,7 @@ setGeneric("addSamples<-", def=function(obj,..., value) standardGeneric("addSamp
 #' should contain a column referencing the subject, a 'sample' column and a 'type' column.  The 'type' column provides
 #' a mechanism through which samples with the same name can be differentiated in terms of data type.  If an object is
 #' supplied, the type column can be supplied as part of the method call (e.g. addSamples(subj, type="variant") <- object).
+#' @aliases addSamples<-
 #' @param obj A object of class \code{Subject}
 #' @param ... Additional argument list, currently used when \code{value} is not a \code{data.frame} to specify additional subject attributes such as 'type'.
 #' @param value Either an object with a \code{sampleNames} method defined or a \code{data.frame} with at least a 'sample' and column named the same as the subject. 

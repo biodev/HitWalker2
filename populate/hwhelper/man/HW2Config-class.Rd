@@ -4,8 +4,12 @@
 \name{HW2Config-class}
 \alias{HW2Config}
 \alias{HW2Config-class}
+\alias{configure}
 \alias{configure,HW2Config-method}
+\alias{dataTypes}
+\alias{populate}
 \alias{populate,HW2Config-method}
+\alias{relNames}
 \alias{subjectName,HW2Config-method}
 \title{HitWalker2 Configuration}
 \usage{
@@ -20,15 +24,15 @@
 \arguments{
 \item{obj}{An object of class \code{HW2Config}}
 
-\item{skip}{If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.}
+\item{neo.path}{If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.}
+
+\item{skip}{If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.}
 
 \item{base.dir}{Directory where the template files are located}
 
 \item{dest.dir}{Directory where the complete template files should be placed.}
 
 \item{make.graph.struct}{If TRUE, generate and stage a graph_struct file}
-
-\item{skip}{If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.}
 }
 \description{
 A class representing a HitWalker2 configuration

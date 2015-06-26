@@ -60,4 +60,5 @@ network/static/network/css/HitWalker2_*.css
 *.Rd
 *.Rcheck
 *.Rhistory
+*.Rapp.history
 *.tar.gz
