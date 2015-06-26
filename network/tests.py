@@ -301,17 +301,23 @@ class HitWalkerInteraction(object):
             EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-result-label"))
             )
         
-        input_highlight.click()
+        labels = self.driver.find_elements_by_css_selector(".select2-result-label")
         
-        #time.sleep(5)
+        labels[0].click()
         
         buttons = self.driver.find_elements_by_css_selector("button")
         
+        #print buttons
+        
         ok_button = filter(lambda x: x.text == "OK", buttons)
+        
+        #print ok_button
         
         assert len(ok_button) == 1
         
         ok_button[0].click()
+        
+        #time.sleep(5)
         
         #self.driver.find_element_by_xpath("//button[.='OK']").click()
 
@@ -698,18 +704,18 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        
     #        self.assertDictEqual(hit_cat_set, res_dict)
     
-    #def compare_dicts(self, dict1, dict2):
-    #    for i in dict1.items():
-    #            for j in i[1].items():
-    #                if dict2.has_key(i[0]):
-    #                    if dict2[i[0]].has_key(j[0]):
-    #                        if dict2[i[0]][j[0]] != j[1]:
-    #                            raise Exception('sets not the same:' + str(dict2[i[0]][j[0]]) + ' ' + str(j[1]))
-    #                    else:
-    #                        raise Exception('dict2 missing key: ' + i[0] + '->' + j[0])
-    #                else:
-    #                    raise Exception('dict2 missing key: ' + i[0])
-    #
+    def compare_dicts(self, dict1, dict2):
+        for i in dict1.items():
+                for j in i[1].items():
+                    if dict2.has_key(i[0]):
+                        if dict2[i[0]].has_key(j[0]):
+                            if dict2[i[0]][j[0]] != j[1]:
+                                raise Exception('sets not the same:' + str(dict2[i[0]][j[0]]) + ' ' + str(j[1]))
+                        else:
+                            raise Exception('dict2 missing key: ' + i[0] + '->' + j[0])
+                    else:
+                        raise Exception('dict2 missing key: ' + i[0])
+    
     #def test_hitwalker_panel(self):
     #    
     #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
@@ -738,7 +744,7 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        
     #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', np.array(list(gene_set)), 'Subject', 'Gene')
     #        
-    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, True)
+    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, 'HEPG2_LIVER')
     #        
     #        for i in range(0, len(subj_groups['Subject'])):
     #            split_dt = subj_groups['FixedDt'][i].split(',')
@@ -767,14 +773,39 @@ class BasicSeleniumTests(LiveServerTestCase):
         #add a new gene
         hw_obj.add_gene("1", "TP53")
         
+        node_rels = hw_obj.get_node_rels("2")
         
-        #if r_obj != None:
-        #
-        #    r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_text, 'Subject', 'Gene')
-        #
-        #    subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
-        #    
-        #    print subj_groups
+        #assume that all went well with the formation of the graph and just add in the nodes from the page...
+        gene_list = hw_obj.get_node_rels("1").keys() + ['TP53']
+        
+        if r_obj != None:
+            
+            print gene_list
+            
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_list, 'Subject', 'Gene')
+            
+            r_obj.getConn().voidEval('print(deparse(gene_hits))')
+            
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
+            
+            #as there is a single subject, then group the genes into metanodes
+            
+            #gene_counter = collections.Counter(subj_groups['FixedDt'])
+            
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
+            for i in range(0, len(subj_groups['Subject'])):
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+            
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, node_rels)
+            print 'Screen vs R'
+            self.compare_dicts(node_rels, r_found_dta)
+            
+            self.assertEqual(r_found_dta, node_rels)
         #    
         #    hit_cat_set = collections.Counter(subj_groups['FixedDt'])
         #    
