@@ -33,14 +33,14 @@ GWASResult <- function(geno.gene, gene.edge.name="RS_MAPPED_TO", node.name="snpI
 
 setClass(Class="GWASResult", contains=c("BasicGenotypes", "HwHit"),
          prototype=list(
-                        
+                        sample.edge.name="HAS_GWAS",
                         geno.sample=data.frame(),
                         
-                        base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-(samp) WHERE ANY(x IN [n.name, samp.name] WHERE x IN {SAMPLE}) WITH n MATCH (snp)-[r:RS_MAPPED_TO]-(gene:EntrezID{name:{GENE}})
+                        base.query='MATCH (n:$SUBJECT$) WHERE n.name IN {SAMPLE} WITH n MATCH (snp)-[r:RS_MAPPED_TO]-(gene:EntrezID{name:{GENE}})
                         WHERE HAS(r.score) AND r.score < $PAR_NAME$ WITH n, gene, MIN(r.score) AS gwas_pvalue
                         RETURN gene.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, gwas_pvalue AS score, gwas_pvalue < $PAR_NAME$ AS is_hit;',
                         
-                        template.query='MATCH (snp)-[r:RS_MAPPED_TO]-(gene) WHERE HAS(r.score) AND r.score < $PAR_NAME$ WITH gene MATCH (subject:MergeID)-[d:DERIVED]-(s) WHERE
+                        template.query='MATCH (snp)-[r:RS_MAPPED_TO]-(gene) WHERE HAS(r.score) AND r.score < $PAR_NAME$ WITH gene MATCH (subject:MergeID) WHERE
                         $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
                         ORDER BY use_coll DESC RETURN ret_type, use_coll',
                         
@@ -53,17 +53,17 @@ setMethod("sampleNames", signature("BasicGenotypes"), function(object){
 setClass(Class="MethylResult", representation=list(methyl.gene="data.frame"),contains=c("NeoData", "HwHit"),
          prototype=list(
                         
-                        sample.edge.name="HAS_EXPRESSION",
+                        sample.edge.name="HAS_METHYLATION",
                         gene.edge.name="METHYL_MAPPED_TO",
                         node.name="methylID",
                         
                         geno.sample=data.frame(),
                         
-                        base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-(samp) WHERE ANY(x IN [n.name, samp.name] WHERE x IN {SAMPLE}) WITH n MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID{name:{GENE}})
+                        base.query='MATCH (n:$SUBJECT$) WHERE n.name IN {SAMPLE} WITH n MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID{name:{GENE}})
                         WHERE HAS(r.score) AND r.score < $PAR_NAME$ WITH n, gene, MIN(r.score) AS methyl_pvalue
                         RETURN gene.name AS gene, n.name AS sample, "$DATA_NAME$" AS var, methyl_pvalue AS score, methyl_pvalue < $PAR_NAME$ AS is_hit;',
                         
-                        template.query='MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID) WHERE HAS(r.score) AND r.score < $PAR_NAME$ WITH gene MATCH (subject:MergeID)-[d:DERIVED]-(s) WHERE
+                        template.query='MATCH (meth)-[r:METHYL_MAPPED_TO]-(gene:EntrezID) WHERE HAS(r.score) AND r.score < $PAR_NAME$ WITH gene MATCH (subject:MergeID) WHERE
                         $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
                         ORDER BY use_coll DESC RETURN ret_type, use_coll',
                         

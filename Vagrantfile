@@ -209,4 +209,43 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   
   SHELL
   
+  
+  config.vm.provision "debug", type:"shell", inline: <<-SHELL
+  
+  #install Rstudio (can also read python files)
+  sudo apt-get install gdebi-core
+  wget http://download2.rstudio.org/rstudio-server-0.99.447-amd64.deb
+  sudo gdebi rstudio-server-0.99.447-amd64.deb
+  
+  #can access via hostname:8787
+  
+  #install RServe
+
+  sudo Rscript  -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("Rserve")'
+  
+  #set up upstart for Rserve
+  
+echo '
+description "Rserve" 
+start on (filesystem)
+stop on runlevel [016]
+respawn
+setuid vagrant
+setgid vagrant
+    
+exec R CMD Rserve
+' > Rserve.conf
+    
+  sudo cp Rserve.conf /etc/init/
+  
+  rm Rserve.conf
+  
+  #install python selenium and firefox
+  
+  sudo pip install selenium
+  
+  sudo apt-get -y install firefox
+  
+  SHELL
+  
 end
