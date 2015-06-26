@@ -146,7 +146,8 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
     
 })
 
-#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'MAP3K13', 'MAP2K7', 'UBC', 'HSP90AA1', 'KRAS'), 'Subject', 'Gene')
+#load("~/Desktop/hitwalker2_paper/temp_hw_conf.RData")
+#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'FYN', 'IKBKB', 'HEPG2_LIVER', 'MAP3K13', 'MAP2K7', 'UBC', 'HSP90AA1', 'KRAS', 'TP53'), 'Subject', 'Gene')
 
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
@@ -208,20 +209,31 @@ setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, sub
 # "GeneScore", "GeneScore", "GeneScore", "Variants", "Variants",
 # "Variants")), .Names = c("Subject", "Gene", "IsHit", "Datatype"))
 
-encode_groups <- function(hit.dta, ids.to.symbs=F, is.prioritization=F){
+encode_groups <- function(hit.dta, ids.to.symbs=F, prioritized_subject=NULL, group.by=c("None", "Subject", "Gene")){
+    
+    require(RNeo4j)
+    
+    group.by <- match.arg(group.by)
+  
+    graph = startGraph("http://localhost:7474/db/data/")
   
     hit.dta$FixedDt <- ifelse(hit.dta$IsHit, paste0("Observed_", hit.dta$Datatype), paste0("Possible_",hit.dta$Datatype))
     
-    if (is.prioritization){
-      hit.dta$FixedDt[hit.dta$IsHit == T & hit.dta$Datatype == "Variants"] <- "Ranked_Variants"
+    if ((missing(prioritized_subject) || is.null(prioritized_subject) || all(is.na(prioritized_subject)))==F){
+      
+      #if the Subject is equal to the specified prioritized_subject, the Datatype == "Variants" and the Gene is annotated in string
+      #then set FixedDt equal to 'Ranked_Variants'
+      
+      string.name <- cypher(graph, "MATCH (n) WHERE (n)-[:MAPPED_TO]->() RETURN n.name AS gene")
+      
+      hit.dta$FixedDt[hit.dta$IsHit == T & hit.dta$Datatype == "Variants" & as.character(hit.dta$Subject) %in% prioritized_subject & as.character(hit.dta$Gene) %in% string.name$gene] <- "Ranked_Variants"
+      
     }
     
     sum.dta <- aggregate(FixedDt~Subject + Gene, paste, collapse=",", data=hit.dta)
     
     if (ids.to.symbs){
-      require(RNeo4j)
       
-      graph = startGraph("http://localhost:7474/db/data/")
       gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFFERED_TO]-(m) RETURN n.name AS Gene, m.name AS symbol")
       
       sum.dta$Gene <- as.character(sum.dta$Gene)
@@ -230,6 +242,23 @@ encode_groups <- function(hit.dta, ids.to.symbs=F, is.prioritization=F){
       
       sum.dta$Gene <- sum.dta$symbol
       sum.dta <- sum.dta[,-which(names(sum.dta) == "symbol")]
+    }
+    
+    if (group.by != "None"){
+      
+      lo.cols <- paste(setdiff(names(sum.dta), group.by), collapse="+")
+      
+      .make.groups <- function(x){
+        
+        if (length(x) == 1){
+          x
+        }else{
+          paste(group.by, paste0("(", length(x), ")"))
+        }
+      }
+      
+      
+      sum.dta <- aggregate(as.formula(paste(group.by, lo.cols, sep="~")), .make.groups , data=sum.dta)
     }
     
     return(sum.dta) 
