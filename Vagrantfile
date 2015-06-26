@@ -39,7 +39,7 @@ Vagrant.configure(2) do |config|
   #config.vm.synced_folder "data/", "/vagrant_data",owner: "neo4j", group: "neo4j"
   
   config.ssh.insert_key = false
-  
+  config.ssh.forward_x11 = true
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
   # Example for VirtualBox:
