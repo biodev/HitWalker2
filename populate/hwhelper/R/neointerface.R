@@ -1,3 +1,10 @@
+#' Neo4j Interface Functions
+#'
+#' These functions utilities which assist with working with a Neo4j database
+#'
+#' @name neo4j_helpers
+NULL
+
 make.property.str.node <- function(prop.names, dta, pos, array.delim)
     {
         base.str <- paste0("{name:line[",pos,"]")
@@ -86,6 +93,18 @@ get.or.create.constraints <- function(neo.path=NULL, node.names)
     return (constr.str)
 }
 
+#' @rdname neo4j_helpers
+#' @param .data A \code{data.frame} containing data to load where the first two columns are nodes and each row is an implied edge. The first two
+#' column names are taken to be the names of the nodes.  The following columns should either be of the form 'node.val' or simply 'val'.  The former
+#' provides a property for the specified node, while the latter specifies an edge property.
+#' @param edge.name Name of the implied edge
+#' @param commit.size Number of relationships to commit in a single transaction when loading.
+#' @param dry.run If TRUE, then the actual statments will be printed to the screen but not executed.
+#' @param array.delim If a property should encode a Neo4j array, this specifies how the values should be delimited.
+#' @param unique.rels If TRUE, relationships will be required to be unique.
+#' @param merge.from Specifies whether the first node should be merged, that is added if it doesn't exist, or simply matched.
+#' @param merge.to Species whether the second node should be merged similar to merge.from.
+#' @return Nothing, as a side effect the specified Neo4j database is populated.
 load.neo4j <- function(.data, edge.name=NULL, commit.size=1000, neo.path=NULL, dry.run=F, array.delim="&", unique.rels=T, merge.from=T, merge.to=T)
 {
     if (missing(edge.name) || is.null(edge.name))
@@ -336,6 +355,9 @@ clean.neo4j.res <- function(result)
     
 }
 
+#' @rdname neo4j_helpers
+#' @param neo.path If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.
+#' @return A \code{igraph} object depicting the database.
 compute.graph.structure <- function(neo.path=NULL)
 {
     message("Getting labels from DB")
