@@ -37,6 +37,7 @@ class RTestSession(object):
     
     def __init__(self):
         self._conn = pyRserve.connect()
+        self._conn.voidEval('options(stringsAsFactors=F)')
         self._conn.voidEval('library(hwhelper)')
         self._conn.voidEval('load("'+config.hw_config_path+'")')
         self._conn.voidEval('assign("hw2_obj", get(ls()))')
@@ -861,18 +862,17 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         clean_pathway_name = re.sub("\s+\(n=\d+\)\s*", "", pathway_name)
         
-        print clean_pathway_name
-        print gene_list.keys()
-        
         if r_obj != None:
             
             r_obj.getConn().r.gene_hits1 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", clean_pathway_name, 'Subject', 'Pathway')
             
             #also need to collect the genes that were on panel 1
             
+            #r_obj.getConn().voidEval('gene_hits2 <- findHits(hw2_obj, "HEPG2_LIVER", "'+clean_pathway_name+'", "Subject", "Pathway")')
+            
             r_obj.getConn().r.gene_hits2 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_list.keys(), 'Subject', 'Gene')
             
-            r_obj.getConn().voidEval('gene_hits_all <- rbind(gene_hits1, gene_hits2)')
+            r_obj.getConn().voidEval('gene_hits_all <- rbind(as.data.frame(gene_hits1), as.data.frame(gene_hits2))')
             
             subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits_all, True, "HEPG2_LIVER", "Gene")
             
@@ -892,6 +892,14 @@ class BasicSeleniumTests(LiveServerTestCase):
             self.compare_dicts(node_rels, r_found_dta)
             
             self.assertEqual(r_found_dta, node_rels)
+    
+    def test_subject_addition_prioritize(self):
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    
+        gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
+        
+        #add a new subject this time...
     
     #    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
     #    #

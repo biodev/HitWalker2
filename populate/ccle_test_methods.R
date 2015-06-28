@@ -146,9 +146,12 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
     
 })
 
+#Insulin/IGF pathway-protein kinase B signaling cascade (panther)
+#[u'ALK', u'MAP3K1', u'HEPG2_LIVER', u'MAP3K13', u'MAP2K7', u'HSP90AA1', u'KRAS']
+
 #load("~/Desktop/hitwalker2_paper/temp_hw_conf.RData")
-#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'FYN', 'IKBKB', 'HEPG2_LIVER', 'MAP3K13', 'MAP2K7', 'UBC', 'HSP90AA1', 'KRAS'), 'Subject', 'Gene')
-#temp <- findHits(hw2.conf, 'HEPG2_LIVER', 'Insulin/IGF pathway-protein kinase B signaling cascade (panther) (n=24)', 'Subject', 'Pathway')
+#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'HEPG2_LIVER', 'MAP3K13', 'MAP2K7', 'HSP90AA1', 'KRAS'), 'Subject', 'Gene')
+#temp.2 <- findHits(hw2.conf, 'HEPG2_LIVER', 'Insulin/IGF pathway-protein kinase B signaling cascade (panther)', 'Subject', 'Pathway')
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
     require(RNeo4j)
