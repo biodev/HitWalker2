@@ -1489,6 +1489,9 @@
             var sel_nodes =  $(".select2").select2("data").search_list;
             var node_label = $(".select2").select2("data").text;
             
+            console.log(JSON.stringify(sel_nodes));
+            console.log(JSON.stringify(node_label));
+            
             sel_nodes.forEach(function(d,i,ar)
                               {
                                     //remove the '@' for future display

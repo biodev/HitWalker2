@@ -4,6 +4,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
+import time
+import re
+import scipy.spatial
+import numpy as np
+import collections
+
 class SelectedNodes(object):
     
     _display_names = []
@@ -239,22 +245,34 @@ class HitWalkerInteraction(object):
             link_dict[node_labels[left_match[1]]][node_labels[right_match[1]]].add(link_type[i_ind])
             link_dict[node_labels[right_match[1]]][node_labels[left_match[1]]].add(link_type[i_ind])
         
-        #for i in link_dict.items():
-        #    for j in i[1].items():
-        #        print i[0] + "\t" + j[0] + "\t" + str(j[1])
-        
         return link_dict
     
-    def add_pathway(self, panel_num, gene_names):
-        self.click_context_button(panel_num, 2)
+    def click_by_text(self, selector, text):
         
-        clickers = self.driver.find_elements_by_css_selector("ul.dropdown-menu li a")
+        clickers = self.driver.find_elements_by_css_selector(selector)
         
-        pathway_clicker = filter(lambda x: x.text == "Pathway", clickers)
+        pathway_clicker = filter(lambda x: x.text == text, clickers)
         
         assert len(pathway_clicker) == 1
         
         pathway_clicker[0].click()
+    
+    def use_select2_box(self, sel_text):
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("input.select2-input").send_keys(sel_text)
+        
+        input_highlight = WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-result-label"))
+            )
+        
+        labels = self.driver.find_elements_by_css_selector(".select2-result-label")
+        
+        labels[0].click()
+    
+    def add_pathway(self, panel_num, gene_names):
+        self.click_context_button(panel_num, 2)
+        
+        self.click_by_text("ul.dropdown-menu li a", "Pathway")
         
         for i in gene_names:
         
@@ -284,6 +302,17 @@ class HitWalkerInteraction(object):
         ok_button[0].click()
         
         return pathway_sel
+    
+    
+    def add_subject(self, panel_num, subj_name):
+        
+        self.click_context_button(panel_num, 2)
+        
+        self.click_by_text("ul.dropdown-menu li a", "Subject")
+        
+        self.use_select2_box(subj_name)
+        
+        self.click_by_text("button", "OK")
         
     
     def add_gene(self, panel_num, gene_name):

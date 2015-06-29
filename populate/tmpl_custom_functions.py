@@ -32,7 +32,7 @@ def match_sample(query):
                 counter += 1
         
     else:
-        sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@)-[:DERIVED]->() WITH n, CASE n.alias WHEN null THEN [n.name] ELSE [n.name]+n.alias END AS alias_query UNWIND alias_query AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(n.name)')
+        sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@)-[:DERIVED]->() WITH n, CASE n.alias WHEN null THEN [n.name] ELSE [n.name]+n.alias END AS alias_query UNWIND alias_query AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(DISTINCT n.name)')
         
         for i in sample_query.execute().data:
             query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':i.values[2]})
@@ -47,7 +47,7 @@ def match_gene(query):
     graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
     query_list = []
     
-    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:Symbol)<-[r:REFFERED_TO]-(m) UNWIND [n.name] + r.synonyms AS name_syns WITH n,m,name_syns WHERE name_syns =~"'+query+'.*"  RETURN m.name+name_syns, name_syns, COLLECT(m.name) ORDER BY LENGTH(name_syns)')
+    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:Symbol)<-[r:REFFERED_TO]-(m) UNWIND [n.name] + r.synonyms AS name_syns WITH n,m,name_syns WHERE name_syns =~"'+query+'.*"  RETURN m.name+name_syns, name_syns, COLLECT(DISTINCT m.name) ORDER BY LENGTH(name_syns)')
     
     search_res = []
     

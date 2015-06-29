@@ -580,123 +580,43 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        
     #        self.assertEqual(r_found_dta, node_rels)
     #
+    
     def test_subject_addition_prioritize(self):
+        
+        subjects = ["HEPG2_LIVER", "LOUCY_HAEMATOPOIETIC_AND_LYMPHOID_TISSUE"]
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
     
-        gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
+        gene_text = hw_obj.panel_by_prioritize(subjects[0])
         
         #add a new subject this time...
         
-        print 'ello'
+        hw_obj.add_subject("1", subjects[1])
         
+        node_rels = hw_obj.get_node_rels("2")
         
-    
-    #    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
-    #    #
-    #    #gene_query = neo4j.CypherQuery(graph_db,config.gene_names['query'].replace("{name:{GENE}}", "") + " LIMIT 10")
-    #    #
-    #    #for i in gene_query.execute().data:
-    #    #    print i
-    #    
-    #    #get samples
-    #    
-    #    #current css
-    #    static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
-    #    new_css_path = os.path.join(static_storage.location, "network/css/HitWalker2_selenium.css")
-    #    print new_css_path
-    #    
-    #    sample_query = neo4j.CypherQuery(graph_db,config.subject['query'].replace("{name:{SUBJECTID}}", "") + " LIMIT 10") 
-    #    
-    #    for i in sample_query.execute().data:
-    #        print i.values
-    #        print i.values[0].get_properties()
-    #    
-    #    self.driver.get('%s%s' % (self.live_server_url, '/HitWalker2'))
-    #    self.driver.find_element_by_css_selector(".select2-choice").click()
-    #    self.driver.find_element_by_css_selector("#select2-drop input.select2-input").send_keys("HEPG2_LIVER")
-    #    self.driver.find_element_by_css_selector(".select2-result-label").click()
-    #    
-    #    element = WebDriverWait(self.driver, 20).until(
-    #        EC.element_to_be_clickable((By.ID, "query"))
-    #    )
-    #    
-    #    element.click()
-    #    
-    #    panel = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.CSS_SELECTOR, "rect.BorderRect"))
-    #    )
-    #    
-    #    webdriver.ActionChains(self.driver).move_to_element(panel).context_click(panel).perform()
-    #    
-    #    self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
-    #    
-    #    self.driver.find_element_by_css_selector("ul li:first-child a").click()
-    #    
-    #    #get a gene
-    #    
-    #    ##enter the gene name
-    #    self.driver.find_element_by_css_selector(".select2-choice").click()
-    #    self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
-    #    
-    #    input_highlight = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
-    #        )
-    #    
-    #    input_highlight.click()
-    #    
-    #    self.driver.find_element_by_xpath("//button[.='OK']").click()
-    #    
-    #    #now wait for the new panel and check its contents against its expected result
-    #    panel_2 = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.ID,"panel_2"))
-    #    )
-    #    
-    #    #within panel_2
-    #    
-    #    #there should be at least both a Subject and a gene node
-    #    
-    #    #look for g class node with circle of class 'Subject' and/or gene
-    #    
-    #    subj_node = panel_2.find_elements_by_css_selector("g > circle.Subject")
-    #    gene_node = panel_2.find_elements_by_css_selector("g > circle.Gene")
-    #    
-    #    self.assertTrue(len(subj_node) == 1 and len(gene_node) == 1)
-    #    
-    #    #at the same level of circle look for g within g-> circle of appriate class per css 
-    #    
-    #    print temp_1
-    #    print temp_2
-    #    
-    #    #at the same level as the top g can look for a path tag with suitable class link css_class selected/unselected
-    #    
-    #    time.sleep(5)
-    #    
-    #    #self.driver.find_element_by_css_selector("#").click()
-    #    
-    #    #right click on a panel
-    #    
-    #    #use_panel = self.driver.find_element_by_css_selector("rect.BorderRect")
-    #    #
-    #    #webdriver.ActionChains(self.driver).move_to_element(use_panel).context_click(use_panel).perform()
-    #    #
-    #    #self.driver.find_element_by_css_selector("div.btn-group-vertical div.btn-group:nth-child(2) button").click()
-    #    #
-    #    #self.driver.find_element_by_css_selector("ul li:first-child a").click()
-    #    #
-    #    ##enter the gene name
-    #    #self.driver.find_element_by_css_selector(".select2-choice").click()
-    #    ##self.driver.find_element_by_css_selector("input.select2-input").send_keys("CLSTN2")
-    #    #self.driver.find_element_by_css_selector("input.select2-input").send_keys("ROR1")
-    #    #self.driver.find_element_by_css_selector(".select2-result-label").click()
-    #    #time.sleep(1)
-    #    #
-    #    #self.driver.find_element_by_xpath("//button[.='OK']").click()
-    #    
-    #    #check the sanity of the result
-    #    
-    #    
-    #    #time.sleep(10)
+        gene_list = hw_obj.get_node_rels("1")
+        
+        if r_obj != None:
+            #it shouldn't matter that gene_list will contain subject nodes as well--they will be ignored
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, subjects, gene_list.keys(), 'Subject', 'Gene')
+            
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
+            
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
+            for i in range(0, len(subj_groups['Subject'])):
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+            
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, node_rels)
+            print 'Screen vs R'
+            self.compare_dicts(node_rels, r_found_dta)
+            
+            self.assertEqual(r_found_dta, node_rels)
     
 
 ##globally useful functions and classes
