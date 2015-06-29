@@ -31,6 +31,38 @@ process_matrix_graph <- function(mm_file_base, string_conf){
     return(new.graph)    
 }
 
+get_direct_connections <- function(use_graph, node_set){
+    
+    require(RNeo4j)
+    
+    graph = startGraph("http://localhost:7474/db/data/")
+    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-()-[:REFFERED_TO]-(m) RETURN n.name AS string, m.name AS symbol")
+   
+    node.comb <- data.frame(t(combn(node_set, 2)), stringsAsFactors=F)
+    
+    names(node.comb) <- c("from", "to")
+    
+    should.keep <- sapply(1:nrow(node.comb), function(x){
+        
+        from.name <- string.name$string[string.name$symbol == node.comb$from[x]]
+        to.name <- string.name$string[string.name$symbol == node.comb$to[x]]
+        
+        stopifnot(length(from.name) == 1 && length(to.name) == 1)
+        
+        are.connected(use_graph,V(use_graph)[name == from.name], V(use_graph)[name == to.name])
+    })
+   
+   direct.cons <- node.comb[should.keep,]
+   
+   merged.from <- merge(direct.cons, string.name, by.x="from", by.y="string")
+   merged.ft <- merge(merged.from, string.name, by.x="to", by.y="string")
+   
+   ret.edges <- merged.ft[,c("symbol.x", "symbol.y")]
+   names(ret.edges) <- c("from", "to")
+   
+   return(ret.edges)
+}
+
 get_gene_connections <- function(use.graph, seeds, targs){
     
     #use.graph <- process_matrix_graph("/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm", .4)

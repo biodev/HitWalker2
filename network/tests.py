@@ -646,10 +646,20 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         path_text = hw_obj.add_pathway(None, ["KRAS"])
         
+        print path_text
+        
+        #get new window handles
+        
+        handles = self.driver.window_handles
+        
+        self.assertTrue(len(handles) == 2)
+        
+        self.driver.switch_to.window(handles[1])
+        
         #wait until network screen is present
         
         spinner = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "div.spinner"))
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".spinner"))
         )
         
         WebDriverWait(self.driver, 120).until(
@@ -660,11 +670,20 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         print node_rels
         
-        #if r_obj != None:
+        if r_obj != None:
+            print 'r is configured'
+            
+            #to be supplied...
+            conf_thresh = .995
+            node_list=[]
+            
+            #get graph
+            r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', "+str(conf_thresh)+")")
+            
+            #get string
+            r_obj.get_direct_connections( r_obj.getConn().ref.sub_graph, node_list)
         
-        #get string
-        
-        #get hits
+            #get hits
         
 
 ##globally useful functions and classes
