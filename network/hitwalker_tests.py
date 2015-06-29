@@ -270,13 +270,21 @@ class HitWalkerInteraction(object):
         labels[0].click()
     
     def add_pathway(self, panel_num, gene_names):
-        self.click_context_button(panel_num, 2)
         
-        self.click_by_text("ul.dropdown-menu li a", "Pathway")
+        if panel_num != None:
+        
+            self.click_context_button(panel_num, 2)
+            
+            self.click_by_text("ul.dropdown-menu li a", "Pathway")
         
         for i in gene_names:
-        
-            self.driver.find_element_by_css_selector("input.select2-input").send_keys(i)
+            
+            input_text = WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR,"input.select2-input"))
+                )
+            
+            input_text.send_keys(i)
+            
             input_highlight = WebDriverWait(self.driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-result-label"))
             )

@@ -581,43 +581,91 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        self.assertEqual(r_found_dta, node_rels)
     #
     
-    def test_subject_addition_prioritize(self):
-        
-        subjects = ["HEPG2_LIVER", "LOUCY_HAEMATOPOIETIC_AND_LYMPHOID_TISSUE"]
-        
+    #def test_subject_addition_prioritize(self):
+    #    
+    #    subjects = ["HEPG2_LIVER", "LOUCY_HAEMATOPOIETIC_AND_LYMPHOID_TISSUE"]
+    #    
+    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    #
+    #    gene_text = hw_obj.panel_by_prioritize(subjects[0])
+    #    
+    #    #add a new subject this time...
+    #    
+    #    hw_obj.add_subject("1", subjects[1])
+    #    
+    #    node_rels = hw_obj.get_node_rels("2")
+    #    
+    #    gene_list = hw_obj.get_node_rels("1")
+    #    
+    #    if r_obj != None:
+    #        #it shouldn't matter that gene_list will contain subject nodes as well--they will be ignored
+    #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, subjects, gene_list.keys(), 'Subject', 'Gene')
+    #        
+    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
+    #        
+    #        r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+    #        
+    #        for i in range(0, len(subj_groups['Subject'])):
+    #            split_dt = subj_groups['FixedDt'][i].split(',')
+    #            for j in split_dt:
+    #                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+    #                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+    #        
+    #        print 'R vs Screen'
+    #        self.compare_dicts(r_found_dta, node_rels)
+    #        print 'Screen vs R'
+    #        self.compare_dicts(node_rels, r_found_dta)
+    #        
+    #        self.assertEqual(r_found_dta, node_rels)
+    
+    def test_context_pathway_mode_prioritize(self):
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-    
-        gene_text = hw_obj.panel_by_prioritize(subjects[0])
         
-        #add a new subject this time...
+        gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
         
-        hw_obj.add_subject("1", subjects[1])
+        #go to the context pathway mode screen
         
-        node_rels = hw_obj.get_node_rels("2")
+        hw_obj.click_context_button("1", 3)
         
-        gene_list = hw_obj.get_node_rels("1")
+        WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-search-choice-close"))
+        )
         
-        if r_obj != None:
-            #it shouldn't matter that gene_list will contain subject nodes as well--they will be ignored
-            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, subjects, gene_list.keys(), 'Subject', 'Gene')
-            
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
-            
-            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
-            
-            for i in range(0, len(subj_groups['Subject'])):
-                split_dt = subj_groups['FixedDt'][i].split(',')
-                for j in split_dt:
-                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
-                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
-            
-            print 'R vs Screen'
-            self.compare_dicts(r_found_dta, node_rels)
-            print 'Screen vs R'
-            self.compare_dicts(node_rels, r_found_dta)
-            
-            self.assertEqual(r_found_dta, node_rels)
-    
+        close_buttons = self.driver.find_elements_by_css_selector(".select2-search-choice-close")
+        
+        #check that five genes are selected
+        
+        self.assertTrue(len(close_buttons) == 5)
+        
+        #unselect them all and go through the subject_pathway interface
+        
+        for i in close_buttons:
+            i.click()
+        
+        time.sleep(2)
+        
+        path_text = hw_obj.add_pathway(None, ["KRAS"])
+        
+        #wait until network screen is present
+        
+        spinner = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.spinner"))
+        )
+        
+        WebDriverWait(self.driver, 120).until(
+            EC.staleness_of(spinner)
+        )
+        
+        node_rels = hw_obj.get_node_rels("1")
+        
+        print node_rels
+        
+        #if r_obj != None:
+        
+        #get string
+        
+        #get hits
+        
 
 ##globally useful functions and classes
 
