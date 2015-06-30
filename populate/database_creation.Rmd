@@ -1,0 +1,110 @@
+---
+title: "Inital Database Population"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+
+First we retrieve the STRING protein-protein interaction data (CITATION), perform an initial thresholding to only keep the high confidence data and load it into Neo4j.  We first need to make sure that the `neo4j-shell` command can reach the appropriate Neo4j database and that the latest version of `hwhelper` is installed.
+
+```{r}
+    library(hwhelper)
+    library(igraph)
+    library(Matrix)
+
+    if (file.exists("9606.protein.links.v9.1.txt.gz") == F){
+      system("wget http://string-db.org/newstring_download/protein.links.v9.1/9606.protein.links.v9.1.txt.gz")
+    }
+    
+    string.ppi <- read.delim("9606.protein.links.v9.1.txt.gz", sep="", stringsAsFactors=F)
+    
+    names(string.ppi) <- c("stringID", "stringID", "score")
+    
+    hc.string.ppi <- string.ppi[string.ppi$score > .7,]
+    
+    load.neo4j(.data=hc.string.ppi, edge.name="ASSOC", commit.size=10000L, unique.rels=F)
+```
+
+In addition we will keep a matrix copy for use in the prioritization functionality.
+
+```{r}
+    
+    hc.string.ppi$score <- hc.string.ppi$score/1000
+    
+    use.graph <- graph.data.frame(hc.string.ppi, directed=FALSE)
+    
+    temp.sparse <- get.adjacency(graph=use.graph, sparse=TRUE, attr="score", type="both")/2
+    
+    writeMM(temp.sparse, file="9606.protein.links.v9.1.mm.mtx")
+    
+    stopifnot(all(colnames(temp.sparse) == rownames(temp.sparse)))
+    
+    write.table(rownames(temp.sparse), file="9606.protein.links.v9.1.mm.names", sep="\t", col.names=FALSE, row.names=FALSE, quote=FALSE)
+
+```
+
+We can then load the STRING ID to Entrez ID mapping file into Neo4j.
+
+```{r}
+    if (file.exists("entrez_gene_id.vs.string.v9.05.28122012.txt")==F){
+      system("wget ftp://string-db.org/STRING/9.1/mapping_files/Entrez_mappings/entrez_gene_id.vs.string.v9.05.28122012.txt")
+    }
+    
+    ppi.map <- read.delim("entrez_gene_id.vs.string.v9.05.28122012.txt", sep="\t", header=TRUE, stringsAsFactors=FALSE)
+    names(ppi.map) <- c("entrezID", "stringID")
+    
+    #need to limit inclusion to only those entrezIDs that can be mapped back to Ensembl genes..
+    #ppi.map <- ppi.map[ppi.map$entrezID %in% gene.ent$entrezID,]
+    
+    load.neo4j(.data=ppi.map, edge.name="MAPPED_TO", commit.size=10000L)
+    
+```
+
+Also load in gene symbol data for the entrez IDs.  This will create a EntrezID -> Symbol mapping with a relationship called REFFERED_TO.  This relationship will have a property called *synonyms* containing a list of all the synonyms for the given Entrez IDs. 
+
+```{r}
+    if(file.exists("Homo_sapiens.gene_info.gz")==F){
+      system("wget ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz")
+    }
+    
+    #header is like: '#Format: tax_id GeneID Symbol LocusTag Synonyms' so need to remove the Format: prior to using...
+    
+    ent.info <- read.delim("Homo_sapiens.gene_info.gz", sep="\t", header=F, skip=1, stringsAsFactors=F)
+    ent.info.header <- readLines("Homo_sapiens.gene_info.gz", n=1)
+    
+    ent.info.match <- regmatches(ent.info.header, regexec(":[[:space:]]+([[:alnum:][:space:]_]+)[[:space:]]+\\(", ent.info.header))[[1]][2]
+    use.header <- strsplit(ent.info.match, "\\s+")[[1]]
+    
+    names(ent.info) <- use.header
+    
+    ent.dta <- ent.info[,c("GeneID", "Symbol", "Synonyms")]
+    names(ent.dta) <- c("entrezID", "symbol", "synonyms")
+    
+    load.neo4j(.data=ent.dta, edge.name="REFFERED_TO", commit.size=10000L, array.delim="|")
+
+```
+    As it is also desired to relate pathway information to our base set of Entrez IDs we can then add in Pathway Commons (CITATION) pathway information, converted to Entrez IDs.  Here we will keep *database* as a property of the Pathway node and will only keep non-NA relationships with entrez IDs
+```{r}
+    path.dta <- hwhelper:::read.pc.gmt(filename="Pathway Commons.4.All.GSEA.gmt", organism.code="9606")
+    
+    load.path.dta <- path.dta[,c("pathway", "entrezID", "database")]
+    names(load.path.dta)[3] <- "pathway.database"
+    load.path.dta <- load.path.dta[complete.cases(load.path.dta),]
+    
+    #there are duplicated entries and uniqueness constraints so will also need to deal with it ahead of time...
+    
+    #maybe deal with this as follows:
+    
+    load.path.dta <- load.path.dta[!duplicated(load.path.dta),]
+    
+    load.path.dta$pathway <- paste(load.path.dta$pathway, paste0("(", load.path.dta$pathway.database, ")"))
+    
+    load.neo4j(.data=load.path.dta, edge.name="PATHWAY_CONTAINS", commit.size=10000L)
+    
+```
+    
+    
+    
+   
+    
