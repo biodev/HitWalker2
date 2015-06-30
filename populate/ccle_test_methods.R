@@ -31,21 +31,41 @@ process_matrix_graph <- function(mm_file_base, string_conf){
     return(new.graph)    
 }
 
-get_direct_connections <- function(use_graph, node_set){
+#sub_graph <- process_matrix_graph("/var/www/hitwalker2_inst/static/network/data/9606.protein.links.v9.1.mm", .95)
+#get_direct_connections(sub_graph, "Signaling by EGFR in Cancer (reactome)", "Pathway")
+get_direct_connections <- function(use_graph, node_set, node_types=c("Gene", "Pathway")){
     
     require(RNeo4j)
     
+    node_types = match.arg(node_types)
+    
     graph = startGraph("http://localhost:7474/db/data/")
-    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-()-[:REFFERED_TO]-(m) RETURN n.name AS string, m.name AS symbol")
+    
+    if (node_types == "Pathway"){
+      
+      genes <- cypher(graph, paste0('MATCH (path:Pathway)-[:PATHWAY_CONTAINS]->(gene) WHERE path.name="',node_set,'" RETURN gene.name'))[,1]
+      
+    }else{
+      
+      gene.symbs <- cypher(graph, paste0("MATCH (n)-[:REFFERED_TO]-(m)  n.name AS gene, m.name AS symbol"))
+      
+      sub.genes <- gene.symbs[gene.symbs$symbol %in% node_set,]
+      
+      stopifnot(nrow(sub.genes) == length(node_set))
+      
+      genes <- sub.genes$gene
+    }
+    
+    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-(o)-[:REFFERED_TO]-(m) RETURN n.name AS string, o.name AS gene, m.name AS symbol")
    
-    node.comb <- data.frame(t(combn(node_set, 2)), stringsAsFactors=F)
+    node.comb <- data.frame(t(combn(genes, 2)), stringsAsFactors=F)
     
     names(node.comb) <- c("from", "to")
     
     should.keep <- sapply(1:nrow(node.comb), function(x){
         
-        from.name <- string.name$string[string.name$symbol == node.comb$from[x]]
-        to.name <- string.name$string[string.name$symbol == node.comb$to[x]]
+        from.name <- string.name$string[string.name$gene == node.comb$from[x]]
+        to.name <- string.name$string[string.name$gene == node.comb$to[x]]
         
         stopifnot(length(from.name) == 1 && length(to.name) == 1)
         
@@ -54,11 +74,13 @@ get_direct_connections <- function(use_graph, node_set){
    
    direct.cons <- node.comb[should.keep,]
    
-   merged.from <- merge(direct.cons, string.name, by.x="from", by.y="string")
-   merged.ft <- merge(merged.from, string.name, by.x="to", by.y="string")
+   merged.from <- merge(direct.cons, string.name, by.x="from", by.y="gene")
+   merged.ft <- merge(merged.from, string.name, by.x="to", by.y="gene")
    
    ret.edges <- merged.ft[,c("symbol.x", "symbol.y")]
    names(ret.edges) <- c("from", "to")
+   
+   ret.edges <- ret.edges[!duplicated(ret.edges),]
    
    return(ret.edges)
 }

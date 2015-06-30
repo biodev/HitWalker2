@@ -646,8 +646,6 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         path_text = hw_obj.add_pathway(None, ["KRAS"])
         
-        print path_text
-        
         #get new window handles
         
         handles = self.driver.window_handles
@@ -668,23 +666,46 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         node_rels = hw_obj.get_node_rels("1")
         
-        print node_rels
-        
         if r_obj != None:
             print 'r is configured'
             
+            clean_pathway_name = re.sub("\s+\(n=\d+\)\s*", "", path_text)
+            
+            default_thresh_mat_base = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", "")
+            
             #to be supplied...
-            conf_thresh = .995
+            conf_thresh = config.adjust_fields['General_Parameters']['fields']['path_conf']['default']
             node_list=[]
             
             #get graph
             r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', "+str(conf_thresh)+")")
             
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
             #get string
-            r_obj.get_direct_connections( r_obj.getConn().ref.sub_graph, node_list)
-        
+            string_groups = r_obj.getConn().r.get_direct_connections( r_obj.getConn().ref.sub_graph, clean_pathway_name, 'Pathway')
+            
+            for i in range(0, len(string_groups['from'])):
+                r_found_dta[string_groups['from'][i]][string_groups['to'][i]].add('STRING')
+                r_found_dta[string_groups['to'][i]][string_groups['from'][i]].add('STRING')
+            
             #get hits
-        
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', clean_pathway_name, 'Subject', 'Pathway')
+            
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
+            
+            for i in range(0, len(subj_groups['Subject'])):
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+            
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, node_rels)
+            print 'Screen vs R'
+            self.compare_dicts(node_rels, r_found_dta)
+            
+            self.assertEqual(r_found_dta, node_rels)
 
 ##globally useful functions and classes
 
