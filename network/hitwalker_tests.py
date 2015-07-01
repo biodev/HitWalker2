@@ -34,6 +34,11 @@ class NodeSelectors(object):
     def text_selector(self):
         return self._text_selector;
 
+class SingleSubjectSelector(NodeSelectors):
+    
+    def __init__(self):
+        self._selector = "g.node > circle.Subject"
+
 class SingleMetaNodeSelector(NodeSelectors):
     
     def __init__(self):
@@ -258,6 +263,10 @@ class HitWalkerInteraction(object):
         return link_dict
     
     def click_by_text(self, selector, text):
+        
+        WebDriverWait(self.driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR,selector))
+            )
         
         clickers = self.driver.find_elements_by_css_selector(selector)
         

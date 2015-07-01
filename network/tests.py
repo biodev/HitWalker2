@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from hitwalker_tests import HitWalkerInteraction, SingleMetaNodeSelector
+from hitwalker_tests import HitWalkerInteraction, SingleMetaNodeSelector, SingleSubjectSelector
 
 from django.utils import unittest
 from django.contrib.auth.models import User
@@ -618,37 +618,10 @@ class BasicSeleniumTests(LiveServerTestCase):
     #        
     #        self.assertEqual(r_found_dta, node_rels)
     
-    def test_context_pathway_mode_prioritize(self):
-        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-        
-        gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
-        
-        #go to the context pathway mode screen
-        
-        hw_obj.click_context_button("1", 3)
-        
-        WebDriverWait(self.driver, 20).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-search-choice-close"))
-        )
-        
-        close_buttons = self.driver.find_elements_by_css_selector(".select2-search-choice-close")
-        
-        #check that five genes are selected
-        
-        self.assertTrue(len(close_buttons) == 5)
-        
-        #unselect them all and go through the subject_pathway interface
-        
-        for i in close_buttons:
-            i.click()
-        
-        time.sleep(2)
-        
-        path_text = hw_obj.add_pathway(None, ["KRAS"], 1)
+    def check_pathway_mode(self, hw_obj, gene_list, selected_pathway, subject):
+        path_text = hw_obj.add_pathway(None, gene_list, selected_pathway)
         
         #get new window handles
-        
-        print path_text
         
         handles = self.driver.window_handles
         
@@ -692,9 +665,9 @@ class BasicSeleniumTests(LiveServerTestCase):
                 r_found_dta[string_groups['to'][i]][string_groups['from'][i]].add('STRING')
             
             #get hits
-            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', clean_pathway_name, 'Subject', 'Pathway')
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, subject, clean_pathway_name, 'Subject', 'Pathway')
             
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "None")
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, subject, "None")
             
             for i in range(0, len(subj_groups['Subject'])):
                 split_dt = subj_groups['FixedDt'][i].split(',')
@@ -708,7 +681,49 @@ class BasicSeleniumTests(LiveServerTestCase):
             self.compare_dicts(node_rels, r_found_dta)
             
             self.assertEqual(r_found_dta, node_rels)
-
+    
+    #def test_context_pathway_mode_prioritize(self):
+    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    #    
+    #    gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
+    #    
+    #    #go to the context pathway mode screen
+    #    
+    #    hw_obj.click_context_button("1", 3)
+    #    
+    #    WebDriverWait(self.driver, 20).until(
+    #        EC.element_to_be_clickable((By.CSS_SELECTOR,".select2-search-choice-close"))
+    #    )
+    #    
+    #    close_buttons = self.driver.find_elements_by_css_selector(".select2-search-choice-close")
+    #    
+    #    #check that five genes are selected
+    #    
+    #    self.assertTrue(len(close_buttons) == 5)
+    #    
+    #    #unselect them all and go through the subject_pathway interface
+    #    
+    #    for i in close_buttons:
+    #        i.click()
+    #    
+    #    time.sleep(2)
+    #    
+    #    self.check_pathway_mode(hw_obj, ["KRAS"], 1, "HEPG2_LIVER")
+    
+    def test_context_pathway_mode_nodes(self):
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+        
+        gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
+        
+        hw_obj.select_context_node(hw_obj.to_panel("1"), SingleSubjectSelector())
+        
+        #click the appropriate button
+        
+        hw_obj.click_by_text("button","Pathway Context")
+        
+        self.check_pathway_mode(hw_obj, ["KRAS"], 1, 'HEPG2_LIVER')
+        
 ##globally useful functions and classes
 
 class BasicNodeWithAttr(core.BasicNode):
