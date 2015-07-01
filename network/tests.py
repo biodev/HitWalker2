@@ -644,9 +644,11 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         time.sleep(2)
         
-        path_text = hw_obj.add_pathway(None, ["KRAS"])
+        path_text = hw_obj.add_pathway(None, ["KRAS"], 1)
         
         #get new window handles
+        
+        print path_text
         
         handles = self.driver.window_handles
         
@@ -692,7 +694,7 @@ class BasicSeleniumTests(LiveServerTestCase):
             #get hits
             r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', clean_pathway_name, 'Subject', 'Pathway')
             
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "None")
             
             for i in range(0, len(subj_groups['Subject'])):
                 split_dt = subj_groups['FixedDt'][i].split(',')

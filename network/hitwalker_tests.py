@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.support.ui import Select
 
 import time
 import re
@@ -102,6 +103,13 @@ class HitWalkerInteraction(object):
         )
         
         return gene_text
+    
+    def click_panel(self, panel_num):
+        use_panel = self.to_panel(panel_num)
+        
+        to_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(use_panel, 1, 100)
+        
+        to_panel.click().perform()
     
     def click_context_button(self, panel_num, button_num):
         use_panel = self.to_panel(panel_num)
@@ -219,7 +227,9 @@ class HitWalkerInteraction(object):
         
         #should settle enough after a couple of seconds
         
-        time.sleep(2)
+        self.click_panel(panel_num)
+        
+        #time.sleep(2)
         
         trans_vals = map(lambda x: map(float, re.split("[,\)\(]", x.get_attribute("transform"))[1:3]), node_list)
         
@@ -269,7 +279,7 @@ class HitWalkerInteraction(object):
         
         labels[0].click()
     
-    def add_pathway(self, panel_num, gene_names):
+    def add_pathway(self, panel_num, gene_names, path_num=None):
         
         if panel_num != None:
         
@@ -295,7 +305,18 @@ class HitWalkerInteraction(object):
         
         time.sleep(2)
         
-        pathway_sel = self.driver.find_elements_by_css_selector("select > option")[0].text
+        if path_num == None:
+            path_num = 0
+        
+        print path_num
+        
+        select = Select(self.driver.find_element_by_css_selector("#pathway_select"))
+        
+        select.deselect_all()
+        
+        select.select_by_index(path_num)
+        
+        pathway_sel = select.all_selected_options[0].text
         
         buttons = self.driver.find_elements_by_css_selector("button")
         
