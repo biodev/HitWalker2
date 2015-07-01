@@ -122,7 +122,7 @@ names(targ.matches) <- drug.names
 For each of the records, we consider it a match if a single entry was found or if the input symbol matched the display name.  If multiple equally good matches are
 found then we will weight them equally.  In addition we will disregard any gene targets not found.
 
-```
+```{r}
 
 gene.ids <- mapply(function(x, name){
   
@@ -307,7 +307,7 @@ We can then populate the database and create the configuration files.
 
 hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez",
         data.types=list(seeds="GeneScore", target="Variants"),
-        Expression=HW2exprSet(upc.eset), GeneScore=drug, Variants=maf.obj)
+        Expression=HW2exprSet(ccle.eset), GeneScore=drug, Variants=maf.obj)
 
 populate(hw2.conf)
 

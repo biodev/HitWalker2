@@ -47,7 +47,7 @@ Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |vb|
   #   # Display the VirtualBox GUI when booting the machine
   #vb.gui = true
-  vb.name="ccle"
+  vb.name="ccle_real"
   #   # Customize the amount of memory on the VM:
   vb.memory = "16384"
   vb.cpus = 4   
@@ -100,7 +100,7 @@ end
       
       sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("igraph", "reshape2", "Biobase", "rjson", "affy","hgu133plus2.db", "tm", "devtools", "sva", "genefilter"))'
       
-      sudo Rscript -e 'library(devtools)' -e 'install_github("mlbernauer/Entrez")'
+      sudo Rscript -e 'library(devtools)' -e 'install_github("nicolewhite/RNeo4j")'
       
       #set up upstart for unicorn
     
@@ -202,6 +202,19 @@ exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
   SHELL
   
   config.vm.provision "sweave", type:"shell", inline: <<-SHELL
+  
+  sudo apt-get install -y texlive-latex-recommended
+  sudo apt-get install -y texinfo
+  sudo apt-get install -y texlive-latex-extra
+  
+  SHELL
+  
+  config.vm.provision "markdown", type:"shell", inline: <<-SHELL
+  
+  sudo Rscript -e 'install.packages("rmarkdown")'
+  
+  wget https://github.com/jgm/pandoc/releases/download/1.15/pandoc-1.15-1-amd64.deb
+  sudo dpkg -i pandoc-1.15-1-amd64.deb 
   
   sudo apt-get install -y texlive-latex-recommended
   sudo apt-get install -y texinfo
