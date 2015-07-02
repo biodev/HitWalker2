@@ -410,17 +410,17 @@ make.graph.struct <- function(neo.graph, graph.struct.path="test_graph_struct.js
     lab.graph <- neo.graph
     
     un.neo.graph <- as.undirected(neo.graph, edge.attr.comb="first")
-
-    graph.list <- lapply(get.adjedgelist(un.neo.graph), function(x)
+    
+    graph.list <- lapply(as_adj_edge_list(un.neo.graph), function(x)
                          {
                             unique.x <- unique(x)
-                            
-                            temp.list <- lapply(unique.x, function(y)
+      
+                            temp.list <- lapply(unique.x$type, function(y)
                                    {
-                                        return(V(un.neo.graph)[inc(E(un.neo.graph)[y])]$name)
+                                        return(V(un.neo.graph)[inc(unique.x[type == y])]$name)
                                    })
                             
-                            names(temp.list) <- E(un.neo.graph)[unique.x]$type
+                            names(temp.list) <- unique.x$type
                             return(temp.list)
                          })
     
