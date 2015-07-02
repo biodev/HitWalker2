@@ -55,8 +55,17 @@ class BasicSeleniumTests(LiveServerTestCase):
     
     def setUp(self):
         
-        #self.driver = webdriver.Firefox()
-        self.driver = webdriver.Chrome(executable_path="/Users/bottomly/Desktop/chromedriver")
+        try:
+            from config import chrome_driver_path
+            
+            if chrome_driver_path != None:
+                self.driver = webdriver.Chrome(executable_path=chrome_driver_path)
+            else:
+                raise Exception
+            
+        except:
+            self.driver = webdriver.Firefox()
+        
         # create user
         self.user = User.objects.create_user(username="selenium",
                                              email=None,

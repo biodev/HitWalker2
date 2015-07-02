@@ -6,6 +6,10 @@ import string
 
 prog_type = ""
 
+#test_methods_path="/Users/bottomly/Desktop/github/HitWalker2/populate/ccle_test_methods.R"
+#hw_config_path="/Users/bottomly/Desktop/hitwalker2_paper/temp_hw_conf.RData"
+#chrome_driver_path="/Users/bottomly/Desktop/chromedriver"
+
 graph_struct_file = "/var/www/hitwalker2_inst/static/network/data/graph_struct.json"
 
 cypher_session="http://localhost:7474"
