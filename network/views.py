@@ -148,8 +148,6 @@ def generate_css (user_name):
     
     temp_hits = set(config.data_list).difference(set([config.data_types['target']]))
     
-    print temp_hits
-    
     for node in map(lambda x: x+'_Hit', temp_hits) + [config.data_types['target']]:
         if node_type_transl.has_key(node) == False:
             #choose a default for it
@@ -158,8 +156,6 @@ def generate_css (user_name):
             used_defaults.add(new_color)
             
             important_defaults.add(new_color)
-    
-    print node_type_transl
     
     #if it is a _Hit or can be translated to one, then add in the appropriate class for the non-hit to hw_css
     #additionally, add in the edges corresponding to hits in a similar fashion
@@ -386,8 +382,6 @@ def table(request):
         
         valid_hit_genes = core.get_valid_hits(request, config.hit_session_dict)
         
-        print len(valid_hit_genes)
-        
         if len(valid_hit_genes) > 0:
         
             valid_query_res = core.get_valid_querys(request, config.query_prior_dict)
@@ -575,8 +569,6 @@ def node_query(request):
         unique_types = set(map(lambda x: str(x["attributes"]["node_type"]),ret_nodes))
         
         ret_content = ''
-        
-        print unique_types
         
         if len(unique_types) == 1:
             cur_type = unique_types.pop()
@@ -872,8 +864,6 @@ def provide_data_for_request(request):
         returned_node_type = request.POST["ret_node_type"]
         display_type = request.POST["display_type"]
         
-        print display_type
-        
         session_data = request.session['tmp_query_results'][str(query_choice)]
     
         ret_node_queries = session_data['ret_node_queries']
@@ -962,8 +952,6 @@ def get_graph(request):
     
     request_post = core.fix_jquery_array_keys(dict(request.POST.iterlists()))
     
-    print request_post
-    
     nodes, links, title = core.iterate_dict(config.graph_initializers, request_post['panel_context'])(request, request_post)
     
     ret_dict = {'nodes':nodes, 'links':links, 'title':title}
@@ -974,14 +962,12 @@ def get_graph(request):
 @login_required(login_url=prog_type+'/HitWalker2/login/')
 def network(request):
     
+    
     if len(request.POST) == 0:
-       
-       if socket.gethostname() in set(["HRCC448", "HRCC255"]):
-           pickle_inp = open("/var/www/hitwalker_2_inst/test_pathway_request.json", "r")
-           ret_json = json.load(pickle_inp)
-       return render(request, 'network/network.html', ret_json)
-    else:
         
+        return redirect(prog_type+'/HitWalker2/')
+    else:
+    
         default_css_classes, new_css_path, node_type_transl, edge_type_transl = generate_css(str(request.user))
         request.session['new_css_path'] = new_css_path
         
@@ -1004,8 +990,6 @@ def network(request):
         for i in where_vars:
             cur_filts[i['name']] = i['pretty_where']
         
-        print input_vals
-        
         ret_json = {'prog_type':str(prog_type), 'username':str(request.user), 'node_type_transl':json.dumps(node_type_transl), 'edge_type_transl':json.dumps(edge_type_transl),
                     'metanode_thresh':config.max_nodes, 'panel_context':'image', 'input_vals':json.dumps(input_vals), 'cur_param':json.dumps(cur_param), 'cur_filts':json.dumps(cur_filts),
                     'css_path':os.path.basename(new_css_path), 'default_css':json.dumps(default_css_classes)}
@@ -1015,11 +999,7 @@ def network(request):
                 ret_json[key] = val;
             else:
                 raise Exception("Duplicate entry for " + key)
-        
-        if socket.gethostname() in set(["HRCC448", "HRCC255"]):
-                pickle_outp = open("/var/www/hitwalker_2_inst/test_pathway_request.json", "w")
-                json.dump(ret_json, pickle_outp)
-        
+            
         return render(request, 'network/network.html', ret_json)
 
 @ensure_csrf_cookie
@@ -1028,11 +1008,7 @@ def panel(request):
     
     if len(request.POST) == 0:
         
-        if socket.gethostname() in set(["HRCC448", "HRCC255"]):
-            pickle_inp = open("/var/www/hitwalker_2_inst/test_network_request.json", "r")
-            ret_json = json.load(pickle_inp)
-        return render(request, 'network/network.html', ret_json)
-        #return redirect(prog_type+'/HitWalker2/')
+        return redirect(prog_type+'/HitWalker2/')
     elif request.POST.has_key("output_format") and request.POST.has_key("data"):
         
         try:
@@ -1047,8 +1023,6 @@ def panel(request):
                 use_svg = '<?xml-stylesheet type="text/css" href="' + request.session['new_css_path'] + '" ?>' + request.POST["data"]
                 
             else:
-                
-                print request.POST
                 
                 if request.POST['panel_context'] == 'image':
                     width = str(config.pathway_sizes['w'] + config.pathway_sizes['legend_offset'])
@@ -1176,9 +1150,5 @@ def panel(request):
                 ret_json[key] = val;
             else:
                 raise Exception("Duplicate entry for " + key)
-        
-        if socket.gethostname() in set(["HRCC448", "HRCC255"]):
-            pickle_outp = open("/var/www/hitwalker_2_inst/test_network_request.json", "w")
-            json.dump(ret_json, pickle_outp)
         
         return render(request, 'network/network.html', ret_json)
