@@ -32,6 +32,7 @@ import pyRserve
 from py2neo import neo4j, cypher
 import numpy as np
 import scipy.spatial
+import csv
 
 test_cypher_session = "http://localhost:7474"
 
@@ -719,20 +720,48 @@ class BasicSeleniumTests(LiveServerTestCase):
     #    
     #    self.check_pathway_mode(hw_obj, ["KRAS"], 1, "HEPG2_LIVER")
     
-    def test_context_pathway_mode_nodes(self):
+    #def test_context_pathway_mode_nodes(self):
+    #    
+    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    #    
+    #    gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
+    #    
+    #    hw_obj.select_context_node(hw_obj.to_panel("1"), SingleSubjectSelector())
+    #    
+    #    #click the appropriate button
+    #    
+    #    hw_obj.click_by_text("button","Pathway Context")
+    #    
+    #    self.check_pathway_mode(hw_obj, ["KRAS"], 1, 'HEPG2_LIVER')
+    
+    def test_network_csv_files_prioritize(self):
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
         
-        gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
+        gene_text = hw_obj.panel_by_prioritize('')
         
-        hw_obj.select_context_node(hw_obj.to_panel("1"), SingleSubjectSelector())
+        hw_obj.click_context_button("1", 4)
         
-        #click the appropriate button
+        hw_obj.click_by_text("a", "CSV")
         
-        hw_obj.click_by_text("button","Pathway Context")
+        #give it time to download
+        time.sleep(5)
         
-        self.check_pathway_mode(hw_obj, ["KRAS"], 1, 'HEPG2_LIVER')
+        exp_file = "~/Downloads/" + "HEPG2_LIVER" + "_hitwalker.csv"
         
+        try:
+            csvfile = open(exp_file, "rb")
+        
+            for i in csv.reader(csvfile):
+                print i
+        except:
+            self.assertTrue(False)
+        
+        os.remove(exp_file)
+        
+        #the downloaded CSV files are at ~/Downloads (at least with my version of Chrome)
+        #may need to set FireFox to do the same.
+    
 ##globally useful functions and classes
 
 class BasicNodeWithAttr(core.BasicNode):

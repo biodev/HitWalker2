@@ -32,7 +32,7 @@ def match_sample(query):
                 counter += 1
         
     else:
-        sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@)-[:DERIVED]->() WITH n, CASE n.alias WHEN null THEN [n.name] ELSE [n.name]+n.alias END AS alias_query UNWIND alias_query AS name_alias WITH n, name_alias WHERE name_alias =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(DISTINCT n.name)')
+        sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:@SUBJECT@)-[:DERIVED]->() WITH n, CASE n.alias WHEN null THEN [n.name] ELSE [n.name]+n.alias END AS alias_query UNWIND alias_query AS name_alias WITH n, name_alias WHERE lower(name_alias) =~ "'+query+'.*' +'" RETURN ID(n)+name_alias, name_alias, COLLECT(DISTINCT n.name)')
         
         for i in sample_query.execute().data:
             query_list.append({'id':i.values[0], 'text':i.values[1], 'search_list':i.values[2]})
