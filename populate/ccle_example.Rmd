@@ -17,7 +17,7 @@ CCLE_Expression.Arrays.sif_2012-10-18.txt
 CCLE_Expression.Arrays_2013-03-18.tar.gz
 ```
 
-```{r echo=FALSE}
+```{r}
 
 library(hwhelper)
 library(RNeo4j)
@@ -25,7 +25,7 @@ library(hgu133plus2.db)
 
 ```
 
-Note that the \texttt{RNeo4j} package needs to be installed from github, which can be done as follows:
+Note that the `RNeo4j` package needs to be installed from github, which can be done as follows:
 
 
 ```{r eval=FALSE}
@@ -109,7 +109,7 @@ drug.names <- sub("c-", "", unique(drug.dta$Target))
 
 targ.matches <- lapply(drug.names, function(x){
 
-    cypher(graph, "MATCH (gene:EntrezID)-[r:REFFERED_TO]-(symb) WITH gene,symb, r,
+    cypher(graph, "MATCH (gene:EntrezID)-[r:REFERRED_TO]-(symb) WITH gene,symb, r,
                     CASE r.synonyms WHEN null THEN [symb.name] ELSE [symb.name]+r.synonyms END AS gene_syns WHERE ANY(x IN gene_syns WHERE x = {GENE})
                     RETURN gene.name, r.synonyms, symb.name", GENE=x)    
                     
@@ -309,15 +309,17 @@ hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez",
         data.types=list(seeds="GeneScore", target="Variants"),
         Expression=HW2exprSet(ccle.eset), GeneScore=drug, Variants=maf.obj)
 
+save(hw2.conf, file="ccle_conf.RData")
+
 populate(hw2.conf)
 
-configure(hw2.conf)
+#configure(hw2.conf)
 
 ```
 
 Finally we provide utilities to gain information on the Neo4j graph structure that was created
 
-```{r fig=TRUE}
+```{r}
 
 ccle.graph <- compute.graph.structure()
 
