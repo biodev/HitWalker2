@@ -49,7 +49,7 @@ data_list=@USE_DATA@
 adjust_fields = {
     'General_Parameters':{'type':'standard',
                           'fields':{
-                                'string_conf':{'type':'numeric', 'default':.4, 'range':[0, 1], 'comparison':'>', 'name':'HitWalker STRING Confidence'},
+                                'string_conf':{'type':'numeric', 'default':.7, 'range':[.7, 1], 'comparison':'>', 'name':'HitWalker STRING Confidence'},
                                 'path_conf':{'type':'numeric', 'default':.95, 'range':[0, 1], 'comparison':'>', 'name':'Pathway STRING Confidence'},
                                 'res_prob':{'type':'numeric', 'default':.3, 'range':[0,1], 'comparison':'=', 'name':'Restart Probability'},
                                 'max_iter':{'type':'numeric', 'default':100, 'range':[0, 10000], 'comparison':'=', 'name':'Max Iterations'},
