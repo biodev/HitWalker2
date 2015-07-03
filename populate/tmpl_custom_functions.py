@@ -47,7 +47,7 @@ def match_gene(query):
     graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/')
     query_list = []
     
-    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:Symbol)<-[r:REFFERED_TO]-(m) UNWIND [n.name] + r.synonyms AS name_syns WITH n,m,name_syns WHERE name_syns =~"'+query+'.*"  RETURN m.name+name_syns, name_syns, COLLECT(DISTINCT m.name) ORDER BY LENGTH(name_syns)')
+    sample_query = neo4j.CypherQuery(graph_db,'MATCH (n:Symbol)<-[r:REFERRED_TO]-(m) UNWIND [n.name] + r.synonyms AS name_syns WITH n,m,name_syns WHERE name_syns =~"'+query+'.*"  RETURN m.name+name_syns, name_syns, COLLECT(DISTINCT m.name) ORDER BY LENGTH(name_syns)')
     
     search_res = []
     
@@ -188,7 +188,7 @@ def make_seed_list(hit_sl):
     from config import cypher_session
     graph_db = neo4j.GraphDatabaseService(cypher_session+'/db/data/') 
     
-    hit_symb_query = 'MATCH(n:EntrezID)-[r:REFFERED_TO]-(m) WHERE n.name IN {hit_genes} RETURN n.name, m.name'
+    hit_symb_query = 'MATCH(n:EntrezID)-[r:REFERRED_TO]-(m) WHERE n.name IN {hit_genes} RETURN n.name, m.name'
     
     data=neo4j.CypherQuery(graph_db, hit_symb_query).execute(**{"hit_genes":hit_sl.nodeList().ids()})
     
