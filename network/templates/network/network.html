@@ -1665,6 +1665,52 @@
             
             var cur_map = d3.map();
             
+            function search_pathway(queries){
+                
+                var path_spin = new Spinner({top:'47%'}).spin();
+                var spin_div_ref = document.getElementById("spin_div");
+                spin_div_ref.appendChild(path_spin.el);
+                
+                $.post("{{prog_type}}/HitWalker2/match_pathway/", queries, function(data, status, xhr)
+                               {
+                                    //query was successful also need to make sure that all the elements still being available
+                                    if (status == "success")
+                                    {
+                                        if (queries.query == JSON.stringify(cur_map.values())){
+                                            
+                                            var data_res = JSON.parse(data).data.results;
+                                        
+                                            //add the resulting pathway to the select box
+                                            var opts = d3.select("#pathway_select").selectAll("option").data(data_res, function(d) {return d.text});
+                                            opts.enter().append("option").html(function(d) {return d.text}).attr("title", function(d) {return d.text});
+                                            opts.exit().remove();
+                                            
+                                            if (data_res.length > 0)
+                                            {
+                                                d3.select("#pathway_select").select("option").property('selected', true);
+                                            }else{
+                                                 $("#empty_p").prop("hidden", false);
+                                            }
+                                            
+                                            path_spin.stop();
+                                            
+                                        }else{
+                                            path_spin.stop();
+                                            search_pathway({query:JSON.stringify(cur_map.values())});
+                                        }
+                                        
+                                        
+                                    }
+                                    else
+                                    {
+                                        console.log(status)
+                                    }
+                                
+                                    
+                               }, "text")
+                
+            }
+            
             
             $(".select2").on("change", function(e)
                              {
@@ -1700,40 +1746,10 @@
                                 
                                 if (cur_map.keys().length > 0)
                                 {
-                                    
                                     var queries = {query:JSON.stringify(cur_map.values())};
-                                
-                                    var path_spin = new Spinner({top:'47%'}).spin();
-                                    var spin_div_ref = document.getElementById("spin_div");
-                                    spin_div_ref.appendChild(path_spin.el);
                                     
-                                    $.post("{{prog_type}}/HitWalker2/match_pathway/", queries, function(data, status, xhr)
-                                                   {
-                                                        if (status == "success")
-                                                        {
-                                                            var data_res = JSON.parse(data).data.results;
-                                                            
-                                                            //add the resulting pathway to the select box
-                                                            var opts = d3.select("#pathway_select").selectAll("option").data(data_res, function(d) {return d.text});
-                                                            opts.enter().append("option").html(function(d) {return d.text}).attr("title", function(d) {return d.text});
-                                                            opts.exit().remove();
-                                                            
-                                                            if (data_res.length > 0)
-                                                            {
-                                                                d3.select("#pathway_select").select("option").property('selected', true);
-                                                            }else{
-                                                                 $("#empty_p").prop("hidden", false);
-                                                            }
-                                                            
-                                                            path_spin.stop();
-                                                        }
-                                                        else
-                                                        {
-                                                            console.log(status)
-                                                        }
-                                                    
-                                                        
-                                                   }, "text")
+                                    //experimenting with timeout here...
+                                    setTimeout(search_pathway, 1, queries);
                                 }else{
                                     d3.select("#pathway_select").selectAll("option").remove();
                                 }
