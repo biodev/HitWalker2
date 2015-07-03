@@ -70,7 +70,7 @@ gene_rels = {'query':'MATCH (gene:EntrezID{name:{FROM_GENE}})-[:MAPPED_TO]-(stri
 
 subject = {'query':'MATCH (n:@SUBJECT@{name:{SUBJECTID}}) RETURN n', 'handler':custom_functions.get_subject, 'session_params':None}
 #The initial call after the user chooses a sample can be made in terms of sample names not necessarily subject names
-sample = {'query':'MATCH (n)-[:DERIVED]->(Sample{name:{SUBJECTID}}) RETURN n', 'handler':custom_functions.get_subject, 'session_params':None}
+sample = {'query':'MATCH (n)-[:DERIVED]->(Sample{name:{SUBJECTID}}) RETURN DISTINCT n', 'handler':custom_functions.get_subject, 'session_params':None}
 
 pathway = {'query':'MATCH (path:Pathway{name:{PATHNAME}})-[:PATHWAY_CONTAINS]->(gene) RETURN path.name, COLLECT(DISTINCT gene.name)', 'handler':custom_functions.get_pathway, 'session_params':None}
 
