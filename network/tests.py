@@ -449,7 +449,7 @@ class BasicSeleniumTests(LiveServerTestCase):
                     if dict2.has_key(i[0]):
                         if dict2[i[0]].has_key(j[0]):
                             if dict2[i[0]][j[0]] != j[1]:
-                                raise Exception('sets not the same:' + str(dict2[i[0]][j[0]]) + ' ' + str(j[1]))
+                                raise Exception(i[0] + '->' + j[0] + ' sets not the same:' + str(dict2[i[0]][j[0]]) + ' ' + str(j[1]))
                         else:
                             raise Exception('dict2 missing key: ' + i[0] + '->' + j[0])
                     else:
@@ -677,7 +677,7 @@ class BasicSeleniumTests(LiveServerTestCase):
             #get hits
             r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, subject, clean_pathway_name, 'Subject', 'Pathway')
             
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, subject, "None")
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, subject, "None", "Expression")
             
             for i in range(0, len(subj_groups['Subject'])):
                 split_dt = subj_groups['FixedDt'][i].split(',')
@@ -738,29 +738,91 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
         
-        gene_text = hw_obj.panel_by_prioritize('')
+        gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
         
         hw_obj.click_context_button("1", 4)
         
         hw_obj.click_by_text("a", "CSV")
         
+        gene_list = hw_obj.get_node_rels("1")
+        
         #give it time to download
         time.sleep(5)
         
-        exp_file = "~/Downloads/" + "HEPG2_LIVER" + "_hitwalker.csv"
+        #the downloaded CSV files are at ~/Downloads (at least with my version of Chrome)
+        #may need to set FireFox to do the same.
         
-        try:
-            csvfile = open(exp_file, "rb")
+        exp_file = os.path.expanduser('~/Downloads/graph_summary.csv')
         
-            for i in csv.reader(csvfile):
-                print i
-        except:
-            self.assertTrue(False)
+        self.assertTrue(os.path.exists(exp_file))
+        
+        csvfile = open(exp_file, "r")
+        
+        file_lines = csvfile.readlines()
         
         os.remove(exp_file)
         
-        #the downloaded CSV files are at ~/Downloads (at least with my version of Chrome)
-        #may need to set FireFox to do the same.
+        header = []
+        other_rows = []
+        params = []
+        header_pos = 0
+        
+        for i_ind, i in enumerate(file_lines):
+            
+            use_line = i.strip()
+            
+            if i.find('Node_Group') != -1:
+                header += use_line.split(',')
+                header_pos = i_ind
+            elif len(header) > 0 and i_ind > header_pos:
+                other_rows.append(use_line.split(','))
+            elif use_line != '':
+                params.append(use_line)
+        
+        print file_lines
+        
+        print header
+        print other_rows
+        print params
+        
+        use_nodes = map(lambda x: x[header.index('Node_Name')],other_rows)
+        
+        node_rels = collections.defaultdict(lambda: collections.defaultdict(set))
+        
+        for i in other_rows:
+            for j in use_nodes:
+                split_rels = i[header.index(j)].split(';')
+                for k in split_rels:
+                    if k != '.':
+                        node_rels[i[header.index('Node_Name')]][j].add(k)
+                        node_rels[j][i[header.index('Node_Name')]].add(k)
+        
+        print node_rels
+       
+        print gene_list.keys()
+        
+        if r_obj != None:
+            #it shouldn't matter that gene_list will contain subject nodes as well--they will be ignored
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', gene_list.keys(), 'Subject', 'Gene')
+            print 'hello'
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "None")
+            
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
+            for i in range(0, len(subj_groups['Subject'])):
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+            
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, node_rels)
+            print 'Screen vs R'
+            self.compare_dicts(node_rels, r_found_dta)
+            
+            self.assertEqual(r_found_dta, node_rels)
+        
+        
     
 ##globally useful functions and classes
 

@@ -47,7 +47,7 @@ get_direct_connections <- function(use_graph, node_set, node_types=c("Gene", "Pa
       
     }else{
       
-      gene.symbs <- cypher(graph, paste0("MATCH (n)-[:REFFERED_TO]-(m)  n.name AS gene, m.name AS symbol"))
+      gene.symbs <- cypher(graph, paste0("MATCH (n)-[:REFERRED_TO]-(m)  n.name AS gene, m.name AS symbol"))
       
       sub.genes <- gene.symbs[gene.symbs$symbol %in% node_set,]
       
@@ -56,7 +56,7 @@ get_direct_connections <- function(use_graph, node_set, node_types=c("Gene", "Pa
       genes <- sub.genes$gene
     }
     
-    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-(o)-[:REFFERED_TO]-(m) RETURN n.name AS string, o.name AS gene, m.name AS symbol")
+    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-(o)-[:REFERRED_TO]-(m) RETURN n.name AS string, o.name AS gene, m.name AS symbol")
    
     node.comb <- data.frame(t(combn(genes, 2)), stringsAsFactors=F)
     
@@ -94,7 +94,7 @@ get_gene_connections <- function(use.graph, seeds, targs){
     require(RNeo4j)
     
     graph = startGraph("http://localhost:7474/db/data/")
-    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-()-[:REFFERED_TO]-(m) RETURN n.name AS string, m.name AS symbol")
+    string.name <- cypher(graph, "MATCH (n)-[:MAPPED_TO]-()-[:REFERRED_TO]-(m) RETURN n.name AS string, m.name AS symbol")
     
     gene.grid <- expand.grid(list(seeds=seeds, targs=targs), stringsAsFactors = FALSE)
     
@@ -202,9 +202,10 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
 
 #Insulin/IGF pathway-protein kinase B signaling cascade (panther)
 #[u'ALK', u'MAP3K1', u'HEPG2_LIVER', u'MAP3K13', u'MAP2K7', u'HSP90AA1', u'KRAS']
+#[u'ALK', u'MAP3K1', u'MAP3K7', u'HEPG2_LIVER', u'MAP3K13', u'MAP3K14', u'MAP2K7']
 
 #load("~/Desktop/hitwalker2_paper/temp_hw_conf.RData")
-#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'HEPG2_LIVER', 'MAP3K13', 'MAP2K7', 'HSP90AA1', 'KRAS'), 'Subject', 'Gene')
+#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'MAP3K7', 'HEPG2_LIVER', 'MAP3K13','MAP3K14', 'MAP2K7' ), 'Subject', 'Gene')
 #temp.2 <- findHits(hw2.conf, 'HEPG2_LIVER', 'Insulin/IGF pathway-protein kinase B signaling cascade (panther)', 'Subject', 'Pathway')
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
@@ -225,7 +226,7 @@ setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, sub
     graph = startGraph("http://localhost:7474/db/data/")
     
     if (gene_types == "Gene"){
-      gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFFERED_TO]-(m) RETURN n.name AS gene, m.name AS symbol")
+      gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFERRED_TO]-(m) RETURN n.name AS gene, m.name AS symbol")
       genes <- gene.name$gene[gene.name$symbol %in% genes]
       
     }else{
@@ -269,16 +270,28 @@ setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, sub
 # "GeneScore", "GeneScore", "GeneScore", "Variants", "Variants",
 # "Variants")), .Names = c("Subject", "Gene", "IsHit", "Datatype"))
 
-encode_groups <- function(hit.dta, ids.to.symbs=F, prioritized_subject=NULL, group.by=c("None", "Subject", "Gene")){
+encode_groups <- function(hit.dta, ids.to.symbs=F, prioritized_subject=NULL, group.by=c("None", "Subject", "Gene"), dense.datatype=NULL){
     
     require(RNeo4j)
     
     group.by <- match.arg(group.by)
   
     graph = startGraph("http://localhost:7474/db/data/")
-  
-    hit.dta$FixedDt <- ifelse(hit.dta$IsHit, paste0("Observed_", hit.dta$Datatype), paste0("Possible_",hit.dta$Datatype))
     
+    if (class(hit.dta) == "list"){
+      hit.dta <- as.data.frame(hit.dta)
+    }
+    
+    if (missing(dense.datatype) || is.null(dense.datatype) || all(is.na(dense.datatype))){
+      dense.datatype <- character(0)
+    }
+    
+    print(dense.datatype)
+    
+    hit.dta <- hit.dta[!(hit.dta$IsHit == F & hit.dta$Datatype %in% dense.datatype == T),]
+    
+    hit.dta$FixedDt <- ifelse(hit.dta$IsHit == T, paste0("Observed_", hit.dta$Datatype), paste0("Possible_",hit.dta$Datatype))
+                              
     if ((missing(prioritized_subject) || is.null(prioritized_subject) || all(is.na(prioritized_subject)))==F){
       
       #if the Subject is equal to the specified prioritized_subject, the Datatype == "Variants" and the Gene is annotated in string
@@ -294,7 +307,7 @@ encode_groups <- function(hit.dta, ids.to.symbs=F, prioritized_subject=NULL, gro
     
     if (ids.to.symbs){
       
-      gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFFERED_TO]-(m) RETURN n.name AS Gene, m.name AS symbol")
+      gene.name <- cypher(graph, "MATCH (n:EntrezID)-[r:REFERRED_TO]-(m) RETURN n.name AS Gene, m.name AS symbol")
       
       sum.dta$Gene <- as.character(sum.dta$Gene)
       
@@ -401,7 +414,7 @@ setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL
     #}else{
     
         mapping <- select(get(annot.pack), columns="ENTREZID", featureNames(obj@exprs))
-    
+        
         if (missing(genes) || is.null(genes) || all(is.na(genes))){
         
             sub.mapping <- mapping
