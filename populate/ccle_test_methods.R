@@ -206,7 +206,7 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
 
 #load("~/Desktop/hitwalker2_paper/temp_hw_conf.RData")
 #temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'MAP3K7', 'HEPG2_LIVER', 'MAP3K13','MAP3K14', 'MAP2K7' ), 'Subject', 'Gene')
-#temp.2 <- findHits(hw2.conf, 'HEPG2_LIVER', 'Insulin/IGF pathway-protein kinase B signaling cascade (panther)', 'Subject', 'Pathway')
+#temp.2 <- findHits(hw2.conf, 'HEPG2_LIVER', 'Signalling to p38 via RIT and RIN (reactome)', 'Subject', 'Pathway')
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
     require(RNeo4j)

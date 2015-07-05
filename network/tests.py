@@ -662,6 +662,8 @@ class BasicSeleniumTests(LiveServerTestCase):
             conf_thresh = config.adjust_fields['General_Parameters']['fields']['path_conf']['default']
             node_list=[]
             
+            print conf_thresh
+            
             #get graph
             r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', "+str(conf_thresh)+")")
             
@@ -719,7 +721,7 @@ class BasicSeleniumTests(LiveServerTestCase):
     #    time.sleep(2)
     #    
     #    self.check_pathway_mode(hw_obj, ["KRAS"], 1, "HEPG2_LIVER")
-    
+    #
     #def test_context_pathway_mode_nodes(self):
     #    
     #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
@@ -733,7 +735,7 @@ class BasicSeleniumTests(LiveServerTestCase):
     #    hw_obj.click_by_text("button","Pathway Context")
     #    
     #    self.check_pathway_mode(hw_obj, ["KRAS"], 1, 'HEPG2_LIVER')
-    
+    #
     def test_network_csv_files_prioritize(self):
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
@@ -797,30 +799,14 @@ class BasicSeleniumTests(LiveServerTestCase):
                         node_rels[i[header.index('Node_Name')]][j].add(k)
                         node_rels[j][i[header.index('Node_Name')]].add(k)
         
-        print node_rels
-       
-        print gene_list.keys()
+        #check the relationships
         
-        if r_obj != None:
-            #it shouldn't matter that gene_list will contain subject nodes as well--they will be ignored
-            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', gene_list.keys(), 'Subject', 'Gene')
-            print 'hello'
-            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "None")
-            
-            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
-            
-            for i in range(0, len(subj_groups['Subject'])):
-                split_dt = subj_groups['FixedDt'][i].split(',')
-                for j in split_dt:
-                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
-                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
-            
-            print 'R vs Screen'
-            self.compare_dicts(r_found_dta, node_rels)
-            print 'Screen vs R'
-            self.compare_dicts(node_rels, r_found_dta)
-            
-            self.assertEqual(r_found_dta, node_rels)
+        print 'R vs Screen'
+        self.compare_dicts(gene_list, node_rels)
+        print 'Screen vs R'
+        self.compare_dicts(node_rels, gene_list)
+        
+        self.assertEqual(gene_list, node_rels)
         
         
     
