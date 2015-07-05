@@ -265,7 +265,7 @@ class HitWalkerInteraction(object):
     def click_by_text(self, selector, text):
         
         WebDriverWait(self.driver, 20).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR,selector))
+            EC.presence_of_element_located((By.CSS_SELECTOR,selector))
             )
         
         clickers = self.driver.find_elements_by_css_selector(selector)

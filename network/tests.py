@@ -736,79 +736,97 @@ class BasicSeleniumTests(LiveServerTestCase):
     #    
     #    self.check_pathway_mode(hw_obj, ["KRAS"], 1, 'HEPG2_LIVER')
     #
-    def test_network_csv_files_prioritize(self):
+    #def test_network_csv_files_prioritize(self):
+    #    
+    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    #    
+    #    gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
+    #    
+    #    hw_obj.click_context_button("1", 4)
+    #    
+    #    hw_obj.click_by_text("a", "CSV")
+    #    
+    #    gene_list = hw_obj.get_node_rels("1")
+    #    
+    #    #give it time to download
+    #    time.sleep(5)
+    #    
+    #    #the downloaded CSV files are at ~/Downloads (at least with my version of Chrome)
+    #    #may need to set FireFox to do the same.
+    #    
+    #    exp_file = os.path.expanduser('~/Downloads/graph_summary.csv')
+    #    
+    #    self.assertTrue(os.path.exists(exp_file))
+    #    
+    #    csvfile = open(exp_file, "r")
+    #    
+    #    file_lines = csvfile.readlines()
+    #    
+    #    os.remove(exp_file)
+    #    
+    #    header = []
+    #    other_rows = []
+    #    params = []
+    #    header_pos = 0
+    #    
+    #    for i_ind, i in enumerate(file_lines):
+    #        
+    #        use_line = i.strip()
+    #        
+    #        if i.find('Node_Group') != -1:
+    #            header += use_line.split(',')
+    #            header_pos = i_ind
+    #        elif len(header) > 0 and i_ind > header_pos:
+    #            other_rows.append(use_line.split(','))
+    #        elif use_line != '':
+    #            params.append(use_line)
+    #    
+    #    print file_lines
+    #    
+    #    print header
+    #    print other_rows
+    #    print params
+    #    
+    #    use_nodes = map(lambda x: x[header.index('Node_Name')],other_rows)
+    #    
+    #    node_rels = collections.defaultdict(lambda: collections.defaultdict(set))
+    #    
+    #    for i in other_rows:
+    #        for j in use_nodes:
+    #            split_rels = i[header.index(j)].split(';')
+    #            for k in split_rels:
+    #                if k != '.':
+    #                    node_rels[i[header.index('Node_Name')]][j].add(k)
+    #                    node_rels[j][i[header.index('Node_Name')]].add(k)
+    #    
+    #    #check the relationships
+    #    
+    #    print 'R vs Screen'
+    #    self.compare_dicts(gene_list, node_rels)
+    #    print 'Screen vs R'
+    #    self.compare_dicts(node_rels, gene_list)
+    #    
+    #    self.assertEqual(gene_list, node_rels)
+    #    
+    def test_add_sample_network_csv_files_prioritize(self):
+        
+        subjects = ["HEPG2_LIVER", "LOUCY_HAEMATOPOIETIC_AND_LYMPHOID_TISSUE"]
         
         hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    
+        gene_text = hw_obj.panel_by_prioritize(subjects[0])
         
-        gene_text = hw_obj.panel_by_prioritize('HEPG2_LIVER')
+        #add a new subject this time...
         
-        hw_obj.click_context_button("1", 4)
+        hw_obj.add_subject("1", subjects[1])
+        
+        hw_obj.click_context_button("2", 4)
         
         hw_obj.click_by_text("a", "CSV")
         
-        gene_list = hw_obj.get_node_rels("1")
+        node_rels = hw_obj.get_node_rels("2")
         
-        #give it time to download
-        time.sleep(5)
-        
-        #the downloaded CSV files are at ~/Downloads (at least with my version of Chrome)
-        #may need to set FireFox to do the same.
-        
-        exp_file = os.path.expanduser('~/Downloads/graph_summary.csv')
-        
-        self.assertTrue(os.path.exists(exp_file))
-        
-        csvfile = open(exp_file, "r")
-        
-        file_lines = csvfile.readlines()
-        
-        os.remove(exp_file)
-        
-        header = []
-        other_rows = []
-        params = []
-        header_pos = 0
-        
-        for i_ind, i in enumerate(file_lines):
-            
-            use_line = i.strip()
-            
-            if i.find('Node_Group') != -1:
-                header += use_line.split(',')
-                header_pos = i_ind
-            elif len(header) > 0 and i_ind > header_pos:
-                other_rows.append(use_line.split(','))
-            elif use_line != '':
-                params.append(use_line)
-        
-        print file_lines
-        
-        print header
-        print other_rows
-        print params
-        
-        use_nodes = map(lambda x: x[header.index('Node_Name')],other_rows)
-        
-        node_rels = collections.defaultdict(lambda: collections.defaultdict(set))
-        
-        for i in other_rows:
-            for j in use_nodes:
-                split_rels = i[header.index(j)].split(';')
-                for k in split_rels:
-                    if k != '.':
-                        node_rels[i[header.index('Node_Name')]][j].add(k)
-                        node_rels[j][i[header.index('Node_Name')]].add(k)
-        
-        #check the relationships
-        
-        print 'R vs Screen'
-        self.compare_dicts(gene_list, node_rels)
-        print 'Screen vs R'
-        self.compare_dicts(node_rels, gene_list)
-        
-        self.assertEqual(gene_list, node_rels)
-        
-        
+        print node_rels
     
 ##globally useful functions and classes
 
