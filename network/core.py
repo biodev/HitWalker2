@@ -9,7 +9,6 @@ import collections
 import copy
 import itertools
 from py2neo import neo4j, cypher
-import pandas as pd
 import numpy as np
 
 ###classes
