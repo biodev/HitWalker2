@@ -94,8 +94,7 @@ setMethod("toGene", signature("BasicGenotypes"), function(obj, neo.path=NULL, ge
     load.neo4j(.data=obj@geno.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")    
 })
 
-main <- function()
-{
+snp.data <- function(){
     
     #as these are hg18, need to lift them over
     pcg.res <- read.delim("pgc.adhd.full.2012-10.txt", sep="", header=T, stringsAsFactors=F)
@@ -138,7 +137,6 @@ main <- function()
     geno.sample$value <- as.integer(geno.sample$value)
     names(geno.sample) <- c("snpID", "sample", "genotype")
     geno.sample <- geno.sample[,c("sample", "snpID", "genotype")]
-    
    
     
     #The hits themselves may be able to be represented simply as SnpID->EntrezID simply attached to the samples
@@ -160,72 +158,9 @@ main <- function()
     
     save(pcg.gene, geno.sample, geno.gene, file="temp_gwas_snps.RData")
     
-    load("temp_gwas_snps.RData")
-    
-    met.geno <- GWASResult(geno.gene=pcg.gene)
-    
-    geno.sample <- geno.sample[is.na(geno.sample$genotype) == F & geno.sample$genotype != 0,]
-    
-    basic.geno <- BasicGenotypes(geno.sample=geno.sample, geno.gene=geno.gene)
-    
-    subj.info <- read.delim("passed_Dt_withSaliva_forHW2.txt", sep="\t", header=T, stringsAsFactors=F, skip=2)
-    
-    sub.subj <- subj.info[,c("Mergeid", "Sex.x", "ADHD_UPDATE_MD_Recoded", "Access_Adhd_Status.x", "Y1_Stim_Med")]
-    names(sub.subj) <- c("mergeID", "Gender", "SubPheno", "Status", "Meds")
-    
-    sub.subj$Gender[is.na(sub.subj$Gender)] <- "UnkGender"
-    sub.subj$Gender[sub.subj$Gender == 1] <- "Male"
-    sub.subj$Gender[sub.subj$Gender == 2] <- "Female"
-    
-    #not sure about SubPheno--leave as integers
-    
-    sub.subj$SubPheno[is.na(sub.subj$SubPheno)==F] <- paste0("SubPheno", sub.subj$SubPheno[is.na(sub.subj$SubPheno)==F])
-    sub.subj$SubPheno[is.na(sub.subj$SubPheno)] <- "SubPhenoUnk"
-    
-    sub.subj$Status <- ifelse(sub.subj$Status == 1, "Case", "Control")
-    
-    sub.subj$Meds <- ifelse(is.na(sub.subj$Meds), "NoMeds", "Meds")
-    
-    subj <- Subject(subject.info=sub.subj,type.col="Status")
-    
-    subj.geno.map <- read.delim("IDmapping.txt", sep="\t", header=T, stringsAsFactors=F)
-    oragene <- read.delim("Oragene_Log_Abbr_3_28_2015_BW.txt", sep="\t", stringsAsFactors=F)
-    
-    subj.geno.map$fix.date <- sapply(strsplit(subj.geno.map$Date, "/"), function(x) paste(x[1], x[2], substr(x[3], 3,4), sep="/"))
-    subj.geno.map$fix.samp <- substr(subj.geno.map$ID, 1, 5)
-    
-    temp <- merge(oragene, subj.geno.map, by.x=c("FamID", "DNA_Date_Collect"), by.y=c("fix.samp", "fix.date"), all.x=F, all.y=T, sort=F)
-    
-    test.temp <- temp[is.na(temp$Child_Parent)==F & temp$Child_Parent == "Child",]
-    
-    sum.temp <- aggregate(Mergeid~Date+FamID+Sample, function(x) paste(unique(x), collapse=","), data=test.temp)
-    sum.temp[sum.temp$Date == "5/29/2010" & sum.temp$FamID == "10418","Mergeid"] <- "104181"
-    
-    add.dta <- data.frame(Date=c("11/6/2010", "12/19/2009", "4/23/2010"), FamID=c("10230", "10235", "10305"), Mergeid=c("102301", "102351", "103051"), stringsAsFactors=F)
-    
-    add.dta$Sample <- NA
-    
-    for(i in 1:length(add.dta$FamID))
-    {
-        add.dta[i,"Sample"] <- subj.geno.map[subj.geno.map$ID == add.dta[i,"FamID"],"Sample"]
-    }
-    
-    sum.temp.fin <- rbind(sum.temp, add.dta[,names(sum.temp)])
-    
-    sum.temp.fin <- rbind(sum.temp.fin, data.frame(Date=NA, FamID=10394, Sample=74, Mergeid=103941, stringsAsFactors=F))
-    
-    setdiff(subj.geno.map$Sample, sum.temp.fin$Sample)#integer(0)
-    
-    #still need to add in this part
-    
-    sum.temp.fin <- sum.temp.fin[,c("Mergeid", "Sample")]
-    names(sum.temp.fin) <- c("mergeID","sample")
-    sum.temp.fin$sample <- paste0("sample", sum.temp.fin$sample)
-    sum.temp.fin$type <- "Genotype"
-    
-    addSamples(subj) <- sum.temp.fin
-    
-    #also add in the methylation
+}
+
+methylation.data <- function(){
     
     library(GenomicFeatures)
     library(rtracklayer)
@@ -265,6 +200,83 @@ main <- function()
     #add to the methylation class
     
     save(meth.genes, file="temp_meth_results.RData")
+}
+
+main <- function()
+{
+    
+    load("temp_gwas_snps.RData")
+    
+    met.geno <- GWASResult(geno.gene=pcg.gene)
+    
+    geno.sample <- geno.sample[is.na(geno.sample$genotype) == F & geno.sample$genotype != 0,]
+    
+    basic.geno <- BasicGenotypes(geno.sample=geno.sample, geno.gene=geno.gene)
+    
+    subj.info <- read.delim("passed_Dt_withSaliva_forHW2.txt", sep="\t", header=T, stringsAsFactors=F, skip=2)
+    
+    sub.subj <- subj.info[,c("Mergeid", "Sex.x", "ADHD_UPDATE_MD_Recoded", "Access_Adhd_Status.x", "Y1_Stim_Med")]
+    names(sub.subj) <- c("mergeID", "Gender", "SubPheno", "Status", "Meds")
+    
+    sub.subj$Gender[is.na(sub.subj$Gender)] <- "UnkGender"
+    sub.subj$Gender[sub.subj$Gender == 1] <- "Male"
+    sub.subj$Gender[sub.subj$Gender == 2] <- "Female"
+    
+    #not sure about SubPheno--leave as integers
+    
+    sub.subj$SubPheno[is.na(sub.subj$SubPheno)==F] <- paste0("SubPheno", sub.subj$SubPheno[is.na(sub.subj$SubPheno)==F])
+    sub.subj$SubPheno[is.na(sub.subj$SubPheno)] <- "SubPhenoUnk"
+    
+    sub.subj$Status <- ifelse(sub.subj$Status == 1, "Case", "Control")
+    
+    sub.subj$Meds <- ifelse(is.na(sub.subj$Meds), "NoMeds", "Meds")
+    
+    #proces the genotype info first as we will add that to the subject info
+    
+    subj.geno.map <- read.delim("IDmapping.txt", sep="\t", header=T, stringsAsFactors=F)
+    oragene <- read.delim("Oragene_Log_Abbr_3_28_2015_BW.txt", sep="\t", stringsAsFactors=F)
+    
+    subj.geno.map$fix.date <- sapply(strsplit(subj.geno.map$Date, "/"), function(x) paste(x[1], x[2], substr(x[3], 3,4), sep="/"))
+    subj.geno.map$fix.samp <- substr(subj.geno.map$ID, 1, 5)
+    
+    temp <- merge(oragene, subj.geno.map, by.x=c("FamID", "DNA_Date_Collect"), by.y=c("fix.samp", "fix.date"), all.x=F, all.y=T, sort=F)
+    
+    test.temp <- temp[is.na(temp$Child_Parent)==F & temp$Child_Parent == "Child",]
+    
+    sum.temp <- aggregate(Mergeid~Date+FamID+Sample, function(x) paste(unique(x), collapse=","), data=test.temp)
+    sum.temp[sum.temp$Date == "5/29/2010" & sum.temp$FamID == "10418","Mergeid"] <- "104181"
+    
+    add.dta <- data.frame(Date=c("11/6/2010", "12/19/2009", "4/23/2010"), FamID=c("10230", "10235", "10305"), Mergeid=c("102301", "102351", "103051"), stringsAsFactors=F)
+    
+    add.dta$Sample <- NA
+    
+    for(i in 1:length(add.dta$FamID))
+    {
+        add.dta[i,"Sample"] <- subj.geno.map[subj.geno.map$ID == add.dta[i,"FamID"],"Sample"]
+    }
+    
+    sum.temp.fin <- rbind(sum.temp, add.dta[,names(sum.temp)])
+    
+    sum.temp.fin <- rbind(sum.temp.fin, data.frame(Date=NA, FamID=10394, Sample=74, Mergeid=103941, stringsAsFactors=F))
+    
+    setdiff(subj.geno.map$Sample, sum.temp.fin$Sample)#integer(0)
+    
+    #still need to add in this part
+    
+    sum.temp.fin <- sum.temp.fin[,c("Mergeid", "Sample")]
+    names(sum.temp.fin) <- c("mergeID","sample")
+    sum.temp.fin$sample <- paste0("sample", sum.temp.fin$sample)
+    sum.temp.fin$type <- "Genotype"
+    
+    #now make the subject object
+    
+    sub.subj$datatype <- ifelse(sub.subj$mergeID %in%  sum.temp.fin$mergeID, "genotype", "nogenotype")
+    
+    subj <- Subject(subject.info=sub.subj,type.col="Status")
+    
+    addSamples(subj) <- sum.temp.fin
+    
+    #also add in the methylation
     
     load("temp_meth_results.RData")
     
@@ -276,15 +288,6 @@ main <- function()
         Methylation=methyl.dta, Genotype=basic.geno, GWASResult=met.geno)
     
     populate(hw2.conf)
-    
-    ccle.graph <- compute.graph.structure()
-    
-    save(ccle.graph, file="neo_graph.RData")
-    
-    #from the adhd folder
-    #library(igraph)
-    #load("neo_graph.RData")
-    #plot(ccle.graph)
     
     configure(hw2.conf)
     
