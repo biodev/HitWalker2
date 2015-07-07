@@ -425,16 +425,18 @@ def get_shortest_paths (request, request_post):
             
             final_graph = core.apply_grouping2({'nodes':temp_nl, 'links':[]}, [])
             final_nodes_list = final_graph['nodes']
+            
+            title = 'Subset: ' + samp_name[1:]
         else:
         
             final_nodes_list = core.get_nodes([samp_name], 'Sample', request)
         
-        node_names = final_nodes_list.display_names()
-        
-        if len(node_names) == 1:
-            title = 'Subject: '+ node_names[0]
-        else:
-            title = 'Subject: ' + string.joinfields(node_names, ',')
+            node_names = final_nodes_list.display_names()
+            
+            if len(node_names) == 1:
+                title = 'Subject: '+ node_names[0]
+            else:
+                title = 'Subject: ' + string.joinfields(node_names, ',')
         
         return final_nodes_list.tolist(), [], title
     else:
