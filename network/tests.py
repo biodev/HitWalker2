@@ -69,6 +69,7 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         self.test_subjects = config.test_subjects
         self.test_genes = config.test_genes
+        self.test_category = config.test_category
         
         # create user
         self.user = User.objects.create_user(username="selenium",
@@ -209,242 +210,239 @@ class BasicSeleniumTests(LiveServerTestCase):
     #            hw_obj.delete_panel(cur_panel)
     #    
     
-    #def test_metanode_query_table(self):
-    #    
-    #    table_dict = self.get_metanode_query_tables()
-    #    
-    #    if r_obj != None:
-    #        print 'r object exists! testing...'
-    #        
-    #        print table_dict
-    #        
-    #        for i in table_dict.items():
-    #            
-    #            print i
-    #            
-    #            if i[0] != '':
-    #                
-    #                dta = r_obj.getConn().r.getFrequency(r_obj.getConn().ref.hw2_obj, i[0], 'liver', 'Subject_Category')
-    #                
-    #                print dta
-    #                
-    #                if isinstance(dta, pyRserve.TaggedList):
-    #                    
-    #                    for j_ind, j in enumerate(i[1]):
-    #                        if j[0] != '':
-    #                            self.assertEqual(int(j[0]), dta['Genes'][j_ind])
-    #                            self.assertEqual(str(j[1]), str(dta['Frequency'][j_ind]))
-    #                    
-    #                else:
-    #                    print 'skipping test for '+i[0]+' due to invalid returned object'
-    #    else:
-    #        print 'r object does not exist... skipping tests'
-            
-            
-    #def test_metanode_subsetting(self):
-    #    
-    #    ##NOTE: Make sure to replace liver with another subject attr
-    #    
-    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-    #    
-    #    hw_obj.panel_by_query("@liver")
-    #    
-    #    cur_meta = hw_obj.get_metanode("1", SingleMetaNodeSelector())
-    #    
-    #    webdriver.ActionChains(self.driver).move_to_element(cur_meta).context_click(cur_meta).perform()
-    #    
-    #    #first the subset spans, check the numbers versus the data in R
-    #    
-    #    trs = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr")
-    #    
-    #    cur_th = ""
-    #    
-    #    ret_table = []
-    #    
-    #    for i in trs:
-    #        try:
-    #            cur_th = i.find_element_by_css_selector("th").text
-    #        except Exception as e:
-    #            pass
-    #        
-    #        cur_row = [cur_th]
-    #        
-    #        cur_row.extend(map(lambda x: x.text, i.find_elements_by_css_selector("td")))
-    #        
-    #        ret_table.append(cur_row)
-    #    
-    #    print ret_table
-    #    
-    #    if r_obj != None:
-    #        print 'r object exists! testing...'
-    #        
-    #        dta = r_obj.getConn().r.subjectAttrs(r_obj.getConn().ref.hw2_obj, 'liver', 'Subject_Category')
-    #        
-    #        print dta
-    #        
-    #        for i in ret_table:
-    #            if i[1].endswith("..."):
-    #                
-    #                find_str = i[1].replace(" ...", "")
-    #                val_ind = np.where(np.char.find(np.char.capitalize(dta['Value']), find_str) > -1)
-    #                
-    #            else:
-    #                val_ind = np.where(np.char.capitalize(dta['Value']) == i[1])
-    #            
-    #            type_ind = np.where(dta['Type'] == i[0])
-    #            
-    #            common_ind = set(val_ind[0]).intersection(set(type_ind[0]))
-    #            
-    #            if len(common_ind) > 0:
-    #                
-    #                self.assertTrue(int(dta['Count'][common_ind.pop()]) == int(i[2]))
-    #            
-    #            else:
-    #                print 'common index not found: ' + str(val_ind) + str(type_ind)
-    #                self.assertTrue(False)
-    #            
-    #        
-    #    else:
-    #        print 'r object does not exist, skipping r tests'
-    #    
-    #    #then perform several subsets and check them relative to the span text
-    #    
-    #    subset_spans = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
-    #    
-    #    #just the first for now
-    #    
-    #    first_span_size = int(subset_spans[0].text)
-    #    
-    #    subset_spans[0].click()
-    #    
-    #    #check the metanode size by the value in the span element
-    #    
-    #    p2_meta_count = hw_obj.count_metanode_children("2", SingleMetaNodeSelector())
-    #    
-    #    self.assertTrue(first_span_size == p2_meta_count)
-    #    
-    #    #then limit the second metanode by another feature
-    #    
-    #    p2_meta = hw_obj.get_metanode("2", SingleMetaNodeSelector())
-    #    
-    #    webdriver.ActionChains(self.driver).move_to_element(p2_meta).context_click(p2_meta).perform()
-    #    
-    #    second_spans = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
-    #    
-    #    second_span_size = int(second_spans[-1].text)
-    #    
-    #    second_spans[-1].click()
-    #    
-    #    p3_meta_count = hw_obj.count_metanode_children("3", SingleMetaNodeSelector())
-    #    
-    #    self.assertTrue(second_span_size == p3_meta_count)
-    #    
-    #    #now do the single/multiple node select box which should be the actual names back on the first panel
-    #    
-    #    cur_meta = hw_obj.get_metanode("1", SingleMetaNodeSelector())
-    #    
-    #    webdriver.ActionChains(self.driver).move_to_element(cur_meta).context_click(cur_meta).perform()
-    #    
-    #    self.driver.find_element_by_css_selector(".select2-input").click()
-    #    all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
-    #    
-    #    select_text = map(lambda x: str(x.text), all_lis)
-    #    
-    #    subj_names = r_obj.getConn().r.subjectSubset(r_obj.getConn().ref.hw2_obj, 'liver', 'Subject_Category')
-    #    
-    #    self.assertListEqual(sorted(select_text), sorted(subj_names))
-    #    
-    #    all_lis[0].click()
-    #    
-    #    self.driver.find_element_by_css_selector(".select2-input").click()
-    #    all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
-    #    
-    #    all_lis[-1].click()
-    #   
-    #    self.driver.find_element_by_css_selector("#subset_samp_button").click()
-    #    
-    #    #there should only be a single metanode on the panel with 2 children
-    #    
-    #    p4_meta_count = hw_obj.count_metanode_children("4", SingleMetaNodeSelector())
-    #    
-    #    self.assertTrue(p4_meta_count == 2)
+    def test_metanode_query_table(self):
         
-    #def test_gene_addition_metanode(self):
-    #    
-    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-    #    
-    #    hw_obj.panel_by_query("@liver")
-    #    
-    #    panel_1 = hw_obj.to_panel("1")
-    #    
-    #    hw_obj.click_context_button("1", 2)
-    #    
-    #    self.driver.find_element_by_css_selector("ul li:first-child a").click()
-    #    
-    #    #select a gene that probably has hits, say TP53
-    #    
-    #    self.driver.find_element_by_css_selector(".select2-choice").click()
-    #    self.driver.find_element_by_css_selector("input.select2-input").send_keys("TP53")
-    #    
-    #    input_highlight = WebDriverWait(self.driver, 20).until(
-    #        EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
-    #        )
-    #    
-    #    input_highlight.click()
-    #    
-    #    self.driver.find_element_by_xpath("//button[.='OK']").click()
-    #    
-    #    #figure out which samples have hits for TP53 via R
-    #    
-    #    if r_obj != None:
-    #    
-    #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'liver', 'TP53', 'Subject_Category')
-    #    
-    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
-    #        
-    #        print subj_groups
-    #        
-    #        hit_cat_set = collections.Counter(subj_groups['FixedDt'])
-    #        
-    #        print hit_cat_set
-    #        
-    #        metanode_list = hw_obj.get_panel_metanodes("2")
-    #        
-    #        trans_vals = map(lambda x: map(float, re.split("[,\)\(]", x.get_attribute("transform"))[1:3]), metanode_list)
-    #        
-    #        print trans_vals
-    #        
-    #        kd_tree = scipy.spatial.KDTree(np.array(trans_vals))
-    #        
-    #        metanode_count = []
-    #        
-    #        for i in metanode_list:
-    #            metanode_count.append(hw_obj.count_metanode_children(None, i))
-    #        
-    #        print metanode_count
-    #        
-    #        links = hw_obj.to_panel("2")
-    #        
-    #        link_els = links.find_elements_by_css_selector("path.link")
-    #        
-    #        link_pos = map(lambda x: map(float, re.split("[M,L]", x.get_attribute("d"))[1:]) , link_els)
-    #        
-    #        #in this case all the links should point to the same position, so we are just looking at which metanode should be assigned the relationship
-    #        
-    #        link_type = map(lambda x: x.get_attribute("class").replace("link ", ""), link_els)
-    #        
-    #        link_dict = collections.defaultdict(list)
-    #        
-    #        for i_ind, i in enumerate(link_pos):
-    #            link_match = kd_tree.query(np.array(i[:2]))
-    #            link_dict[str(link_match[1])].append(link_type[i_ind])
-    #            
-    #        res_dict = {}
-    #        
-    #        for i in link_dict.items():
-    #            res_dict[string.joinfields(i[1], ",")] = metanode_count[int(i[0])]
-    #        
-    #        self.assertDictEqual(hit_cat_set, res_dict)
+        table_dict = self.get_metanode_query_tables()
+        
+        if r_obj != None:
+            print 'r object exists! testing...'
+            
+            print table_dict
+            
+            for i in table_dict.items():
+                
+                print i
+                
+                if i[0] != '':
+                    
+                    dta = r_obj.getConn().r.getFrequency(r_obj.getConn().ref.hw2_obj, i[0], self.test_category, 'Subject_Category')
+                    
+                    print dta
+                    
+                    if isinstance(dta, pyRserve.TaggedList):
+                        
+                        for j_ind, j in enumerate(i[1]):
+                            if j[0] != '':
+                                self.assertEqual(int(j[0]), dta['Genes'][j_ind])
+                                self.assertEqual(str(j[1]), str(dta['Frequency'][j_ind]))
+                        
+                    else:
+                        print 'skipping test for '+i[0]+' due to invalid returned object'
+        else:
+            print 'r object does not exist... skipping tests'
+    
+    def test_metanode_subsetting(self):
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+        
+        hw_obj.panel_by_query("@"+self.test_category)
+        
+        cur_meta = hw_obj.get_metanode("1", SingleMetaNodeSelector())
+        
+        webdriver.ActionChains(self.driver).move_to_element(cur_meta).context_click(cur_meta).perform()
+        
+        #first the subset spans, check the numbers versus the data in R
+        
+        trs = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr")
+        
+        cur_th = ""
+        
+        ret_table = []
+        
+        for i in trs:
+            try:
+                cur_th = i.find_element_by_css_selector("th").text
+            except Exception as e:
+                pass
+            
+            cur_row = [cur_th]
+            
+            cur_row.extend(map(lambda x: x.text, i.find_elements_by_css_selector("td")))
+            
+            ret_table.append(cur_row)
+        
+        print ret_table
+        
+        if r_obj != None:
+            print 'r object exists! testing...'
+            
+            dta = r_obj.getConn().r.subjectAttrs(r_obj.getConn().ref.hw2_obj, self.test_category, 'Subject_Category')
+            
+            print dta
+            
+            for i in ret_table:
+                if i[1].endswith("..."):
+                    
+                    find_str = i[1].replace(" ...", "")
+                    val_ind = np.where(np.char.find(np.char.capitalize(dta['Value']), find_str) > -1)
+                    
+                else:
+                    val_ind = np.where(np.char.capitalize(dta['Value']) == i[1])
+                
+                type_ind = np.where(dta['Type'] == i[0])
+                
+                common_ind = set(val_ind[0]).intersection(set(type_ind[0]))
+                
+                if len(common_ind) > 0:
+                    
+                    self.assertTrue(int(dta['Count'][common_ind.pop()]) == int(i[2]))
+                
+                else:
+                    print 'common index not found: ' + str(val_ind) + str(type_ind)
+                    self.assertTrue(False)
+                
+            
+        else:
+            print 'r object does not exist, skipping r tests'
+        
+        #then perform several subsets and check them relative to the span text
+        
+        subset_spans = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
+        
+        #just the first for now
+        
+        first_span_size = int(subset_spans[0].text)
+        
+        subset_spans[0].click()
+        
+        #check the metanode size by the value in the span element
+        
+        p2_meta_count = hw_obj.count_metanode_children("2", SingleMetaNodeSelector())
+        
+        self.assertTrue(first_span_size == p2_meta_count)
+        
+        #then limit the second metanode by another feature
+        
+        p2_meta = hw_obj.get_metanode("2", SingleMetaNodeSelector())
+        
+        webdriver.ActionChains(self.driver).move_to_element(p2_meta).context_click(p2_meta).perform()
+        
+        second_spans = self.driver.find_elements_by_css_selector("#summary_table > tbody > tr > td > span")
+        
+        second_span_size = int(second_spans[-1].text)
+        
+        second_spans[-1].click()
+        
+        p3_meta_count = hw_obj.count_metanode_children("3", SingleMetaNodeSelector())
+        
+        self.assertTrue(second_span_size == p3_meta_count)
+        
+        #now do the single/multiple node select box which should be the actual names back on the first panel
+        
+        cur_meta = hw_obj.get_metanode("1", SingleMetaNodeSelector())
+        
+        webdriver.ActionChains(self.driver).move_to_element(cur_meta).context_click(cur_meta).perform()
+        
+        self.driver.find_element_by_css_selector(".select2-input").click()
+        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
+        
+        select_text = map(lambda x: str(x.text), all_lis)
+        
+        subj_names = r_obj.getConn().r.subjectSubset(r_obj.getConn().ref.hw2_obj, self.test_category, 'Subject_Category')
+        
+        self.assertListEqual(sorted(select_text), sorted(subj_names))
+        
+        all_lis[0].click()
+        
+        self.driver.find_element_by_css_selector(".select2-input").click()
+        all_lis = self.driver.find_elements_by_css_selector("#select2-drop > ul > li")
+        
+        all_lis[-1].click()
+       
+        self.driver.find_element_by_css_selector("#subset_samp_button").click()
+        
+        #there should only be a single metanode on the panel with 2 children
+        
+        p4_meta_count = hw_obj.count_metanode_children("4", SingleMetaNodeSelector())
+        
+        self.assertTrue(p4_meta_count == 2)
+        
+    def test_gene_addition_metanode(self):
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+        
+        hw_obj.panel_by_query("@"+self.test_category)
+        
+        panel_1 = hw_obj.to_panel("1")
+        
+        hw_obj.click_context_button("1", 2)
+        
+        self.driver.find_element_by_css_selector("ul li:first-child a").click()
+        
+        #select a gene that probably has hits
+        
+        self.driver.find_element_by_css_selector(".select2-choice").click()
+        self.driver.find_element_by_css_selector("input.select2-input").send_keys(self.test_genes[0])
+        
+        input_highlight = WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR,".select2-result-label"))
+            )
+        
+        input_highlight.click()
+        
+        self.driver.find_element_by_xpath("//button[.='OK']").click()
+        
+        #figure out which samples have hits for the gene via R
+        
+        if r_obj != None:
+        
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, self.test_category, self.test_genes[0], 'Subject_Category')
+        
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits)
+            
+            print subj_groups
+            
+            hit_cat_set = collections.Counter(subj_groups['FixedDt'])
+            
+            print hit_cat_set
+            
+            metanode_list = hw_obj.get_panel_metanodes("2")
+            
+            trans_vals = map(lambda x: map(float, re.split("[,\)\(]", x.get_attribute("transform"))[1:3]), metanode_list)
+            
+            print trans_vals
+            
+            kd_tree = scipy.spatial.KDTree(np.array(trans_vals))
+            
+            metanode_count = []
+            
+            for i in metanode_list:
+                metanode_count.append(hw_obj.count_metanode_children(None, i))
+            
+            print metanode_count
+            
+            links = hw_obj.to_panel("2")
+            
+            link_els = links.find_elements_by_css_selector("path.link")
+            
+            link_pos = map(lambda x: map(float, re.split("[M,L]", x.get_attribute("d"))[1:]) , link_els)
+            
+            #in this case all the links should point to the same position, so we are just looking at which metanode should be assigned the relationship
+            
+            link_type = map(lambda x: x.get_attribute("class").replace("link ", ""), link_els)
+            
+            link_dict = collections.defaultdict(list)
+            
+            for i_ind, i in enumerate(link_pos):
+                link_match = kd_tree.query(np.array(i[:2]))
+                link_dict[str(link_match[1])].append(link_type[i_ind])
+                
+            res_dict = {}
+            
+            for i in link_dict.items():
+                res_dict[string.joinfields(i[1], ",")] = metanode_count[int(i[0])]
+            
+            self.assertDictEqual(hit_cat_set, res_dict)
     
     def compare_dicts(self, dict1, dict2):
         for i in dict1.items():

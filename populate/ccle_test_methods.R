@@ -431,51 +431,48 @@ setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL
     require(annot.pack, character.only=T)
     require(reshape2)
     
-    #below is kind of a slow process so will save it and reuse if available
+    mapping <- select(get(annot.pack), columns="ENTREZID", featureNames(obj@exprs))
+        
+    if (missing(genes) || is.null(genes) || all(is.na(genes))){
+      
+      sub.mapping <- mapping
+      
+    }else{
+      
+      sub.mapping <- mapping[mapping$ENTREZID %in% genes,]
+    }
     
-    #if (file.exists("saved_exprs.RData")){
-    #    
-    #    load("saved_exprs.RData")
-    #    
-    #}else{
-    
-        mapping <- select(get(annot.pack), columns="ENTREZID", featureNames(obj@exprs))
-        
-        if (missing(genes) || is.null(genes) || all(is.na(genes))){
-        
-            sub.mapping <- mapping
-        
-        }else{
-            
-            sub.mapping <- mapping[mapping$ENTREZID %in% genes,]
-        }
-        
-        common.samples <- intersect(samples, sampleNames(obj@exprs))
-        
-        probeset.dta <- melt(exprs(obj@exprs)[,common.samples,drop=F], as.is=T)
-        
-        probeset.gene <- merge(probeset.dta, sub.mapping, by.x="Var1", by.y="PROBEID", sort=F)
-        
-        sum.gene <- aggregate(value~Var2+ENTREZID, max, data=probeset.gene)
-        
-        #save(sum.gene, file="saved_exprs.RData")
-    #}
-    
-    names(sum.gene) <- c("Sample", "Gene", "value")
-    
-    if (limit.to.hits){
+    if (nrow(sub.mapping) == 0){
+      
+      return(data.frame(Sample=character(0), Gene=character(0), IsHit=logical(0)))
+      
+    }else{
+      common.samples <- intersect(samples, sampleNames(obj@exprs))
+      
+      probeset.dta <- melt(exprs(obj@exprs)[,common.samples,drop=F], as.is=T)
+      
+      probeset.gene <- merge(probeset.dta, sub.mapping, by.x="Var1", by.y="PROBEID", sort=F)
+      
+      sum.gene <- aggregate(value~Var2+ENTREZID, max, data=probeset.gene)
+      
+      names(sum.gene) <- c("Sample", "Gene", "value")
+      
+      if (limit.to.hits){
         
         sum.gene <- sum.gene[sum.gene$value > obj@default,]
         
         sum.gene <- sum.gene[,c("Sample", "Gene")]
         
-    }else{
+      }else{
         
         sum.gene$IsHit <- sum.gene$value > obj@default
         sum.gene <- sum.gene[,c("Sample", "Gene", "IsHit")]
+      }
+      
+      return(sum.gene)
     }
+        
     
-    return(sum.gene)
 })
 
 setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL, limit.to.hits=T){

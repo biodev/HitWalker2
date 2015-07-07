@@ -11,6 +11,7 @@ prog_type = ""
 #chrome_driver_path="/Users/bottomly/Desktop/chromedriver"
 #test_subjects=["HEPG2_LIVER", "LOUCY_HAEMATOPOIETIC_AND_LYMPHOID_TISSUE"]
 #test_genes=["KRAS"]
+#test_category="liver"
 
 graph_struct_file = "/var/www/hitwalker2_inst/static/network/data/graph_struct.json"
 
