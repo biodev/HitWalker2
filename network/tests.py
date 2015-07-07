@@ -458,141 +458,143 @@ class BasicSeleniumTests(LiveServerTestCase):
                     else:
                         raise Exception('dict2 missing key: ' + i[0])
     
-    #def test_hitwalker_panel(self):
-    #    
-    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-    #    
-    #    default_thresh_mat_base = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", "")
-    #    
-    #    if r_obj != None:
-    #        
-    #        gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
-    #        
-    #        found_rels = hw_obj.get_node_rels("1")
-    #        
-    #        #needed to do it this way as it kept interpreting sub_graph as a list using the .ref approach
-    #        r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', .4)")
-    #        
-    #        gene_links = r_obj.getConn().r.get_gene_connections(r_obj.getConn().ref.sub_graph, gene_text['seeds'], gene_text['targs'])
-    #        
-    #        r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
-    #        
-    #        for i in range(0, len(gene_links['from'])):
-    #            r_found_dta[gene_links['from'][i]][gene_links['to'][i]].add('STRING')
-    #            r_found_dta[gene_links['to'][i]][gene_links['from'][i]].add('STRING')
-    #        
-    #        #make this into a unique set
-    #        gene_set = set(list(gene_links['from']) + list(gene_links['to']))
-    #        
-    #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, 'HEPG2_LIVER', np.array(list(gene_set)), 'Subject', 'Gene')
-    #        
-    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, 'HEPG2_LIVER')
-    #        
-    #        for i in range(0, len(subj_groups['Subject'])):
-    #            split_dt = subj_groups['FixedDt'][i].split(',')
-    #            for j in split_dt:
-    #                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
-    #                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
-    #        
-    #        #for i in subj_groups['Subject']:
-    #        #    for j in subj_groups['Gene']:
-    #        #
-    #        print 'R vs Screen'
-    #        self.compare_dicts(r_found_dta, found_rels)
-    #        print 'Screen vs R'
-    #        self.compare_dicts(found_rels, r_found_dta)
-    #    
-    #    self.assertEqual(r_found_dta, found_rels)
+    def test_hitwalker_panel(self):
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+        
+        default_thresh_mat_base = config.prioritization_func['args']['initial_graph_file'].replace(".mtx", "")
+        
+        if r_obj != None:
+            
+            gene_text = hw_obj.panel_by_prioritize(self.test_subjects[0])
+            
+            found_rels = hw_obj.get_node_rels("1")
+            
+            print gene_text
+            
+            conf_thresh = config.adjust_fields['General_Parameters']['fields']['string_conf']['default']
+            
+            print conf_thresh
+            
+            #needed to do it this way as it kept interpreting sub_graph as a list using the .ref approach
+            r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', "+str(conf_thresh)+")")
+            
+            gene_links = r_obj.getConn().r.get_gene_connections(r_obj.getConn().ref.sub_graph, gene_text['seeds'], gene_text['targs'])
+            
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
+            for i in range(0, len(gene_links['from'])):
+                r_found_dta[gene_links['from'][i]][gene_links['to'][i]].add('STRING')
+                r_found_dta[gene_links['to'][i]][gene_links['from'][i]].add('STRING')
+            
+            #make this into a unique set
+            gene_set = set(list(gene_links['from']) + list(gene_links['to']) + gene_text['seeds'] + gene_text['targs'])
+            
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, self.test_subjects[0], np.array(list(gene_set)), 'Subject', 'Gene')
+            
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, self.test_subjects[0], "None", "Expression")
+            
+            for i in range(0, len(subj_groups['Subject'])):
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+            
+            #for i in subj_groups['Subject']:
+            #    for j in subj_groups['Gene']:
+            #
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, found_rels)
+            print 'Screen vs R'
+            self.compare_dicts(found_rels, r_found_dta)
+        
+        self.assertEqual(r_found_dta, found_rels)
     
-    #def test_gene_addition_prioritize(self):
-    #    
-    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-    #
-    #    gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
-    #    
-    #    #add a new gene
-    #    hw_obj.add_gene("1", "TP53")
-    #    
-    #    node_rels = hw_obj.get_node_rels("2")
-    #    
-    #    #assume that all went well with the formation of the graph and just add in the nodes from the page...
-    #    gene_list = hw_obj.get_node_rels("1").keys() + ['TP53']
-    #    
-    #    if r_obj != None:
-    #        
-    #        print gene_list
-    #        
-    #        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_list, 'Subject', 'Gene')
-    #        
-    #        r_obj.getConn().voidEval('print(deparse(gene_hits))')
-    #        
-    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, "HEPG2_LIVER", "Gene")
-    #        
-    #        #as there is a single subject, then group the genes into metanodes
-    #        
-    #        #gene_counter = collections.Counter(subj_groups['FixedDt'])
-    #        
-    #        r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
-    #        
-    #        for i in range(0, len(subj_groups['Subject'])):
-    #            split_dt = subj_groups['FixedDt'][i].split(',')
-    #            for j in split_dt:
-    #                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
-    #                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
-    #        
-    #        print 'R vs Screen'
-    #        self.compare_dicts(r_found_dta, node_rels)
-    #        print 'Screen vs R'
-    #        self.compare_dicts(node_rels, r_found_dta)
-    #        
-    #        self.assertEqual(r_found_dta, node_rels)
+    def test_gene_addition_prioritize(self):
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
     
-    #def test_pathway_addition_prioritize(self):
-    #
-    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-    #
-    #    gene_text = hw_obj.panel_by_prioritize("HEPG2_LIVER")
-    #    
-    #    #add a pathway this time
-    #    pathway_name = hw_obj.add_pathway("1", ["TP53"])
-    #    
-    #    node_rels = hw_obj.get_node_rels("2")
-    #    
-    #    gene_list = hw_obj.get_node_rels("1")
-    #    
-    #    clean_pathway_name = re.sub("\s+\(n=\d+\)\s*", "", pathway_name)
-    #    
-    #    if r_obj != None:
-    #        
-    #        r_obj.getConn().r.gene_hits1 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", clean_pathway_name, 'Subject', 'Pathway')
-    #        
-    #        #also need to collect the genes that were on panel 1
-    #        
-    #        #r_obj.getConn().voidEval('gene_hits2 <- findHits(hw2_obj, "HEPG2_LIVER", "'+clean_pathway_name+'", "Subject", "Pathway")')
-    #        
-    #        r_obj.getConn().r.gene_hits2 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, "HEPG2_LIVER", gene_list.keys(), 'Subject', 'Gene')
-    #        
-    #        r_obj.getConn().voidEval('gene_hits_all <- rbind(as.data.frame(gene_hits1), as.data.frame(gene_hits2))')
-    #        
-    #        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits_all, True, "HEPG2_LIVER", "Gene")
-    #        
-    #        #as there is a single subject, then group the genes into metanodes
-    #        
-    #        r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
-    #        
-    #        for i in range(0, len(subj_groups['Subject'])):
-    #            split_dt = subj_groups['FixedDt'][i].split(',')
-    #            for j in split_dt:
-    #                r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
-    #                r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
-    #        
-    #        print 'R vs Screen'
-    #        self.compare_dicts(r_found_dta, node_rels)
-    #        print 'Screen vs R'
-    #        self.compare_dicts(node_rels, r_found_dta)
-    #        
-    #        self.assertEqual(r_found_dta, node_rels)
-    #
+        gene_text = hw_obj.panel_by_prioritize(self.test_subjects[0])
+        
+        #add a new gene
+        hw_obj.add_gene("1", self.test_genes[0])
+        
+        node_rels = hw_obj.get_node_rels("2")
+        
+        #assume that all went well with the formation of the graph and just add in the nodes from the page...
+        gene_list = hw_obj.get_node_rels("1").keys() + self.test_genes
+        
+        if r_obj != None:
+            
+            r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, self.test_subjects[0], gene_list, 'Subject', 'Gene')
+            
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, self.test_subjects[0], "Gene", "Expression")
+            
+            #as there is a single subject, then group the genes into metanodes
+            
+            #gene_counter = collections.Counter(subj_groups['FixedDt'])
+            
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
+            for i in range(0, len(subj_groups['Subject'])):
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+            
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, node_rels)
+            print 'Screen vs R'
+            self.compare_dicts(node_rels, r_found_dta)
+            
+            self.assertEqual(r_found_dta, node_rels)
+    
+    def test_pathway_addition_prioritize(self):
+    
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+    
+        gene_text = hw_obj.panel_by_prioritize(self.test_subjects[0])
+        
+        #add a pathway this time
+        pathway_name = hw_obj.add_pathway("1", self.test_genes)
+        
+        node_rels = hw_obj.get_node_rels("2")
+        
+        gene_list = hw_obj.get_node_rels("1")
+        
+        clean_pathway_name = re.sub("\s+\(n=\d+\)\s*", "", pathway_name)
+        
+        if r_obj != None:
+            
+            r_obj.getConn().r.gene_hits1 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, self.test_subjects[0], clean_pathway_name, 'Subject', 'Pathway')
+            
+            #also need to collect the genes that were on panel 1
+            
+            #r_obj.getConn().voidEval('gene_hits2 <- findHits(hw2_obj, "HEPG2_LIVER", "'+clean_pathway_name+'", "Subject", "Pathway")')
+            
+            r_obj.getConn().r.gene_hits2 = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, self.test_subjects[0], gene_list.keys(), 'Subject', 'Gene')
+            
+            r_obj.getConn().voidEval('gene_hits_all <- rbind(as.data.frame(gene_hits1), as.data.frame(gene_hits2))')
+            
+            subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits_all, True, self.test_subjects[0], "Gene", "Expression")
+            
+            #as there is a single subject, then group the genes into metanodes
+            
+            r_found_dta = collections.defaultdict(lambda: collections.defaultdict(set))
+            
+            for i in range(0, len(subj_groups['Subject'])):
+                split_dt = subj_groups['FixedDt'][i].split(',')
+                for j in split_dt:
+                    r_found_dta[subj_groups['Subject'][i]][subj_groups['Gene'][i]].add(j)
+                    r_found_dta[subj_groups['Gene'][i]][subj_groups['Subject'][i]].add(j)
+            
+            print 'R vs Screen'
+            self.compare_dicts(r_found_dta, node_rels)
+            print 'Screen vs R'
+            self.compare_dicts(node_rels, r_found_dta)
+            
+            self.assertEqual(r_found_dta, node_rels)
+    
     
     def test_subject_addition_prioritize(self):
         
@@ -609,8 +611,6 @@ class BasicSeleniumTests(LiveServerTestCase):
         node_rels = hw_obj.get_node_rels("2")
         
         gene_list = hw_obj.get_node_rels("1")
-        
-        print gene_list.keys()
         
         if r_obj != None:
             #it shouldn't matter that gene_list will contain subject nodes as well--they will be ignored

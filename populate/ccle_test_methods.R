@@ -99,17 +99,19 @@ get_gene_connections <- function(use.graph, seeds, targs){
     gene.grid <- expand.grid(list(seeds=seeds, targs=targs), stringsAsFactors = FALSE)
     
     string.graph.dta <- do.call(rbind, lapply(1:nrow(gene.grid), function(i){
-        
+      
         var.names <- string.name$string[string.name$symbol == gene.grid$targs[i]]
         seed.names <- string.name$string[string.name$symbol == gene.grid$seeds[i]]
         
-        stopifnot(length(var.names) == 1 && length(seed.names) == 1)
+        if ((length(var.names) == 1 && length(seed.names) == 1) == F){
+          stop(paste("ERROR: unexpected lengths:", paste(var.names, collapse=","), paste(seed.names, collapse=",")))
+        }
         
         paths <-  get.all.shortest.paths(use.graph, from=V(use.graph)[name %in% var.names], to = V(use.graph)[ name %in% seed.names], mode = "all", weights=NULL)
         
         #just check the first as these should all be the same length...s
-        if (length(paths$res) > 0 && length(paths$res[[1]]) <= 4){
-            
+        if (length(paths$res) > 0 && length(paths$res[[1]]) < 4){
+          
             which.path <- which.max(sapply(paths$res, function(x) sum(E(use.graph, path=x)$score)))
             
             edge.mat <- get.edges(use.graph, E(use.graph, path=paths$res[[which.path]]))
@@ -204,9 +206,9 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
 #[u'ALK', u'MAP3K1', u'HEPG2_LIVER', u'MAP3K13', u'MAP2K7', u'HSP90AA1', u'KRAS']
 #[u'ALK', u'MAP3K1', u'MAP3K7', u'HEPG2_LIVER', u'MAP3K13', u'MAP3K14', u'MAP2K7']
 
-#load("~/Desktop/hitwalker2_paper/temp_hw_conf.RData")
-#temp <- findHits(hw2.conf, c('HEPG2_LIVER', ''), c('ALK', 'MAP3K1', 'MAP3K7', 'HEPG2_LIVER', 'MAP3K13','MAP3K14', 'MAP2K7' ), 'Subject', 'Gene')
-#temp.2 <- findHits(hw2.conf, 'HEPG2_LIVER', 'Signalling to p38 via RIT and RIN (reactome)', 'Subject', 'Pathway')
+#load("~/Desktop/hitwalker2_paper/ccle_conf.RData")
+#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'MAP3K7', 'HEPG2_LIVER', 'MAP3K13','MAP3K14', 'MAP2K7' ), 'Subject', 'Gene')
+#temp.2 <- findHits(hw2.conf, 'HEPG2_LIVER', 'SHC1 events in EGFR signaling (reactome)', 'Subject', 'Pathway')
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
     require(RNeo4j)
