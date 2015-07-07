@@ -205,7 +205,7 @@ setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_t
 #[u'ALK', u'MAP3K1', u'MAP3K7', u'HEPG2_LIVER', u'MAP3K13', u'MAP3K14', u'MAP2K7']
 
 #load("~/Desktop/hitwalker2_paper/temp_hw_conf.RData")
-#temp <- findHits(hw2.conf, 'HEPG2_LIVER', c('ALK', 'MAP3K1', 'MAP3K7', 'HEPG2_LIVER', 'MAP3K13','MAP3K14', 'MAP2K7' ), 'Subject', 'Gene')
+#temp <- findHits(hw2.conf, c('HEPG2_LIVER', ''), c('ALK', 'MAP3K1', 'MAP3K7', 'HEPG2_LIVER', 'MAP3K13','MAP3K14', 'MAP2K7' ), 'Subject', 'Gene')
 #temp.2 <- findHits(hw2.conf, 'HEPG2_LIVER', 'Signalling to p38 via RIT and RIN (reactome)', 'Subject', 'Pathway')
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
@@ -321,19 +321,43 @@ encode_groups <- function(hit.dta, ids.to.symbs=F, prioritized_subject=NULL, gro
       
       lo.cols <- paste(setdiff(names(sum.dta), group.by), collapse="+")
       
-      .make.groups <- function(x){
+      sum.dta <- aggregate(as.formula(paste(group.by, lo.cols, sep="~")), c , data=sum.dta)
+      
+      #only those values (Genes/Subjects) which are not seen outside of the group rows should be collapsed to groups
+      
+      is.group <- sapply(sum.dta[,group.by], length)
+      
+      if (any(is.group > 1)){
         
-        if (length(x) == 1){
-          x
-        }else{
-          paste(group.by, paste0("(", length(x), ")"))
+        which.group <- which(is.group > 1)
+        
+        should.keep <- sapply(names(which.group), function(x){
+            if (any(sum.dta[,group.by][[x]] %in% unlist(sum.dta[,group.by][setdiff(names(sum.dta[,group.by]), x)]))){
+              return(F)
+            }else{
+              return(T)
+            }
+        })
+        
+        for(i in names(which.group)[should.keep]){
+          sum.dta[[group.by]][[i]] <- paste0(group.by, " (", length(sum.dta[[group.by]][[i]]), ")")
         }
+        
+        for(i in names(which.group)[should.keep==F]){
+          which.row <- which(names(sum.dta[,group.by])==i)
+          new.dta <- sum.dta[which.row,]
+          for(j in sum.dta[[group.by]][[i]][-1]){
+            new.dta[,group.by] <- j
+            sum.dta <- rbind(sum.dta, new.dta)
+          }
+        }
+        
+        sum.dta[,group.by] <- sapply(sum.dta[,group.by], "[", 1)
+        
       }
-      
-      
-      sum.dta <- aggregate(as.formula(paste(group.by, lo.cols, sep="~")), .make.groups , data=sum.dta)
-    }
     
+    }
+      
     return(sum.dta) 
 }
 

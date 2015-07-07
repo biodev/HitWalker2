@@ -9,6 +9,8 @@ prog_type = ""
 #test_methods_path="/Users/bottomly/Desktop/github/HitWalker2/populate/ccle_test_methods.R"
 #hw_config_path="/Users/bottomly/Desktop/hitwalker2_paper/temp_hw_conf.RData"
 #chrome_driver_path="/Users/bottomly/Desktop/chromedriver"
+#test_subjects=["HEPG2_LIVER", "LOUCY_HAEMATOPOIETIC_AND_LYMPHOID_TISSUE"]
+#test_genes=["KRAS"]
 
 graph_struct_file = "/var/www/hitwalker2_inst/static/network/data/graph_struct.json"
 
