@@ -1,11 +1,16 @@
 from py2neo import neo4j
-import config
-from core import get_nodes
 import re
 import collections
-import custom_functions
 import json
 import copy
+import sys
+
+try:
+    import config
+    from core import get_nodes
+    import custom_functions
+except:
+    sys.exit(0)
 
 class TestRequest():
     
@@ -20,11 +25,6 @@ class TestRequest():
         self.session['where_vars'] = []
 
 if __name__ == '__main__':
-    #func_list = ['gene_names', 'gene_rels', 'subject', 'sample', 'pathway'] + config.data_list + map(config.data)
-    
-    #func_list = config.data_list #+ map(lambda x: x+"_tmpl", config.data_list)
-    
-    #get genes, subjects, samples and pathways
     
     graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/') 
     

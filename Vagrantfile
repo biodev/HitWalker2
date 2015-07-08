@@ -114,6 +114,10 @@ setgid vagrant
 chdir /home/vagrant/HitWalker2
     
 exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
+
+chdir /home/vagrant/HitWalker2/network
+exec python warm_up.py
+
 ' > HitWalker2.conf
     
   sudo cp HitWalker2.conf /etc/init/
