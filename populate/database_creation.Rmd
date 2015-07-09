@@ -9,7 +9,7 @@ output:
 First we retrieve the STRING protein-protein interaction data (CITATION), perform an initial thresholding to only keep the high confidence data and load it into Neo4j.  We first need to make sure that the `neo4j-shell` command can reach the appropriate Neo4j database and that the latest version of `hwhelper` is installed.
 
 ```{r}
-    library(hwhelper)
+    suppressPackageStartupMessages(library(hwhelper))
     library(igraph)
     library(Matrix)
 
@@ -21,7 +21,7 @@ First we retrieve the STRING protein-protein interaction data (CITATION), perfor
     
     names(string.ppi) <- c("stringID", "stringID", "score")
     
-    hc.string.ppi <- string.ppi[string.ppi$score > .7,]
+    hc.string.ppi <- string.ppi[string.ppi$score > 700,]
     
     load.neo4j(.data=hc.string.ppi, edge.name="ASSOC", commit.size=10000L, unique.rels=F)
 ```
@@ -81,7 +81,7 @@ Also load in gene symbol data for the entrez IDs.  This will create a EntrezID -
     ent.dta <- ent.info[,c("GeneID", "Symbol", "Synonyms")]
     names(ent.dta) <- c("entrezID", "symbol", "synonyms")
     
-    load.neo4j(.data=ent.dta, edge.name="REFFERED_TO", commit.size=10000L, array.delim="|")
+    load.neo4j(.data=ent.dta, edge.name="REFERRED_TO", commit.size=10000L, array.delim="|")
 
 ```
     As it is also desired to relate pathway information to our base set of Entrez IDs we can then add in Pathway Commons (CITATION) pathway information, converted to Entrez IDs.  Here we will keep *database* as a property of the Pathway node and will only keep non-NA relationships with entrez IDs
