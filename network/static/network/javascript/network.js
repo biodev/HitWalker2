@@ -1063,13 +1063,12 @@ function post_to_fullfill (obj)
       
    }else{
       var spin_div_ref = document.getElementById('heading'+cur_data_val.split('-')[1]);
-   var cur_spin = new Spinner({left:'90%', radius:5, width:3, length:5, lines:10}).spin(spin_div_ref);
+   
+      var cur_spin = new Spinner({left:'90%', radius:5, width:3, length:5, lines:10}).spin(spin_div_ref);
     
-    var post_node = {choice:cur_data_val, nodes:''};
+      var post_node = {choice:cur_data_val, nodes:''};
     
-    console.log(post_node);
-    
-    var node_dict = {};
+      var node_dict = {};
     
     selected_node.forEach(function(key, value)
                           {
@@ -1108,7 +1107,7 @@ function post_to_fullfill (obj)
          
          var sel_id = post_node.choice.split('-')[1];
          
-         var add_html = ['<table class="table">', '<thead><tr><th>'+parsed_data.ret_node_type+'s</th><th>Frequency</th></tr></thead><tbody>'];
+         var add_html = ['<table class="table" id="'+ $(obj).html() +'">', '<thead><tr><th>'+parsed_data.ret_node_type+'s</th><th>Frequency</th></tr></thead><tbody>'];
          
          var sort_data = [];
          

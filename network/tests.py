@@ -107,112 +107,115 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
         
-        datatype_divs = self.driver.find_elements_by_css_selector("#pg1 > div.panel.panel-default")
-        
         table_dict = collections.OrderedDict()
+        links = []
         
-        for i in datatype_divs:
-            cur_link = i.find_element_by_css_selector("div > h4 > a")
+        time.sleep(1)
+        
+        for i in self.driver.find_elements_by_css_selector("#pg1 a"):
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", i);
             
-            self.driver.execute_script("arguments[0].scrollIntoView(true);", cur_link);
-            
-            link_text = cur_link.text
-            cur_link.click()
-            #wait until table appears
+            links.append(i.text)
+            i.click()
+        
+        for i in links:
+            print i
             element = WebDriverWait(self.driver, 20).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR,"#"+i.get_attribute("id") + " > div > div > table"))
+                EC.presence_of_element_located((By.CSS_SELECTOR,"#"+i))
             )
-            
-            self.driver.execute_script("arguments[0].scrollIntoView(true);", element);
-            
             #Assuming table is of the form: Genes/Subjects, Frequency, View/Download statements
             
             cur_table = []
             tab_row = element.find_elements_by_css_selector("tbody > tr")
             
             #need to do each chunk of selecting at a single time otherwise get a stale reference exception
-            for i in tab_row:
-                temp_row = tuple(map(lambda x: x.text,i.find_elements_by_tag_name("td")))
+            for j in tab_row:
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", j);
+                temp_row = tuple(map(lambda x: x.text,j.find_elements_by_tag_name("td")))
                 cur_table.append(temp_row[:2])
             
-            table_dict[link_text] = cur_table
+            table_dict[i] = cur_table
             
         return table_dict
     
-    #def test_metanode_query_click(self):
-    #    
-    #    found_tables = self.get_metanode_query_tables()
-    #    
-    #    print found_tables
-    #    
-    #    hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
-    #    
-    #    panel_1 = hw_obj.to_panel("1")
-    #    
-    #    empty_portion_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(panel_1, 0, 0).click().perform()
-    #    
-    #    cur_panel = 1
-    #    
-    #    for i_ind, i in enumerate(found_tables.items()):
-    #        for j_ind, j in enumerate(i[1]):
-    #            
-    #            print i
-    #            
-    #            panel_1 = hw_obj.to_panel("1")
-    #            hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
-    #            #need to click the link here...
-    #            
-    #            all_links = self.driver.find_elements_by_css_selector("#pg1 a")
-    #            
-    #            all_links[i_ind].click()
-    #           
-    #            element = WebDriverWait(self.driver, 20).until(
-    #                EC.presence_of_element_located((By.CSS_SELECTOR,"#pg1 > div.panel.panel-default table"))
-    #            )
-    #            
-    #            #this just makes sure that everything is able to be clicked (assuming they are ready when one of them is...)
-    #            span_el = WebDriverWait(element, 20).until(
-    #                EC.element_to_be_clickable((By.CSS_SELECTOR,"span"))
-    #            )
-    #            
-    #            all_spans = element.find_elements_by_css_selector("span")
-    #            
-    #            all_spans[j_ind].click()
-    #            
-    #            cur_panel += 1
-    #            
-    #            #TODO: Need to deal with the 'Download' possibility
-    #            
-    #            result_panel = WebDriverWait(self.driver, 20).until(
-    #                EC.element_to_be_clickable((By.CSS_SELECTOR,"g.g1[id='panel_"+str(cur_panel)+"']"))
-    #            )
-    #            
-    #            #check the retrieved metanode against the results from the table
-    #            
-    #            if j[0] != '' and int(j[0]) > 1:
-    #            
-    #                attrs = hw_obj.get_metanode_attrs(result_panel, SingleMetaNodeSelector())
-    #                
-    #                print attrs
-    #                print j, j_ind
-    #                
-    #                self.assertTrue(attrs['type'] == 'Gene')
-    #                
-    #                if j[0] != '':
-    #                
-    #                    self.assertTrue(attrs['count'] == int(j[0]))
-    #                    self.assertTrue(hw_obj.count_metanode_children(cur_panel, SingleMetaNodeSelector()) == attrs['count'])
-    #            elif j[0] != '':
-    #                self.assertTrue(hw_obj.count_nodes(cur_panel, "Gene") == 1)
-    #                
-    #            #delete the new panel
-    #            
-    #            hw_obj.delete_panel(cur_panel)
-    #    
+    def test_metanode_query_click(self):
+        
+        found_tables = self.get_metanode_query_tables()
+        
+        print found_tables
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.live_server_url)
+        
+        panel_1 = hw_obj.to_panel("1")
+        
+        empty_portion_panel = webdriver.ActionChains(self.driver).move_to_element_with_offset(panel_1, 0, 0).click().perform()
+        
+        cur_panel = 1
+        
+        for i_ind, i in enumerate(found_tables.items()):
+            for j_ind, j in enumerate(i[1]):
+                
+                print i
+                
+                panel_1 = hw_obj.to_panel("1")
+                hw_obj.select_context_node(panel_1, SingleMetaNodeSelector())
+                #need to click the link here...
+                
+                all_links = self.driver.find_elements_by_css_selector("#pg1 a")
+                
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", all_links[i_ind]);
+                
+                all_links[i_ind].click()
+               
+                element = WebDriverWait(self.driver, 20).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR,"#pg1 > div.panel.panel-default table"))
+                )
+                
+                #this just makes sure that everything is able to be clicked (assuming they are ready when one of them is...)
+                span_el = WebDriverWait(element, 20).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR,"span"))
+                )
+                
+                all_spans = element.find_elements_by_css_selector("span")
+                
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", all_spans[j_ind])
+                
+                all_spans[j_ind].click()
+                
+                cur_panel += 1
+                
+                #TODO: Need to deal with the 'Download' possibility
+                
+                result_panel = WebDriverWait(self.driver, 20).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR,"g.g1[id='panel_"+str(cur_panel)+"']"))
+                )
+                
+                #check the retrieved metanode against the results from the table
+                
+                if int(j[0]) > 1:
+                
+                    attrs = hw_obj.get_metanode_attrs(result_panel, SingleMetaNodeSelector())
+                    
+                    print attrs
+                    print j, j_ind
+                    
+                    self.assertTrue(attrs['type'] == 'Gene')
+                    
+                    self.assertTrue(attrs['count'] == int(j[0]))
+                    self.assertTrue(hw_obj.count_metanode_children(cur_panel, SingleMetaNodeSelector()) == attrs['count'])
+                elif int(j[0]) <= 1:
+                    self.assertTrue(hw_obj.count_nodes(cur_panel, "Gene") == 1)
+                    
+                #delete the new panel
+                
+                hw_obj.delete_panel(cur_panel)
+        
     
     def test_metanode_query_table(self):
         
         table_dict = self.get_metanode_query_tables()
+        
+        print table_dict
         
         if r_obj != None:
             print 'r object exists! testing...'
@@ -222,22 +225,19 @@ class BasicSeleniumTests(LiveServerTestCase):
             for i in table_dict.items():
                 
                 print i
+              
+                dta = r_obj.getConn().r.getFrequency(r_obj.getConn().ref.hw2_obj, i[0], self.test_category, 'Subject_Category')
                 
-                if i[0] != '':
+                print dta
+                
+                if isinstance(dta, pyRserve.TaggedList):
                     
-                    dta = r_obj.getConn().r.getFrequency(r_obj.getConn().ref.hw2_obj, i[0], self.test_category, 'Subject_Category')
+                    for j_ind, j in enumerate(i[1]):
+                        self.assertEqual(int(j[0]), dta['Genes'][j_ind])
+                        self.assertEqual(str(j[1]), str(dta['Frequency'][j_ind]))
                     
-                    print dta
-                    
-                    if isinstance(dta, pyRserve.TaggedList):
-                        
-                        for j_ind, j in enumerate(i[1]):
-                            if j[0] != '':
-                                self.assertEqual(int(j[0]), dta['Genes'][j_ind])
-                                self.assertEqual(str(j[1]), str(dta['Frequency'][j_ind]))
-                        
-                    else:
-                        print 'skipping test for '+i[0]+' due to invalid returned object'
+                else:
+                    print 'skipping test for '+i[0]+' due to invalid returned object'
         else:
             print 'r object does not exist... skipping tests'
     
@@ -1425,14 +1425,22 @@ class ajax_and_core_utils_tests(TestCase):
         self.session['where_vars'] = []
         self.session.save()
         
-        data = neo4j.CypherQuery(self.graph_db, 'MATCH (n) RETURN n.name, LABELS(n) limit 10').execute().data
+        labs = neo4j.CypherQuery(self.graph_db, 'MATCH (n) RETURN DISTINCT LABELS(n)').execute().data
+        
+        unique_labs = map(lambda x: x.values[0][0],labs)
         
         inp_dict = collections.defaultdict(list)
         
-        for i in data:
-            inp_dict[i[1][0]].append(i[0])
+        for i in unique_labs[:2]:
+        
+            data = neo4j.CypherQuery(self.graph_db, 'MATCH (n:'+i+') RETURN n.name, LABELS(n) limit 5').execute().data
+            
+            for i in data:
+                inp_dict[i[1][0]].append(i[0])
         
         #make a test config_struct
+        
+        print inp_dict
         
         use_label = inp_dict.keys()[1]
         not_used_label = inp_dict.keys()[0]
@@ -1581,7 +1589,7 @@ class ajax_and_core_utils_tests(TestCase):
 class query_parser_tests (TestCase):
     def setUp(self):
         
-        graph_inp = open("/var/www/hitwalker_2_inst/graph_struct.json", "r")
+        graph_inp = open(config.graph_struct_file, "r")
         graph_struct = json.load(graph_inp)
         graph_inp.close()
         

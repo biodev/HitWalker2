@@ -629,9 +629,7 @@ def multi_node_query(request):
                     <div id="ppd$id$" class="panel panel-default">
                       <div class="panel-heading" role="tab" id="heading$id$" position="relative">
                         <h4 class="panel-title">
-                          <a data-toggle="false" onclick="post_to_fullfill(this)"  style="cursor:pointer" data-parent="#pg1" data-value=$data$ aria-expanded="false" aria-controls="collapse$id$">
-                            $data_title$
-                          </a>
+                          <a data-toggle="false" onclick="post_to_fullfill(this)"  style="cursor:pointer" data-parent="#pg1" data-value=$data$ aria-expanded="false" aria-controls="collapse$id$">$data_title$</a>
                         </h4>
                       </div>
                     <div id="collapse$id$" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading$id$">
