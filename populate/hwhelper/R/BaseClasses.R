@@ -11,6 +11,7 @@ setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 
+
 #' Shared Generics
 #'
 #' Methods that perform similar tasks for currently defined classes
@@ -35,6 +36,13 @@ NULL
 #' @param obj An object of class \code{HW2Config} or \code{NeoData}
 #' @param ... Additional values to pass to the method such as the name of a datatype defined in \code{obj}
 setGeneric("getFrequency", def=function(obj,...) standardGeneric("getFrequency"))
+
+#' @rdname test_helpers
+setGeneric("findHits", def=function(obj,...) standardGeneric("findHits"))
+#' @rdname test_helpers
+setGeneric("subjectAttrs", def=function(obj,...) standardGeneric("subjectAttrs"))
+#' @rdname test_helpers
+setGeneric("subjectSubset", def=function(obj,...) standardGeneric("subjectSubset"))
 
 #' Class Helper Functions
 #'
@@ -196,6 +204,55 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
         message(paste("Starting:", i))
         fromSample(obj.list[[i]], neo.path=neo.path)
         toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
+    }
+    
+})
+
+#returns a vector of subject names in prinical to be part of a given metanode
+setMethod("subjectSubset", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
+  
+    subj <- obj@subject
+    
+    subset_type = match.arg(subset_type)
+    
+    if (subset_type == "Subject_Category"){
+        
+        which.subset <- apply(subj@subject.info[,-c(1:2)] == subset, 1, any)
+        
+        use.subjs <- subj@subject.info[which.subset,1]
+        
+    }else{
+        
+        use.subjs <- subset
+    }
+    
+    return (use.subjs)
+})
+
+setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
+    
+    use.subjs <- subjectSubset(obj, subset, subset_type)
+    
+    sub.info <- obj@subject@subject.info
+    
+    sub.info <- sub.info[sub.info[,1] %in% use.subjs,]
+    
+    if (ncol(sub.info) > 2){
+        
+        melt.sub <- melt(measure.vars=names(sub.info)[3:ncol(sub.info)], data=sub.info[,3:ncol(sub.info), drop=F],as.is=T)
+        
+        melt.sub$count <- 1
+        
+        sum.tab <- aggregate(count~variable+value, sum, data=melt.sub)
+        
+        names(sum.tab) <- c("Type", "Value", "Count")
+        
+        sum.tab$Type <- as.character(sum.tab$Type)
+        
+        return(sum.tab)
+        
+    }else{
+        return(data.frame(Type=character(), Value=character(), Count=character(), stringsAsFactors=F))
     }
     
 })
