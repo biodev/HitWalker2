@@ -17,21 +17,23 @@ CCLE_Expression.Arrays.sif_2012-10-18.txt
 CCLE_Expression.Arrays_2013-03-18.tar.gz
 ```
 
-```{r}
-
-library(hwhelper)
-library(RNeo4j)
-library(hgu133plus2.db)
-
-```
-
-Note that the `RNeo4j` package needs to be installed from github, which can be done as follows:
+Note that the `RNeo4j` package needs to be installed from github, this was done automatically for a Vagrant-based HitWalker2 build but can also be done manually using the `devtools` package:
 
 
 ```{r eval=FALSE}
 library(devtools)
 install_github("nicolewhite/RNeo4j")
 ```
+
+We can then load up the necessary libraries.
+
+```{r}
+
+suppressPackageStartupMessages(library(hwhelper))
+library(RNeo4j)
+
+```
+
 
 ##### Subject Data
 
@@ -206,7 +208,7 @@ setdiff(sampleNames(drug), cell.annots$CCLE.name)
 
 ```
 
-The `addSamples` method will deal with the discordant samples by creating sample nodes but not the relationships between them.  Which means that:
+The `addSamples` method will deal with the discordant samples by creating sample nodes but not assigning relationships between them and the subjects.  Which means that:
 
 ```{r}
 addSamples(subj, type="Drug_Assay") <- drug
@@ -276,9 +278,8 @@ if (file.exists("ccle_eset.RData")){
 ```
 
 For expression, *probeset->gene* mapping info doesn't need to be supplied by an `ExpressionSet` as it can be populated using Bioconductor's annotation mechanism.
-As this object doesn't have an annotation package specified, we will manually add it.
 
-As before we still need to supply the mapping between the CEL file names and the subject names and we will do this base on the SIF file.  Instead of supplying `addSamples` an object, we will supply it a `data.frame` with the mapping info as below.
+As before we still need to supply the mapping between the CEL file names and the subject names and we will do this base on the SIF file.  Instead of applying `addSamples` an object, we will supply it a `data.frame` with the mapping info as below.
 
 ```{r}
 
@@ -313,7 +314,7 @@ save(hw2.conf, file="ccle_conf.RData")
 
 populate(hw2.conf)
 
-#configure(hw2.conf)
+configure(hw2.conf)
 
 ```
 

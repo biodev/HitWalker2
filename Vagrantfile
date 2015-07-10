@@ -105,18 +105,22 @@ end
       #set up upstart for unicorn
     
 echo '
-description "HitWalker2" 
-start on (filesystem)
+description "HitWalker2"
+start on neo4j-started
 stop on runlevel [016]
 respawn
 setuid vagrant
 setgid vagrant
-chdir /home/vagrant/HitWalker2
-    
-exec gunicorn -k 'eventlet' HitWalker2.wsgi:application
 
-chdir /home/vagrant/HitWalker2/network
-exec python warm_up.py
+pre-start script
+
+python /home/vagrant/HitWalker2/network/warm_up.py
+
+end script
+
+chdir /home/vagrant/HitWalker2/
+
+exec gunicorn -k eventlet HitWalker2.wsgi:application
 
 ' > HitWalker2.conf
     
@@ -194,6 +198,16 @@ exec python warm_up.py
   sudo patch /opt/neo4j-community-2.1.8/conf/neo4j-wrapper.conf /vagrant/temp_2.diff
   
   sudo rm /vagrant/temp_2.diff
+  
+echo "
+244a245
+> 	initctl emit neo4j-started
+---
+" > /vagrant/temp_3.diff
+  
+    sudo patch /opt/neo4j-community-2.1.8/conf/neo4j /vagrant/temp_3.diff
+  
+    sudo rm /vagrant/temp_3.diff
   
     sudo rm -rf /opt/neo4j-community-2.1.8/data
     sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
