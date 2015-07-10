@@ -22,7 +22,6 @@ NULL
 process_matrix_graph <- function(mm_file_base, string_conf){ 
   
   require(Matrix)
-  require(igraph)
   
   init.mat <- readMM(paste0(mm_file_base, ".mtx"))
   
