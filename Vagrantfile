@@ -136,7 +136,7 @@ exec python warm_up.py
   
   cd /vagrant/HitWalker2/populate
   
-  sudo R CMD INSTALL hwhelper
+  sudo ./roxygen_build.sh install
   
   sudo chown -R vagrant:vagrant /var/www/
   
@@ -205,17 +205,9 @@ exec python warm_up.py
       
   SHELL
   
-  config.vm.provision "sweave", type:"shell", inline: <<-SHELL
-  
-  sudo apt-get install -y texlive-latex-recommended
-  sudo apt-get install -y texinfo
-  sudo apt-get install -y texlive-latex-extra
-  
-  SHELL
-  
   config.vm.provision "markdown", type:"shell", inline: <<-SHELL
   
-  sudo Rscript -e 'install.packages("rmarkdown")'
+  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("rmarkdown")'
   
   wget https://github.com/jgm/pandoc/releases/download/1.15/pandoc-1.15-1-amd64.deb
   sudo dpkg -i pandoc-1.15-1-amd64.deb 
@@ -227,7 +219,7 @@ exec python warm_up.py
   SHELL
   
   
-  config.vm.provision "debug", type:"shell", inline: <<-SHELL
+  config.vm.provision "testing", type:"shell", inline: <<-SHELL
   
   #install Rstudio (can also read python files)
   sudo apt-get install gdebi-core
@@ -257,11 +249,9 @@ exec R CMD Rserve
   
   rm Rserve.conf
   
-  #install python selenium and firefox
+  #install python selenium
   
   sudo pip install selenium
-  
-  sudo apt-get -y install firefox
   
   SHELL
   

@@ -84,7 +84,9 @@ Also load in gene symbol data for the entrez IDs.  This will create a EntrezID -
     load.neo4j(.data=ent.dta, edge.name="REFERRED_TO", commit.size=10000L, array.delim="|")
 
 ```
-    As it is also desired to relate pathway information to our base set of Entrez IDs we can then add in Pathway Commons (CITATION) pathway information, converted to Entrez IDs.  Here we will keep *database* as a property of the Pathway node and will only keep non-NA relationships with entrez IDs
+    
+As it is also desired to relate pathway information to our base set of Entrez IDs we can then add in Pathway Commons (CITATION) pathway information, converted to Entrez IDs.  Here we will keep *database* as a property of the Pathway node and will only keep non-NA relationships with entrez IDs
+
 ```{r}
     path.dta <- hwhelper:::read.pc.gmt(filename="Pathway Commons.4.All.GSEA.gmt", organism.code="9606")
     
@@ -103,8 +105,10 @@ Also load in gene symbol data for the entrez IDs.  This will create a EntrezID -
     load.neo4j(.data=load.path.dta, edge.name="PATHWAY_CONTAINS", commit.size=10000L)
     
 ```
-    
-    
-    
+
+
+```{r}
    
+    sessionInfo() 
     
+```
