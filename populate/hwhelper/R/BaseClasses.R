@@ -33,11 +33,15 @@ setGeneric("nodeName", def=function(obj) standardGeneric("nodeName"))
 NULL
 
 #' @rdname test_helpers
-#' @param obj An object of class \code{HW2Config} or \code{NeoData}
+#' @param obj An object of class \code{HW2Config} or derived from \code{NeoData}
 #' @param ... Additional values to pass to the method such as the name of a datatype defined in \code{obj}
 setGeneric("getFrequency", def=function(obj,...) standardGeneric("getFrequency"))
 
 #' @rdname test_helpers
+#' @param samples A vector of sample names corresponding to the class in \code{obj}.
+#' @param limit.to.hits A logial value indicating whether the resulting data.frame should be limited to rows that contained hits.
+#' @return For \code{findHits} and classes derived from \code{NeoData} a \code{data.frame} with indicating the 'Sample' and 'Gene' as well as whether or not it was determined
+#' to be a hit ('IsHit').
 setGeneric("findHits", def=function(obj,...) standardGeneric("findHits"))
 
 #' @rdname test_helpers
@@ -213,7 +217,8 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
     
 })
 
-#returns a vector of subject names in prinical to be part of a given metanode
+#' @rdname test_helpers
+#' @return For \code{subjectSubset}: A vector of subject names in principal to be part of a given metanode
 setMethod("subjectSubset", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
   
     subj <- obj@subject
@@ -234,6 +239,9 @@ setMethod("subjectSubset", signature("HW2Config"), function(obj, subset, subset_
     return (use.subjs)
 })
 
+#' @rdname test_helpers
+#' @return For \code{subjectAttrs}: A \code{data.frame} with a 'Type' column which indicates the variable name, a 'Value' that indicates a variable's value for the subjects in question and
+#'a 'Count' column which indicates the number of subjects with the particular value.
 setMethod("subjectAttrs", signature("HW2Config"), function(obj, subset, subset_type=c("Subject", "Subject_Category")){
     
     use.subjs <- subjectSubset(obj, subset, subset_type)
@@ -785,7 +793,7 @@ setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path=NULL, gene.m
 #' @param subject_types The type of value(s) specified in the \code{subjects} parameter.
 #' @param gene_types type type of value(s) specified in the \code{genes} parameter.
 #'
-#' @return For \code{findHits}: Returns a \code{data.frame} with the following columns: 'Subject', 'Gene', 'IsHit' and 'Datatype'.  The IsHit column is
+#' @return For \code{findHits},HW2Config: Returns a \code{data.frame} with the following columns: 'Subject', 'Gene', 'IsHit' and 'Datatype'.  The IsHit column is
 #' a logical vector indicating whether or not there was seen to be a hit for the given Subject, Gene and Datatype.
 setMethod("findHits", signature("HW2Config"), function(obj, subjects, genes, subject_types=c("Subject", "Subject_Category"), gene_types=c("Gene", "Pathway")){
     
@@ -905,9 +913,8 @@ freq.by <- function(dta, freq.name, agg.name, subset, type, subset.length){
     return(ret.dta)
 }
 
+#' @rdname test_helpers
 setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL, limit.to.hits=T){
-    
-    print ('expression method')
     
     annot.pack <- annotation(obj@exprs)
     
@@ -962,6 +969,7 @@ setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL
     
 })
 
+#' @rdname test_helpers
 setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL, limit.to.hits=T){
     
     if (missing(genes) || is.null(genes) || all(is.na(genes))){
@@ -982,6 +990,7 @@ setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL, l
     
 })
 
+#' @rdname test_helpers
 setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL, limit.to.hits=T){
     
     require(reshape2)
