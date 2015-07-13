@@ -236,7 +236,7 @@ echo "
   config.vm.provision "testing", type:"shell", inline: <<-SHELL
   
   #install Rstudio (can also read python files)
-  sudo apt-get install gdebi-core
+  sudo apt-get install -y gdebi-core
   wget http://download2.rstudio.org/rstudio-server-0.99.447-amd64.deb
   sudo gdebi rstudio-server-0.99.447-amd64.deb
   
@@ -266,6 +266,10 @@ exec R CMD Rserve
   #install python selenium
   
   sudo pip install selenium
+  
+  sudo apt-get install -y python-bs4
+  
+  sudo pip install pyRserve
   
   SHELL
   

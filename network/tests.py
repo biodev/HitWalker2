@@ -67,8 +67,8 @@ class BasicSeleniumTests(LiveServerTestCase):
                 all_gates = []
                 
                 for i_ind, i in enumerate(all_inters.stdout):
-                    spit_i = re.split("\s+", i.strip())
-                    if i > 1 & split_i[0] == '0.0.0.0':
+                    split_i = re.split("\s+", i.strip())
+                    if (i > 1) and (split_i[0] == '0.0.0.0'):
                         all_gates.append(split_i[1])
                 
                 if len(all_gates) != 1:
