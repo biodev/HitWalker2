@@ -4,6 +4,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver import DesiredCapabilities
 
 from hitwalker_tests import HitWalkerInteraction, SingleMetaNodeSelector, SingleSubjectSelector
 
@@ -33,6 +34,7 @@ from py2neo import neo4j, cypher
 import numpy as np
 import scipy.spatial
 import csv
+import getpass
 
 test_cypher_session = "http://localhost:7474"
 
@@ -57,12 +59,27 @@ class BasicSeleniumTests(LiveServerTestCase):
     def setUp(self):
         
         try:
-            from config import chrome_driver_path
             
-            if chrome_driver_path != None:
-                self.driver = webdriver.Chrome(executable_path=chrome_driver_path)
+            if getpass.getuser() == 'vagrant':
+                
+                all_inters = subprocess.Popen("netstat -rn", shell=True, stdout=subprocess.PIPE)
+            
+                all_gates = []
+                
+                for i_ind, i in enumerate(all_inters.stdout):
+                    spit_i = re.split("\s+", i.strip())
+                    if i > 1 & split_i[0] == '0.0.0.0':
+                        all_gates.append(split_i[1])
+                
+                if len(all_gates) != 1:
+                    raise Exception
+                else:
+                    webdriver_path="http://" + all_gates[0] + ":4444/wd/hub"
+                    
             else:
-                raise Exception
+                webdriver_path="http://127.0.0.1:4444/wd/hub"
+            
+            self.driver = webdriver.Remote(command_executor=webdriver_path, desired_capabilities=DesiredCapabilities.FIREFOX)
             
         except:
             self.driver = webdriver.Firefox()
