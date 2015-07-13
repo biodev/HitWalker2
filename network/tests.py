@@ -46,14 +46,14 @@ class RTestSession(object):
         self._conn.voidEval('library(hwhelper)')
         self._conn.voidEval('load("'+config.hw_config_path+'")')
         self._conn.voidEval('assign("hw2_obj", get(ls()))')
-        self._conn.voidEval('source("'+config.test_methods_path+'")')
+        
+        if os.path.exists(config.test_methods_path):
+            self._conn.voidEval('source("'+config.test_methods_path+'")')
         
     def getConn(self):
         return self._conn
 
 
-
-#@unittest.skip("Skipping selenium")
 class BasicSeleniumTests(LiveServerTestCase):
     
     def setUp(self):
