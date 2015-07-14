@@ -582,7 +582,7 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.mo
 #' @slot maf, a \code{data.frame} representation of the MAF file.
 CCLEMaf_class <- setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData",
          prototype=list(
-                        base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFFERED_TO]-(symb) WHERE d.type = "DNASeq" AND subject.name IN {SAMPLE}
+                        base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFERRED_TO]-(symb) WHERE d.type = "DNASeq" AND subject.name IN {SAMPLE}
                             RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
                             r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,
                             r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id, subject.name AS Sample ',
