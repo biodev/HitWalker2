@@ -235,13 +235,6 @@ echo "
   
   config.vm.provision "testing", type:"shell", inline: <<-SHELL
   
-  #install Rstudio (can also read python files)
-  sudo apt-get install -y gdebi-core
-  wget http://download2.rstudio.org/rstudio-server-0.99.447-amd64.deb
-  sudo gdebi rstudio-server-0.99.447-amd64.deb
-  
-  #can access via hostname:8787
-  
   #install RServe
 
   sudo Rscript  -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("Rserve")'
