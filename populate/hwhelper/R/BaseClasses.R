@@ -198,7 +198,7 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
     
     #populate the subject->sample info
     
-    subject.info <- hw2.conf@subject@subject.info
+    subject.info <- obj@subject@subject.info
     
     if (ncol(subject.info) > 1)
     {
@@ -206,7 +206,7 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
     }
     
     load.neo4j(.data=subject.info, edge.name=NULL,commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-    load.neo4j(.data=hw2.conf@subject@subject.to.sample, edge.name="DERIVED", commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", merge.from=F)
+    load.neo4j(.data=obj@subject@subject.to.sample, edge.name="DERIVED", commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", merge.from=F)
     
     for(i in setdiff(seq_along(obj.list), skip))
     {
