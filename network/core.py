@@ -973,7 +973,7 @@ def fix_jquery_array_keys (inp_dict):
         
     return new_dict
 
-def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False, rel_types="combination"):
+def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False, rel_types="combination", exclude_type=""):
     
     """
         Takes the nodes specified in subj_nodes, and adds in the nodes in query_nodes.
@@ -1067,7 +1067,7 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     
     print 'grouping'
     
-    cur_graph = apply_grouping2(cur_graph, map(lambda x: x["id"], query_nodes), never_group=never_group)
+    cur_graph = apply_grouping2(cur_graph, map(lambda x: x["id"], query_nodes), never_group=never_group, exclude_type=exclude_type)
     
     print 'done'
     
@@ -1075,7 +1075,7 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     
     return cur_graph
 
-def apply_grouping2(cur_graph, query_nodes, never_group=False):
+def apply_grouping2(cur_graph, query_nodes, never_group=False, exclude_type=""):
     import config
     import sys
     
@@ -1123,7 +1123,10 @@ def apply_grouping2(cur_graph, query_nodes, never_group=False):
             
             for i in rev_dict.keys():
                 #print i
-                if len(rev_dict[i]) > config.max_nodes and never_group==False:
+                #check one node to see what type it is
+                node_type = cur_graph['nodes'].getByIndex(int(list(rev_dict[i])[0])).nodeType()
+                
+                if (len(rev_dict[i]) > config.max_nodes) and (never_group==False) and (node_type != exclude_type):
                     temp_nl = NodeList()
                     for j in rev_dict[i]:
                         #print j
@@ -1157,7 +1160,8 @@ def apply_grouping2(cur_graph, query_nodes, never_group=False):
                 node_types[temp_node.nodeType()].append(int(i))
             
             for node_t,node_list in node_types.items():
-                if len(node_list) > config.max_nodes and never_group==False:
+                
+                if (len(node_list) > config.max_nodes) and (never_group==False) and (node_t != exclude_type):
                     #make a metanode
                     temp_nl = NodeList()
                     for i in node_list:

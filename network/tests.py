@@ -103,11 +103,14 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.test_genes = config.test_genes
         self.test_category = config.test_category
         
-        # create user
-        self.user = User.objects.create_user(username="vagrant",
-                                             email=None,
-                                             password="vagrant")
-        self.user.save()
+        # create user if they don't exist
+        
+        if User.objects.filter(username = "selenium").exists() == False:
+        
+            user = User.objects.create_user(username="selenium",
+                                                 email=None,
+                                                 password="test")
+            user.save()
         #self.client.login(username="selenium", password="test") #Native django test client
         #cookie = self.client.cookies['sessionid']
         #self.driver.get(self.live_server_url + '/HitWalker2')  #selenium will set cookie domain based on current page domain
@@ -120,9 +123,9 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.driver.implicitly_wait(1)
         self.driver.get('%s%s' % (self.cur_server_url, '/HitWalker2'))
         elem = self.driver.find_element_by_id("id_username")
-        elem.send_keys("vagrant")
+        elem.send_keys("selenium")
         elem = self.driver.find_element_by_id("id_password")
-        elem.send_keys("vagrant")
+        elem.send_keys("test")
         #
         self.driver.find_element_by_css_selector("input[type=submit]").click()
         
