@@ -95,7 +95,7 @@ class BasicSeleniumTests(LiveServerTestCase):
             self.driver = webdriver.Remote(command_executor=webdriver_path, desired_capabilities=DesiredCapabilities.FIREFOX)
             
         except Exception as e:
-            print e
+            print str(e) + " defaulting to local Firefox..."
             self.cur_server_url = self.live_server_url
             self.driver = webdriver.Firefox()
         
@@ -104,9 +104,10 @@ class BasicSeleniumTests(LiveServerTestCase):
         self.test_category = config.test_category
         
         # create user
-        self.user = User.objects.create_user(username="selenium",
+        self.user = User.objects.create_user(username="vagrant",
                                              email=None,
-                                             password="test")
+                                             password="vagrant")
+        self.user.save()
         #self.client.login(username="selenium", password="test") #Native django test client
         #cookie = self.client.cookies['sessionid']
         #self.driver.get(self.live_server_url + '/HitWalker2')  #selenium will set cookie domain based on current page domain
@@ -124,8 +125,6 @@ class BasicSeleniumTests(LiveServerTestCase):
         elem.send_keys("vagrant")
         #
         self.driver.find_element_by_css_selector("input[type=submit]").click()
-
-        time.sleep(5)
         
     def tearDown(self):
         self.driver.quit()
