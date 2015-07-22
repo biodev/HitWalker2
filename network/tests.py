@@ -95,9 +95,9 @@ class BasicSeleniumTests(LiveServerTestCase):
             self.driver = webdriver.Remote(command_executor=webdriver_path, desired_capabilities=DesiredCapabilities.FIREFOX)
             
         except Exception as e:
-            print str(e) + " defaulting to local Firefox..."
+            print str(e) + " defaulting to local Chrome..."
             self.cur_server_url = self.live_server_url
-            self.driver = webdriver.Firefox()
+            self.driver = webdriver.Chrome(executable_path="/Users/bottomly/Desktop/chromedriver")
         
         self.test_subjects = config.test_subjects
         self.test_genes = config.test_genes
@@ -128,6 +128,8 @@ class BasicSeleniumTests(LiveServerTestCase):
         elem.send_keys("test")
         #
         self.driver.find_element_by_css_selector("input[type=submit]").click()
+        
+        time.sleep(1)
         
     def tearDown(self):
         self.driver.quit()
@@ -655,6 +657,8 @@ class BasicSeleniumTests(LiveServerTestCase):
     def check_pathway_mode(self, hw_obj, gene_list, selected_pathway, subject):
         path_text = hw_obj.add_pathway(None, gene_list, selected_pathway)
         
+        time.sleep(1)
+        
         #get new window handles
         
         handles = self.driver.window_handles
@@ -665,13 +669,20 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         #wait until network screen is present
         
-        spinner = WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, ".spinner"))
-        )
+        try:
         
-        WebDriverWait(self.driver, 120).until(
-            EC.staleness_of(spinner)
-        )
+            spinner = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".spinner"))
+            )
+            
+            print 'found spinner'
+        
+            WebDriverWait(self.driver, 120).until(
+                EC.staleness_of(spinner)
+            )
+        
+        except:
+            print 'too fast for spinner'
         
         node_rels = hw_obj.get_node_rels("1")
             
@@ -685,6 +696,8 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         print conf_thresh
         
+        print default_thresh_mat_base
+        
         #get graph
         r_obj.getConn().voidEval("sub_graph <- process_matrix_graph('"+default_thresh_mat_base+"', "+str(conf_thresh)+")")
         
@@ -692,6 +705,8 @@ class BasicSeleniumTests(LiveServerTestCase):
         
         #get string
         string_groups = r_obj.getConn().r.get_direct_connections( r_obj.getConn().ref.sub_graph, clean_pathway_name, 'Pathway')
+        
+        print string_groups
         
         for i in range(0, len(string_groups['from'])):
             r_found_dta[string_groups['from'][i]][string_groups['to'][i]].add('STRING')
