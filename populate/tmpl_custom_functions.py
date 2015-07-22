@@ -376,7 +376,7 @@ def get_pathways_sample (request, request_post):
     new_edge_queries = copy.deepcopy(config.edge_queries)
     new_edge_queries['edges']['Gene']['Gene']['handler'] = gene_to_gene
     
-    cur_graph = core.copy_nodes(subj_nodes, query_nodes, request, new_edge_queries, never_group=True)
+    cur_graph = core.copy_nodes(subj_nodes, query_nodes, request, new_edge_queries, never_group=True, exclude_type="Gene")
     
     return cur_graph['nodes'].tolist(), cur_graph['links'], query_nodes[0]['id']
 

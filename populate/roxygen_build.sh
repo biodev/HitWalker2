@@ -24,3 +24,7 @@ else
     R CMD INSTALL ${use_file[${last_pos}]}
 
 fi
+
+#clean up
+
+rm hwhelper/man/*.Rd

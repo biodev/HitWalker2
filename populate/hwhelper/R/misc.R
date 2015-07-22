@@ -232,46 +232,32 @@ encode_groups <- function(hit.dta, ids.to.symbs=F, prioritized_subject=NULL, gro
   
   if (group.by != "None"){
     
-    lo.cols <- paste(setdiff(names(sum.dta), group.by), collapse="+")
+    sum.dta$gene.rel <- apply(sum.dta[,setdiff(names(sum.dta), group.by)], 1, function(x) paste(unlist(x), collapse="-"))
     
-    sum.dta <- aggregate(as.formula(paste(group.by, lo.cols, sep="~")), c , data=sum.dta)
+    new.dta <- aggregate(as.formula(paste("gene.rel", group.by, sep="~")), paste, collapse=";" , data=sum.dta)
     
-    #only those values (Genes/Subjects) which are not seen outside of the group rows should be collapsed to groups
-    
-    is.group <- sapply(sum.dta[,group.by], length)
-    
-    if (any(is.group > 1)){
-      
-      which.group <- which(is.group > 1)
-      
-      should.keep <- sapply(names(which.group), function(x){
-        if (any(sum.dta[,group.by][[x]] %in% unlist(sum.dta[,group.by][setdiff(names(sum.dta[,group.by]), x)]))){
-          return(F)
+    coll.dta <- aggregate(as.formula(paste(group.by, "gene.rel", sep="~")), function(x){
+        
+        if (length(x) == 1){
+          return(x)
         }else{
-          return(T)
+          return(paste0(group.by, " (", length(x) ,")"))
         }
-      })
-      
-      for(i in names(which.group)[should.keep]){
-        sum.dta[[group.by]][[i]] <- paste0(group.by, " (", length(sum.dta[[group.by]][[i]]), ")")
-      }
-      
-      for(i in names(which.group)[should.keep==F]){
-        which.row <- which(names(sum.dta[,group.by])==i)
-        new.dta <- sum.dta[which.row,]
-        for(j in sum.dta[[group.by]][[i]][-1]){
-          new.dta[,group.by] <- j
-          sum.dta <- rbind(sum.dta, new.dta)
-        }
-      }
-      
-      sum.dta[,group.by] <- sapply(sum.dta[,group.by], "[", 1)
-      
-    }
+        
+    }, data=new.dta)
     
-  }
+    ret.dta <- do.call(rbind, lapply(1:nrow(coll.dta), function(x){
+        split.rel <- strsplit(coll.dta[x,"gene.rel"], ";")[[1]]
+        split.rb <- do.call(rbind, strsplit(split.rel, "-"))
+        colnames(split.rb) <- c(setdiff(names(sum.dta), c(group.by , "FixedDt", "gene.rel")), "FixedDt")
+        temp.df <- data.frame(coll.dta[x,group.by], split.rb, stringsAsFactors=F)
+        names(temp.df)[1] <- group.by
+        
+        return(temp.df)
+    }))
   
-  return(sum.dta) 
+  return(ret.dta) 
+}
 }
 
 

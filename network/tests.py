@@ -697,10 +697,20 @@ class BasicSeleniumTests(LiveServerTestCase):
             r_found_dta[string_groups['from'][i]][string_groups['to'][i]].add('STRING')
             r_found_dta[string_groups['to'][i]][string_groups['from'][i]].add('STRING')
         
+        if subject.startswith("@"):
+            subj_type = 'Subject_Category'
+            group_by = 'Subject'
+            subject = subject.replace("@", "")
+            prioritize = None
+        else:
+            subj_type = 'Subject'
+            group_by = 'None'
+            prioritize = subject
+            
         #get hits
-        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, subject, clean_pathway_name, 'Subject', 'Pathway')
+        r_obj.getConn().r.gene_hits = r_obj.getConn().r.findHits(r_obj.getConn().ref.hw2_obj, subject, clean_pathway_name, subj_type, 'Pathway')
         
-        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, subject, "None", "Expression")
+        subj_groups = r_obj.getConn().r.encode_groups(r_obj.getConn().ref.gene_hits, True, prioritize, group_by, "Expression")
         
         for i in range(0, len(subj_groups['Subject'])):
             split_dt = subj_groups['FixedDt'][i].split(',')
@@ -742,8 +752,21 @@ class BasicSeleniumTests(LiveServerTestCase):
         time.sleep(2)
         
         self.check_pathway_mode(hw_obj, self.test_genes, 1, self.test_subjects[0])
-
-    @unittest.skip("Not sure why this fails...maybe issue with selenium")
+    
+    def test_context_pathway_mode_metanode(self):
+        
+        hw_obj = HitWalkerInteraction(self.driver, self.cur_server_url)
+        
+        hw_obj.panel_by_query("@"+self.test_category)
+        
+        hw_obj.select_context_node(hw_obj.to_panel("1"), SingleMetaNodeSelector())
+        
+        hw_obj.click_by_text("button","Pathway Context")
+        
+        self.check_pathway_mode(hw_obj, self.test_genes, 1, "@"+self.test_category)
+        
+    
+    #@unittest.skip("Not sure why this fails on firefox...maybe issue with selenium")
     def test_context_pathway_mode_nodes(self):
         
         hw_obj = HitWalkerInteraction(self.driver, self.cur_server_url)
