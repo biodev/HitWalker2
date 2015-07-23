@@ -831,13 +831,27 @@ function make_graph_legend(vis, node_list, edge_list)
     
     child_num += link_map.values().length + 1;
     
-    var legend_tree = d3.layout.tree().size([child_num*15,100]);
+    var legend_tree = d3.layout.tree().size([child_num*15,100])
+                                       .separation(function(a,b){
+                                          
+                                          if (a.type == "Link" && b.type == "Link"){
+                                             return (1);
+                                          }else if (a.type == "Node" && b.type == "Node"){
+                                             return (a.parent == b.parent ? 1: 2);
+                                          }else{
+                                             return (3);
+                                          }
+                                       });
+    
+    
     
     var legend_nodes = legend_tree.nodes({name:'root', children:legend_map})
                         .filter(function(d)
                         {
                            return(d.name != 'root'); 
                         });
+    
+    console.log(legend_map);
     
     var legend_links = legend_tree.links(legend_nodes);
     //remove the root nodes
@@ -859,14 +873,16 @@ function make_graph_legend(vis, node_list, edge_list)
         .enter().append("g")
         .attr("transform", function(d){
             
-            if (d.type == "Node")
-            {
-                return "translate(" + d.y + "," + d.x + ")";
-            }
-            else
-            {
-                return "translate(" + d.y + "," + (d.x+30) + ")";
-            }
+            return "translate(" + d.y + "," + d.x + ")";
+            //if (d.type == "Node")
+            //{
+            //    return "translate(" + d.y + "," + d.x + ")";
+            //}
+            //else
+            //{
+            //   //was d.x+30, until the better seperation code above
+            //    return "translate(" + d.y + "," + (d.x) + ")";
+            //}
             
             });
     
