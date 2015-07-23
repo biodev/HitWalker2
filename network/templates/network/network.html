@@ -95,7 +95,7 @@
                     </form>
                     <li><a href="{{prog_type}}/HitWalker2">Select Subject</a></li>
                     
-                    {% if "query_samples" in input_vals %}
+                    {% if "query_samples" in input_vals  or panel_context == "image" %}
                         <li class="disabled"><a style="cursor:pointer">Select Variants</a></li>
                     {% else %}
                         <li><a onclick="submit_table_data()" style="cursor:pointer">Select Variants</a></li>
@@ -1634,8 +1634,6 @@
                     
             var pop_div = $(obj).parent().parent().parent();
             
-            console.log(pop_div);
-            
             pop_div.popover({content:content, title:'Search', container:"body", html:true, trigger:"manual",
                                                                      placement: "right"
                                                                });
@@ -1815,11 +1813,13 @@
             
             var shift_amount = (left_pos + modal_size) - window_size;
             
-            if (shift_amount > 0)
-            {
-                //where 1000 is just a large amount to force the window to the edge
-                $(document).scrollLeft(1000);   
-            }
+            //if (shift_amount > 0)
+            //{
+            //    //where 1000 is just a large amount to force the window to the edge
+            //
+            //unless there seems to be a reason otherwise, just do this...
+            $(document).scrollLeft(1000);
+            //}
         }
         
         function context_function(obj, disable_all, panel_id)
