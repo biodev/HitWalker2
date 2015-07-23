@@ -15,7 +15,7 @@ BasicGenotypes <- function(geno.sample, geno.gene, sample.edge.name="HAS_GENOTYP
 
 setClass(Class="BasicGenotypes", representation=list(geno.sample="data.frame", geno.gene="data.frame"), contains="NeoData",
           prototype=list(
-                        base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-(samp)-[r:HAS_GENOTYPE]-(var)-[r2:RS_MAPPED_TO]-(gene:EntrezID{name:{GENE}})-[:REFFERED_TO]-(symb) WHERE d.type = "Genotype" AND ANY(x IN [n.name, samp.name] WHERE x IN {SAMPLE})
+                        base.query='MATCH (n:$SUBJECT$)-[d:DERIVED]-(samp)-[r:HAS_GENOTYPE]-(var)-[r2:RS_MAPPED_TO]-(gene:EntrezID{name:{GENE}})-[:REFERRED_TO]-(symb) WHERE d.type = "Genotype" AND ANY(x IN [n.name, samp.name] WHERE x IN {SAMPLE})
                             RETURN DISTINCT var.name AS rsID, gene.name AS Gene, symb.name AS Symbol, var.genotype AS Genotype,
                             0 AS query_ind, 1 AS gene_ind, var.name + "_" + gene.name AS row_id, n.name AS Sample',
                         
