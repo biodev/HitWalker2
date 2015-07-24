@@ -12,7 +12,7 @@ Vagrant.configure(2) do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
-  config.vm.box = "ubuntu/trusty64"
+  config.vm.box = "HitWalker2_base"
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
@@ -67,44 +67,28 @@ end
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   
-  config.vm.provision "basic", type:"shell", inline: <<-SHELL
-      sudo apt-get update
-     
-      sudo apt-get install -y nginx python-pip python-dev build-essential  python-numpy python-scipy python-cairosvg python-lxml wget openjdk-7-jdk 
-      sudo pip install --upgrade pip 
 
-      sudo pip install Django==1.5.1
-      sudo pip install py2neo==1.6.4
-      
-      sudo pip install tinycss
-      sudo pip install colour
-      
-      sudo apt-get install -y gunicorn python-cssselect python-cssutils
-     
-      sudo pip install eventlet==0.17.1
-     
-    sudo bash -c "echo 'vagrant   soft    nofile  40000' >> /etc/security/limits.conf"
-    sudo bash -c "echo 'vagrant   hard    nofile  40000' >> /etc/security/limits.conf"
-      
-    sudo bash -c "echo 'session    required   pam_limits.so' >> /etc/pam.d/su"
-      
-      sudo mkdir -p /var/www/hitwalker2_inst
-      
-      sudo bash -c "echo 'deb http://ftp.osuosl.org/pub/cran/bin/linux/ubuntu trusty/' >> /etc/apt/sources.list"
-      
-      sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
-      
-      sudo apt-get update -y
-      
-      sudo apt-get install -y r-base-dev libxml2-dev libcurl4-openssl-dev
-      
-      sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("igraph", "reshape2", "Biobase", "rjson", "affy","hgu133plus2.db", "tm", "devtools", "sva", "genefilter"))'
-      
-      sudo Rscript -e 'library(devtools)' -e 'install_github("nicolewhite/RNeo4j")'
-      
-      #set up upstart for unicorn
-    
-echo '
+  config.vm.provision "HitWalker2", type:"shell", inline: <<-SHELL
+  
+  #this is only for a non-ssl version
+  sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
+  sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
+  
+  cp -r /vagrant/HitWalker2 /home/vagrant/
+  
+  sudo chown -R vagrant:vagrant /home/vagrant/HitWalker2
+  
+  cd /vagrant/HitWalker2/populate
+  
+  sudo ./roxygen_build.sh install
+  
+  sudo chown -R vagrant:vagrant /var/www/
+  
+  python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
+  
+  sudo chown -R vagrant:vagrant /var/www/
+  
+  echo '
 description "HitWalker2"
 start on neo4j-started
 stop on runlevel [016]
@@ -128,94 +112,15 @@ exec gunicorn -k eventlet HitWalker2.wsgi:application
   
   rm HitWalker2.conf
   
-  #set up nginx
+  ##now neo4j
   
-  #this is only for a non-ssl version
-  sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
-  sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
-
-  cp -r /vagrant/HitWalker2 /home/vagrant/
+  sudo rm -rf /opt/neo4j-community-2.1.8/data
+  sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
   
-  sudo chown -R vagrant:vagrant /home/vagrant/HitWalker2
+  sudo chown -R vagrant:vagrant /opt/neo4j-community-2.1.8/
   
-  cd /vagrant/HitWalker2/populate
-  
-  sudo ./roxygen_build.sh install
-  
-  sudo chown -R vagrant:vagrant /var/www/
-  
-  python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
-  
-  sudo chown -R vagrant:vagrant /var/www/
-  
-   SHELL
-   
-  config.vm.provision "neo4j", type:"shell", inline: <<-SHELL
-   
-  sudo cp /vagrant/neo4j-community-2.1.8-unix.tar.gz /opt/
-  
-  cd /opt/
-  
-  sudo tar -xzvf /opt/neo4j-community-2.1.8-unix.tar.gz
-      
-      
-    echo "
-113c113 
-<   read -p 'Press any key to continue'
----
-> #  read -p 'Press any key to continue'
-123c123
-< HEADLESS=false
----
-> HEADLESS=true
-124c124
-< DEFAULT_USER='neo4j'
----
-> DEFAULT_USER='vagrant'
-" > /vagrant/temp.diff
-
-  cd /opt/neo4j-community-2.1.8/bin/
-
-  sudo patch neo4j-installer /vagrant/temp.diff
-  
-  sudo rm /vagrant/temp.diff
-  
-    sudo ./neo4j-installer install
+  #sudo service neo4j-service start
     
-    sudo ln -s /opt/neo4j-community-2.1.8/bin/neo4j-shell /usr/local/bin/neo4j-shell
-  
-    sudo service neo4j-service stop
-    
-    echo "
-25,26c25,26
-< #wrapper.java.initmemory=512
-< #wrapper.java.maxmemory=512
----
-> wrapper.java.initmemory=512
-> wrapper.java.maxmemory=10240
-" > /vagrant/temp_2.diff
-
-  sudo patch /opt/neo4j-community-2.1.8/conf/neo4j-wrapper.conf /vagrant/temp_2.diff
-  
-  sudo rm /vagrant/temp_2.diff
-  
-echo "
-244a245
-> 	initctl emit neo4j-started
----
-" > /vagrant/temp_3.diff
-  
-    sudo patch /opt/neo4j-community-2.1.8/conf/neo4j /vagrant/temp_3.diff
-  
-    sudo rm /vagrant/temp_3.diff
-  
-    sudo rm -rf /opt/neo4j-community-2.1.8/data
-    sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
-    
-    sudo chown -R vagrant:vagrant /opt/neo4j-community-2.1.8/
-    
-    sudo service neo4j-service start
-      
       
   SHELL
   
@@ -232,37 +137,29 @@ echo "
   
   SHELL
   
+  config.vm.provision "patch", type:"shell", inline: <<-SHELL
   
-  config.vm.provision "testing", type:"shell", inline: <<-SHELL
+  cd /home/vagrant
   
-  #install RServe
-
-  sudo Rscript  -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("Rserve")'
+  rm -rf HitWalker2
   
-  #set up upstart for Rserve
+  cp -r /vagrant/HitWalker2 .
   
-echo '
-description "Rserve" 
-start on (filesystem)
-stop on runlevel [016]
-respawn
-setuid vagrant
-setgid vagrant
-    
-exec R CMD Rserve
-' > Rserve.conf
-    
-  sudo cp Rserve.conf /etc/init/
+  cd HitWalker2/populate
   
-  rm Rserve.conf
+  sudo ./roxygen_build.sh install
   
-  #install python selenium
+  cd ..
   
-  sudo pip install selenium
+  python manage.py collectstatic --noinput
   
-  sudo apt-get install -y python-bs4
+  Rscript -e 'library(hwhelper)' -e 'load("/vagrant/hw2_config.RData")' -e 'configure(hw2.conf)'
   
-  sudo pip install pyRserve
+  cd /vagrant
+  
+  sudo restart HitWalker2
+  
+  sudo nginx -s reload
   
   SHELL
   

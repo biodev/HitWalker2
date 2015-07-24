@@ -310,7 +310,7 @@ hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez",
         data.types=list(seeds="GeneScore", target="Variants"),
         Expression=HW2exprSet(ccle.eset), GeneScore=drug, Variants=maf.obj)
 
-save(hw2.conf, file="ccle_conf.RData")
+save(hw2.conf, file="hw2_config.RData")
 
 populate(hw2.conf)
 
