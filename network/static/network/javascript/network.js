@@ -844,6 +844,8 @@ function make_graph_legend(vis, node_list, edge_list)
                                        });
     
     
+    legend_map.sort(function(a, b){return b.children.length-a.children.length})
+    
     
     var legend_nodes = legend_tree.nodes({name:'root', children:legend_map})
                         .filter(function(d)
