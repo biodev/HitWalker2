@@ -113,13 +113,15 @@ exec gunicorn -k eventlet HitWalker2.wsgi:application
   rm HitWalker2.conf
   
   ##now neo4j
-  
+ 
+  sudo service neo4j-service stop
+ 
   sudo rm -rf /opt/neo4j-community-2.1.8/data
   sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
   
   sudo chown -R vagrant:vagrant /opt/neo4j-community-2.1.8/
   
-  #sudo service neo4j-service start
+  sudo service neo4j-service start
     
       
   SHELL
@@ -131,10 +133,16 @@ exec gunicorn -k eventlet HitWalker2.wsgi:application
   wget https://github.com/jgm/pandoc/releases/download/1.15/pandoc-1.15-1-amd64.deb
   sudo dpkg -i pandoc-1.15-1-amd64.deb 
   
+  rm pandoc-1.15-1-amd64.deb
+
+  SHELL
+
+  config.vm.provision "pdf", type:"shell", inline: <<-SHELL
+
   sudo apt-get install -y texlive-latex-recommended
   sudo apt-get install -y texinfo
   sudo apt-get install -y texlive-latex-extra
-  
+
   SHELL
   
   config.vm.provision "patch", type:"shell", inline: <<-SHELL
