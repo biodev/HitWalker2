@@ -489,7 +489,7 @@ Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
 #' @slot exprs, an \code{ExpressionSet} containing expression data.
 HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains=c("NeoData", "HwHit"),
          prototype=list(sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet",
-                        default=8, direction=">", range=c(0,1), display_name="Expression (Hit) Threshold",
+                        default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold",
                         base.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression" AND HAS(r.score) AND subject.name IN {SAMPLE}
                         AND r.score > $PAR_NAME$ RETURN m.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, true AS is_hit',
                         
@@ -507,18 +507,29 @@ HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name=
 }
 
 #' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the
-#' probeset names are derived from the rownames. The score attribute is derived from the values of the matrix.
+#' probeset names are derived from the rownames. The score attribute is derived from the values of the matrix.  The expression values are converted to z scores
+#' prior to loading and only those sample to gene relationships that exceed the specified lower range are kept.
 #' @param obj An object of class \code{HW2exprSet}.
 #' @param neo.path The optional path to a Neo4j database.
 setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path=NULL){
     
     use.exprs <- exprs(obj@exprs)
     
-    melt.use.exprs <- melt(use.exprs)
+    #by default we z transform the data
+    
+    scale.exprs <- t(scale(t(use.exprs)))
+    
+    melt.use.exprs <- melt(scale.exprs)
     names(melt.use.exprs) <- c("probeset", "sample", "score")
     
     melt.use.exprs$sample <- as.character(melt.use.exprs$sample)
     melt.use.exprs$probeset <- as.character(melt.use.exprs$probeset)
+    
+    use.expr <- paste("melt.use.exprs$score", obj@direction, min(obj@range))
+    
+    exprs.hits <- eval(parse(text=use.expr))
+    
+    melt.use.exprs <- melt.use.exprs[exprs.hits,]
     
     #now load the sample -> probe mappings
     
