@@ -3,6 +3,52 @@ title: "CCLE Population Example"
 output:
   md_document:
     variant: markdown_github
+
+references:
+- id: tyner2013kinase
+  title: Kinase pathway dependence in primary human leukemias determined by rapid inhibitor screening
+  author: 
+    - 
+      family: Tyner
+      given: Jeffrey
+    -
+      family:Yang 
+      given: Wayne
+    -
+      family: Bankhead
+      given: Armand
+    - 
+      family: Fan
+      given: Guang
+    -
+      family: Fletcher
+      given: Luke
+    -
+      family: Bryant
+      given: Jade
+    -
+      family: Glover
+      given: Jason
+    -
+      family: Chang
+      given: Bill
+    -
+      family: Spurgeon
+      given: Stephen
+    -
+      family: Fleming
+      given: William
+    -
+      family: others
+  container-title: Cancer research
+  volume: 73
+  number: 1
+  page: 285-296
+  type: article-journal
+  publisher: AACR
+  issued:
+    year: 2013
+
 ---
 
 ##### Prerequisites
@@ -76,8 +122,6 @@ subj <- Subject(subject.info=subject.dta, type="primary_site")
 Variant data can come in several forms.  For cancer next generation DNA sequencing experiments such as this one, the mutation annotation format (MAF) is a common way to summarize the variant
 data.  Currently we provide parsing support for this CCLE MAF file though as MAF files are roughly standardized, this should be applicable to other variants as well.
 
-Note the use of the `addSamples` method which is used to automatically add *Subject -> Sample* mapping for this object.
-
 ```{r}
 
 maf.file <- "CCLE_hybrid_capture1650_hg19_NoCommonSNPs_NoNeutralVariants_CDS_2012.05.07.maf.gz"
@@ -86,9 +130,22 @@ maf.obj <- readMAF.ccle(maf.file)
 
 #add in these sample annotations to the Subject object
 
-all(sampleNames(maf.obj) %in% cell.annots$CCLE.name)#TRUE
+all(sampleNames(maf.obj) %in% cell.annots$CCLE.name)
 
-#ok, so add them in directly as the cellLine name
+```
+
+If we wish to be able to directly subset cell lines based on variants/drug sensitivities of interest we can add them to the subject information `data.frame` and (re)create the `Subject` object.  The `findHits` method for this object finds those samples with variants.
+
+Note the use of the `addSamples` method which is used to automatically add *Subject -> Sample* mapping for the MAF object.
+
+```{r}
+
+
+nras.var <- findHits(maf.obj, samples=sampleNames(maf.obj), genes="4893")
+
+subject.dta$NRAS_mutant <- ifelse(subject.dta$cellLine %in% nras.var$Sample, "NRAS_pos", "NRAS_neg")
+
+subj <- Subject(subject.info=subject.dta, type="primary_site")
 
 addSamples(subj, type="DNASeq") <- maf.obj
 
@@ -197,7 +254,7 @@ drug <- DrugMatrix(mat=drug.mat, mapping=drug.genes.merge)
 ```
 
 Note the use of the 'weight' column to represent ambiguity in the 'drug' -> 'gene' assignments.  The 'GeneScore' algorithm used internally by HitWalker2 is
-based off of the algorithm of (CITATION) and these weights are used internally as part of the summations.
+based off of the algorithm of Tyner et al. [@tyner2013kinase] and these weights are used internally as part of the summations.
 
 We can also check the implicit *subject -> drug* sample mapping
 
@@ -328,10 +385,9 @@ plot(ccle.graph)
 
 ```
 
-##### Additional Customization
-
-TODO
 
 ```{r}
 sessionInfo()
 ```
+
+# References
