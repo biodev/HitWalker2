@@ -283,17 +283,23 @@ def get_default_parameters(request):
 @login_required(login_url=prog_type + '/HitWalker2/login/')
 def index(request, retry_message):
     
-    index_field_dict = copy.deepcopy(config.adjust_fields)
+    print request.session.keys()
     
-    ##as the functions are not JSON serializable...
-    for i in index_field_dict.keys():
-        for j in index_field_dict[i]['fields'].keys():
-            if index_field_dict[i]['fields'][j].has_key('trans'):
-                index_field_dict[i]['fields'][j].pop('trans')
-        if index_field_dict[i]['type'] == 'grouped':
-            logical_list = reduce (lambda x,y: x+y, reduce (lambda x,y: x+y,index_field_dict[i]['default_groups']))
-            index_field_dict[i]['logical_list'] = map(lambda x: 'null' if x.has_key('logical')==False else x['logical'], logical_list)
-            
+    if request.session.has_key('inp_params'):
+        index_field_dict = request.session['inp_params']
+    else:
+        
+        index_field_dict = copy.deepcopy(config.adjust_fields)
+        
+        ##as the functions are not JSON serializable...
+        for i in index_field_dict.keys():
+            for j in index_field_dict[i]['fields'].keys():
+                if index_field_dict[i]['fields'][j].has_key('trans'):
+                    index_field_dict[i]['fields'][j].pop('trans')
+            if index_field_dict[i]['type'] == 'grouped':
+                logical_list = reduce (lambda x,y: x+y, reduce (lambda x,y: x+y,index_field_dict[i]['default_groups']))
+                index_field_dict[i]['logical_list'] = map(lambda x: 'null' if x.has_key('logical')==False else x['logical'], logical_list)
+                
     
     #if request.session.has_key('filter'):
     #    use_filter = request.session['filter']
@@ -316,7 +322,7 @@ def index(request, retry_message):
     #           'default_filts':json.dumps(config.default_filters), 'html_defaults':json.dumps(index_field_dict['parameters']),
     #           'param_names':json.dumps(param_names), 'prog_type':prog_type, 'username':request.user}
     
-    context = {'adjust_fields':index_field_dict, 'param_names':json.dumps(param_names), 'prog_type':prog_type, 'username':request.user, 'data_types':config.data_types}
+    context = {'adjust_fields':json.dumps(index_field_dict), 'param_names':json.dumps(param_names), 'prog_type':prog_type, 'username':request.user, 'data_types':config.data_types}
     
     return render(request, 'network/index.html', context)
 
