@@ -327,10 +327,6 @@ def index(request, retry_message):
     return render(request, 'network/index.html', context)
 
 @login_required(login_url=prog_type + '/HitWalker2/login/')
-def qtests(request):
-    return render(request, 'network/qtests.html')
-
-@login_required(login_url=prog_type + '/HitWalker2/login/')
 def table(request):
     
     if len(request.POST) == 0:
@@ -450,23 +446,6 @@ def table(request):
                                                     'cur_filts':json.dumps(cur_filts), 'cur_param':json.dumps(cur_param), 'seeds':json.dumps(seed_list[:50]), 'queries':json.dumps(query_list[:50]), 'prog_type':prog_type,
                                                     'username':request.user})
             
-        
-        
-        
-        
-
-#@login_required(login_url=prog_type+'/HitWalker2/login/')
-#def networkWaiting(request):
-#    
-#    request_post = dict(request.POST.iterlists())
-#    request_post['prog_type'] = prog_type
-#    ret_post = core.request_post_to_json(request_post)
-#    
-#    print ret_post
-#    
-#    #need to feed the values from this request into network_waiting which will then invisibly submit them to network and redirect to network
-#    return render(request, 'network/network_waiting.html', ret_post)
-
 #ajax related-views...
 
 def save_parameters(request):
