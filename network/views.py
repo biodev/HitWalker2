@@ -493,9 +493,14 @@ def load_parameters(request):
     
 def get_match(request, match_type):
     
-    query, query_list = config.matchers[match_type](request.POST['query'])
+    try:
+        query, query_list = config.matchers[match_type](request.POST['query'])
+        
+        return HttpResponse(json.dumps({"query":query, "data":{"results":query_list}}), mimetype="application/json")
     
-    return HttpResponse(json.dumps({"query":query, "data":{"results":query_list}}), mimetype="application/json")
+    except:
+        
+        return HttpResponseServerError()
 
 
 #as input, it needs the requested ID denoted 'cur_id'
@@ -939,13 +944,18 @@ def copy_nodes(request):
 
 def get_graph(request):
     
-    request_post = core.fix_jquery_array_keys(dict(request.POST.iterlists()))
+    try:
     
-    nodes, links, title = core.iterate_dict(config.graph_initializers, request_post['panel_context'])(request, request_post)
-    
-    ret_dict = {'nodes':nodes, 'links':links, 'title':title}
-    
-    return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
+        request_post = core.fix_jquery_array_keys(dict(request.POST.iterlists()))
+        
+        nodes, links, title = core.iterate_dict(config.graph_initializers, request_post['panel_context'])(request, request_post)
+        
+        ret_dict = {'nodes':nodes, 'links':links, 'title':title}
+        
+        return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
+
+    except:
+        return HttpResponseServerError()
 
 @ensure_csrf_cookie
 @login_required(login_url=prog_type+'/HitWalker2/login/')

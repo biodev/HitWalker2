@@ -227,8 +227,6 @@
                                 
                                 input_vals['panel_context'] = panel_context;
                                 
-                                console.log(JSON.stringify(input_vals))
-                                
                                 $.post("{{prog_type}}/HitWalker2/get_graph/", input_vals, function(data, status, xhr)
                                                {
                                                     if (status == "success")
@@ -250,6 +248,11 @@
                                                 
                                                     
                                                }, "text")
+                                .fail(function()
+                                {   
+                                    d3.select("#content").insert("div", ":first-child").append("p").text("An Error has occured...").classed("text-danger", true);
+                                    spinner.stop();
+                                });
                                 
                           });
         
@@ -1634,6 +1637,7 @@
                             '</div>' +
                             '<p id="error_p" hidden class="text-danger">Please select a single pathway</p>'+
                             '<p id="empty_p" hidden class="text-danger">Sorry no pathways are available for the specified gene(s)</p>' +
+                            '<p id="failure_p" hidden class="text-danger">Sorry an error has occured</p>' + 
                         '</div>' +
                     '</div>'
                     
@@ -1663,6 +1667,12 @@
                                                 
                                                     
                                                }, "text")
+                        .fail(function()
+                        {
+                            $("#failure_p").prop("hidden", false);
+                        });
+		    
+		   
                         }
             });
             
@@ -1711,6 +1721,10 @@
                                 
                                     
                                }, "text")
+                .fail(function()
+                        {
+                            $("#failure_p").prop("hidden", false);
+                        });
                 
             }
             
@@ -1764,6 +1778,7 @@
         function query_nodes(panel_name, obj, type)
         {
             content = '<div class="container" style="width:250px">' +
+                        '<div id="error_div" hidden><p class="text-danger">Sorry an error has occured</p></div>' +
                         '<div class="row">' +
                             '<div class="select2-wrapper">' +
                                 '<input type="hidden" name="sample_alias" class="form-control select2 select2-offscreen"></input>' +
@@ -1801,6 +1816,10 @@
                                                 
                                                     
                                                }, "text")
+                        .fail(function()
+                        {
+                            $("#error_div").prop("hidden", false);
+                        });
                         }
             });
             
