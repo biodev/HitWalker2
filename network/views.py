@@ -269,16 +269,22 @@ def password(request):
 
 def get_default_parameters(request):
    
-    index_field_dict = copy.deepcopy(config.adjust_fields)
-    for i in index_field_dict.keys():
-        for j in index_field_dict[i]['fields'].keys():
-            if index_field_dict[i]['fields'][j].has_key('trans'):
-                index_field_dict[i]['fields'][j].pop('trans')
-        if index_field_dict[i]['type'] == 'grouped':
-            logical_list = reduce (lambda x,y: x+y, reduce (lambda x,y: x+y,index_field_dict[i]['default_groups']))
-            index_field_dict[i]['logical_list'] = map(lambda x: 'null' if x.has_key('logical')==False else x['logical'], logical_list)
+    try:
+        
+        index_field_dict = copy.deepcopy(config.adjust_fields)
+        for i in index_field_dict.keys():
+            for j in index_field_dict[i]['fields'].keys():
+                if index_field_dict[i]['fields'][j].has_key('trans'):
+                    index_field_dict[i]['fields'][j].pop('trans')
+            if index_field_dict[i]['type'] == 'grouped':
+                logical_list = reduce (lambda x,y: x+y, reduce (lambda x,y: x+y,index_field_dict[i]['default_groups']))
+                index_field_dict[i]['logical_list'] = map(lambda x: 'null' if x.has_key('logical')==False else x['logical'], logical_list)
+        
+        return HttpResponse(json.dumps({'adjust_fields':index_field_dict}),  mimetype="application/json")
     
-    return HttpResponse(json.dumps({'adjust_fields':index_field_dict}),  mimetype="application/json")
+    except:
+        
+        return HttpResponseServerError()
 
 @login_required(login_url=prog_type + '/HitWalker2/login/')
 def index(request, retry_message):
@@ -451,44 +457,39 @@ def table(request):
 def save_parameters(request):
     #to be consistent with the posted data processed in views, need to make the value of each element be a list
     
-    save_name = request.POST['save_name']
-    param = request.POST['adjust_fields']
-    
-    print param
-    
-    #filter_hs = json.loads(request.POST['filter_hs'])
-    #param_hs = json.loads(request.POST['param_hs'])
-    #var_logic = json.loads(request.POST['var_logic'])
-    #
-    #for i in filter_hs.keys():
-    #    if isinstance(filter_hs[i], list) == False:
-    #        filter_hs[i] = [filter_hs[i]]
-    #
-    #num_hs, group_hs, necessary_vars = core.process_request_post (filter_hs)
-    #new_filt_dict = core.make_updated_filter_dict (num_hs, group_hs, var_logic)
-    #
-    exist_param = user_parameters.objects.filter(user=request.user, name=save_name)
-    
-    if len(exist_param) > 0:
-        exist_param.delete();
-    
-    #cur_db = user_parameters(user=request.user, name=save_name, filt=json.dumps(new_filt_dict), param=json.dumps(param_hs))
-    cur_db = user_parameters(user=request.user, name=save_name, param=param)
-    cur_db.save()
-    
-    return HttpResponse(json.dumps({"save_name":save_name}),  mimetype="application/json")
+    try:
+        
+        save_name = request.POST['save_name']
+        param = request.POST['adjust_fields']
+        
+        exist_param = user_parameters.objects.filter(user=request.user, name=save_name)
+        
+        if len(exist_param) > 0:
+            exist_param.delete();
+        
+        #cur_db = user_parameters(user=request.user, name=save_name, filt=json.dumps(new_filt_dict), param=json.dumps(param_hs))
+        cur_db = user_parameters(user=request.user, name=save_name, param=param)
+        cur_db.save()
+        
+        return HttpResponse(json.dumps({"save_name":save_name}),  mimetype="application/json")
+    except:
+        return HttpResponseServerError()
 
 def load_parameters(request):
     
-    load_name = request.POST['load_name']
-    
-    exist_param = user_parameters.objects.filter(user=request.user, name=load_name)
-    
-    if len(exist_param) != 1:
-        raise Exception("ERROR: only expected one database entry")
-    
-    #return HttpResponse(json.dumps({'filters':exist_param[0].filt, 'parameters':exist_param[0].param}),  mimetype="application/json")
-    return HttpResponse(json.dumps({'parameters':exist_param[0].param}),  mimetype="application/json")
+    try:
+        
+        load_name = request.POST['load_name']
+        
+        exist_param = user_parameters.objects.filter(user=request.user, name=load_name)
+        
+        if len(exist_param) != 1:
+            raise Exception("ERROR: only expected one database entry")
+        
+        #return HttpResponse(json.dumps({'filters':exist_param[0].filt, 'parameters':exist_param[0].param}),  mimetype="application/json")
+        return HttpResponse(json.dumps({'parameters':exist_param[0].param}),  mimetype="application/json")
+    except:
+        return HttpResponseServerError()
     
 def get_match(request, match_type):
     
@@ -508,39 +509,44 @@ def get_match(request, match_type):
 
 def get_sample_rels(request):
     
-    graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
-    
-    cur_id = request.POST['cur_id']
-    
-    sample_query = neo4j.CypherQuery(graph_db,config.sample_rels_query.replace("$$sample$$", cur_id))
-    
-    sample_list=[]
-    
-    if config.sample_rels_type == 'hierarchical':
+    try:
         
-        for i in sample_query.execute().data:
-            temp_dict = {}
-            temp_dict['property_order'] = []
+        graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
+        
+        cur_id = request.POST['cur_id']
+        
+        sample_query = neo4j.CypherQuery(graph_db,config.sample_rels_query.replace("$$sample$$", cur_id))
+        
+        sample_list=[]
+        
+        if config.sample_rels_type == 'hierarchical':
             
-            for j_ind,j in enumerate(i.values):
-                if isinstance(j, int) and i.columns[j_ind] != "required_data":
-                    if temp_dict.has_key('data'):
-                        temp_dict['data'].append({'name':i.columns[j_ind], 'count':j})
+            for i in sample_query.execute().data:
+                temp_dict = {}
+                temp_dict['property_order'] = []
+                
+                for j_ind,j in enumerate(i.values):
+                    if isinstance(j, int) and i.columns[j_ind] != "required_data":
+                        if temp_dict.has_key('data'):
+                            temp_dict['data'].append({'name':i.columns[j_ind], 'count':j})
+                        else:
+                            temp_dict['data'] = [{'name':i.columns[j_ind], 'count':j}]
+                    elif isinstance(j, int) and i.columns[j_ind] == "required_data":
+                        temp_dict["required_data"] = j
                     else:
-                        temp_dict['data'] = [{'name':i.columns[j_ind], 'count':j}]
-                elif isinstance(j, int) and i.columns[j_ind] == "required_data":
-                    temp_dict["required_data"] = j
-                else:
-                    temp_dict[i.columns[j_ind]] = j#.get_properties()
-                    temp_dict['property_order'].append(i.columns[j_ind])
-                    
-            sample_list.append(temp_dict)
-    else:
-        raise Exception("sample_rels_type has not been implemented")
-    
-    use_sample_list = sorted(sample_list, key=lambda x: x['required_data'], reverse=True)
-    
-    return HttpResponse(json.dumps({"sample_list":use_sample_list, "cur_id":cur_id}), mimetype="application/json")
+                        temp_dict[i.columns[j_ind]] = j#.get_properties()
+                        temp_dict['property_order'].append(i.columns[j_ind])
+                        
+                sample_list.append(temp_dict)
+        else:
+            raise Exception("sample_rels_type has not been implemented")
+        
+        use_sample_list = sorted(sample_list, key=lambda x: x['required_data'], reverse=True)
+        
+        return HttpResponse(json.dumps({"sample_list":use_sample_list, "cur_id":cur_id}), mimetype="application/json")
+    except:
+        
+        return HttpResponseServerError()
 
 #is overkill for this function, add in below in multi_node_query
 def node_query(request):
@@ -894,7 +900,7 @@ def provide_data_for_request(request):
     
     except Exception as e:
         print e
-        HttpResponseServerError()
+        return HttpResponseServerError()
 
 def get_data (request):
     

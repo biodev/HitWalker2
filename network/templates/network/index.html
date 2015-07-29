@@ -672,8 +672,15 @@
                                                     console.log(status)
                                                 }
                                             
+						remove_menu_items("message_text_div");
                                                 
                                            }, "text")
+		    .fail(function()
+		    {
+		      
+		      add_message("An error has occured in retrieving subjects", true);
+		      
+		    });
                     }
         
         });
@@ -1163,10 +1170,19 @@
                                                 {
                                                     console.log(status)
                                                 }
-                                            
+						
+						
+						remove_menu_items("message_text_div");
                                                 spinner.stop();
 						
                                            }, "text")
+	    .fail(function()
+		  {
+		    
+		    add_message("An error has occured in retrieving relationships", true);
+		    spinner.stop();
+		    
+		  });
 	}
 	
         
@@ -1175,8 +1191,6 @@
     var load_ok_clicked = function(prog_type)
     {
         var sel_name = $("#load_select").val();
-        
-        console.log(sel_name);
         
         //var load_obj = document.getElementById("load_select");
         //var sel_name = load_obj.options[load_obj.selectedIndex];
@@ -1207,6 +1221,13 @@
                                             
                                                 
                                            }, "text")
+		.fail(function()
+		  {
+		    
+		    add_message("An error has occured in loading", true);
+		    $('#load_modal').modal('hide');
+		    
+		  });
         }
         else{
             if (document.getElementById("param_load_alert") == null)
@@ -1253,10 +1274,16 @@
             
         }
     
-    var add_message = function(message_text)
+    var add_message = function(message_text, error)
     {
-        remove_menu_items("message_text_div");
-        d3.select("#message_text_div").append("p").append("small").text(message_text);
+	remove_menu_items("message_text_div");
+        var temp_text = d3.select("#message_text_div").append("p").append("small").text(message_text);
+	
+	if (error != undefined){
+	    temp_text.classed("text-danger", true);
+	}
+	
+        
     }
     
     var reset_def_filters = function()
@@ -1279,6 +1306,12 @@
                 }
                 
                }, "text")
+	.fail(function()
+		  {
+		    
+		    add_message("An error has occured, the parameters could not be reset", true);
+		    
+		  });
     }
     
     var save_ok_clicked = function(prog_type)
@@ -1313,6 +1346,14 @@
                                             
                                                 
                                            }, "text")
+	    .fail(function()
+		  {
+		    
+		    add_message("An error has occured in saving", true);
+		    $('#save_modal').modal('hide');
+		    
+		  });
+	    
         }
         else
         {
