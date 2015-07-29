@@ -92,12 +92,12 @@
                         {% csrf_token %}
                         <input type="hidden" name="redirect" value='True')></input>
                     </form>
-                    <li><a href="{{prog_type}}/HitWalker2">Select Subject</a></li>
+                    <li><a href="{{prog_type}}/HitWalker2">Select Subjects</a></li>
                     
                     {% if "query_samples" in input_vals  or panel_context == "image" %}
-                        <li class="disabled"><a style="cursor:pointer">Select Variants</a></li>
+                        <li class="disabled"><a style="cursor:pointer">Select Genes</a></li>
                     {% else %}
-                        <li><a onclick="submit_table_data()" style="cursor:pointer">Select Variants</a></li>
+                        <li><a onclick="submit_table_data()" style="cursor:pointer">Select Genes</a></li>
                     {% endif %}
                     <li class="active"><a href="{{prog_type}}/HitWalker2/panel" style="pointer-events:none">Visualize and Query</a></li>
                 </ul>
