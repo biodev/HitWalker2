@@ -8,7 +8,6 @@
     <meta name="description" content="">
     <meta name="author" content="">
     
-    
     <title>Welcome to HitWalker2</title>
     <link href="{{prog_type}}/static/network/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{prog_type}}/static/network/css/select2.css" rel="stylesheet">
@@ -194,7 +193,11 @@
 <script src="{{prog_type}}/static/network/javascript/ajax.js"></script>
 <script>
     
-    //var bad_value = [];
+    var is_submitted = false;
+    
+    window.onbeforeunload = function(x){
+	window.location.reload(true);
+    }
     
     var adjust_fields = {{ adjust_fields|safe }};
     var param_names = d3.set( {{param_names|safe }});
@@ -735,6 +738,8 @@
         var target = document.getElementById('network_spinner');
         var spinner = new Spinner(spinner_opts).spin(target);
         
+	is_submitted = true;
+	
         return (true);
     }
     

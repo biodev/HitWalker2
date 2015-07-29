@@ -9,7 +9,6 @@
     <meta name="description" content="">
     <meta name="author" content="">
     
-    
     <link href="{{prog_type}}/static/network/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="{{prog_type}}/static/network/css/{{css_path}}" rel="stylesheet" type="text/css">
     <link href="{{prog_type}}/static/network/css/select2.css" rel="stylesheet">
@@ -125,12 +124,18 @@
         //for jquery.debug.js
         DEBUG = false;
         
+        window.onbeforeunload = function(x){
+            window.location.reload(true);
+        }
+        
         //var w = 400
         //    h = 400
         //    legend_offset=200;
         //    //the history offset is for a potential future graphical representation of the provenance...
         //    //using it now for asthetics...
         //    history_offset=10;
+        
+        
         
         
         if (typeof String.prototype.startsWith != 'function')
