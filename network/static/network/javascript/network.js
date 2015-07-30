@@ -598,8 +598,6 @@ function copy_nodes(query_nodes, subj_nodes, g_ind)
                
                //console.log(JSON.stringify(query_names));
                 
-               
-               
                spinner.stop();
                
                d3.selectAll("g.node").each(function(d,i)
@@ -621,7 +619,14 @@ function copy_nodes(query_nodes, subj_nodes, g_ind)
            }
        
            
-      }, "text");
+      }, "text")
+   .fail(function()
+          {
+            spinner.stop();
+            
+            alert("Sorry, An error has occured while executing this query");
+            
+          });;
 }
 
 //depricated in favor of direct code in update_image
@@ -1162,7 +1167,14 @@ function post_to_fullfill (obj)
       
       cur_spin.stop();
       
-    }, "text");
+    }, "text")
+    .fail(function()
+          {
+            cur_spin.stop();
+            
+            $('<div><p class="text-danger">Sorry, An error has occured while executing this query.</p></div>').insertBefore("#pg1");
+            
+          });
     
    }
    

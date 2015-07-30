@@ -845,7 +845,6 @@ def fullfill_node_query(request):
         return HttpResponse(json.dumps({'ret_node_type':query_type['returned_node_type'], 'results':dict(count_coll)}),mimetype="application/json")
     
     except Exception as e:
-        raise e
         return HttpResponseServerError()
 
 
@@ -916,31 +915,36 @@ def get_data (request):
     return HttpResponse(json.dumps({'graph':data_dict, 'title':title}),mimetype="application/json")
 
 def copy_nodes(request):
-    subj_nodes = json.loads(request.POST["subj"])
-    query_nodes = json.loads(request.POST["query"])
     
-    #print subj_nodes
-    #print query_nodes
-    
-    temp_nodes = []
-    
-    for i in query_nodes:
-        print i
-        if i['id'].startswith('@') and i['node_type'] == 'Subject':
-            node_ids = custom_functions.match_by_category(i['id'])
-            
-            temp_nodes.extend(map(lambda x: {'node_type':'Subject', 'id':x}, node_ids))
+    try:
         
-        elif i['id'].startswith('@'):
-            raise Exception("Unexpected non-subject ID starting with '@'")
-        else:
-            temp_nodes.append(i)
-    
-    cur_graph = core.copy_nodes(subj_nodes, temp_nodes, request, config.edge_queries)
-    
-    ret_dict = {'nodes':cur_graph['nodes'].tolist(), 'links':cur_graph['links']}
-    
-    return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
+        subj_nodes = json.loads(request.POST["subj"])
+        query_nodes = json.loads(request.POST["query"])
+        
+        #print subj_nodes
+        #print query_nodes
+        
+        temp_nodes = []
+        
+        for i in query_nodes:
+            print i
+            if i['id'].startswith('@') and i['node_type'] == 'Subject':
+                node_ids = custom_functions.match_by_category(i['id'])
+                
+                temp_nodes.extend(map(lambda x: {'node_type':'Subject', 'id':x}, node_ids))
+            
+            elif i['id'].startswith('@'):
+                raise Exception("Unexpected non-subject ID starting with '@'")
+            else:
+                temp_nodes.append(i)
+        
+        cur_graph = core.copy_nodes(subj_nodes, temp_nodes, request, config.edge_queries)
+        
+        ret_dict = {'nodes':cur_graph['nodes'].tolist(), 'links':cur_graph['links']}
+        
+        return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
+    except:
+        return HttpResponseServerError()
 
 def get_graph(request):
     
