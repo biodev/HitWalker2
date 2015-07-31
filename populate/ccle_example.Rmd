@@ -12,7 +12,7 @@ references:
       family: Tyner
       given: Jeffrey
     -
-      family:Yang 
+      family: Yang 
       given: Wayne
     -
       family: Bankhead
