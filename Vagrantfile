@@ -49,8 +49,8 @@ Vagrant.configure(2) do |config|
   #vb.gui = true
   vb.name="ccle_real"
   #   # Customize the amount of memory on the VM:
-  vb.memory = "16384"
-  vb.cpus = 4   
+  vb.memory = "10240"
+  vb.cpus = 2   
 end
   #
   # View the documentation for the provider you are using for more
@@ -117,7 +117,8 @@ exec gunicorn -k eventlet HitWalker2.wsgi:application
   sudo service neo4j-service stop
  
   sudo rm -rf /opt/neo4j-community-2.1.8/data
-  sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
+  sudo tar -xvzf /vagrant/hitwalker2_base_data*
+  sudo mv hitwalker2_base_data /opt/neo4j-community-2.1.8/data
   
   sudo chown -R vagrant:vagrant /opt/neo4j-community-2.1.8/
   
