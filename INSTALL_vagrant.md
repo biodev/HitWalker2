@@ -114,70 +114,9 @@ echo "244a245
     sudo apt-get clean
     
     cat /dev/null > ~/.bash_history && history -c 
-  
-    vagrant package --output HitWalker2_base.box
 
+```
 
-
-
-
-
-
-    ###set up upstart for unicorn -- Part of HW2 vagrant file
-    
- sudo rm -rf /opt/neo4j-community-2.1.8/data
-    sudo cp -r /vagrant/hitwalker2_base_data /opt/neo4j-community-2.1.8/data
-    
-    echo '
-description "HitWalker2"
-start on neo4j-started
-stop on runlevel [016]
-respawn
-setuid vagrant
-setgid vagrant
-
-pre-start script
-
-python /home/vagrant/HitWalker2/network/warm_up.py
-
-end script
-
-chdir /home/vagrant/HitWalker2/
-
-exec gunicorn -k eventlet HitWalker2.wsgi:application
-
-' > HitWalker2.conf
-    
-  sudo cp HitWalker2.conf /etc/init/
-  
-  rm HitWalker2.conf
-  
-  #set up nginx
-  
-  #this is only for a non-ssl version
-  sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
-  sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
-
-  cp -r /vagrant/HitWalker2 /home/vagrant/
-  
-  sudo chown -R vagrant:vagrant /home/vagrant/HitWalker2
-  
-  cd /vagrant/HitWalker2/populate
-  
-  sudo ./roxygen_build.sh install
-  
-  sudo chown -R vagrant:vagrant /var/www/
-  
-  python /home/vagrant/HitWalker2/manage.py collectstatic --noinput
-  
-  sudo chown -R vagrant:vagrant /var/www/
-  
-  
-    
-
-  
-  
-  
-
-
+```
+vagrant package --output HitWalker2_base.box
 ```
