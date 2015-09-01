@@ -45,6 +45,8 @@ prog_type = config.prog_type
 if prog_type != "":
     prog_type = "/" + prog_type
 
+static_base = '/var/www/hitwalker2_inst'+prog_type+'/static/'
+
 try:
     graph_inp = open(config.graph_struct_file, "r")
     graph_struct = json.load(graph_inp)
@@ -78,9 +80,14 @@ def get_css_name_colors(css_obj, by="color", only_default=True):
 
 def generate_css (user_name):
     
-    #from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
-    static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
-    css_path =os.path.join(static_storage.location, "network/css/HitWalker2.css")
+    if os.path.isfile(static_base + 'network/css/HitWalker2.css') == False:
+        #from http://stackoverflow.com/questions/20001282/django-how-to-reference-paths-of-static-files-and-can-i-use-them-in-models?rq=1
+        static_storage = get_storage_class(settings.STATICFILES_STORAGE)()
+        css_base = static_storage.location
+    else:
+        css_base = static_base[:]
+    
+    css_path =os.path.join(css_base, "network/css/HitWalker2.css")
     hw_css = cssutils.parseFile(css_path)
     
     node_type_transl={'Gene':{'name':'Gene', 'class':'Gene'}, 'Subject':{'name':'Subject', 'class':'Subject'}}
@@ -235,7 +242,7 @@ def generate_css (user_name):
         )
     
     #now serialize the new css appropriately in a unique file
-    new_css_path = os.path.join(static_storage.location, "network/css/HitWalker2_"+user_name+".css")
+    new_css_path = os.path.join(css_base, "network/css/HitWalker2_"+user_name+".css")
     new_css_out = open(new_css_path, "w")
     new_css_out.write(hw_css.cssText)
     new_css_out.close()
@@ -247,7 +254,7 @@ def generate_css (user_name):
 
 @sensitive_post_parameters()
 @never_cache
-@login_required(login_url=prog_type + '/HitWalker2/login/')
+@login_required(login_url='/HitWalker2' + prog_type +'/login/')
 #adapted from http://stackoverflow.com/questions/13900357/how-to-use-django-usercreationform-correctly
 def password(request):
     
@@ -261,7 +268,7 @@ def password(request):
             #
             #login(request, auth_user)
             
-            return redirect(prog_type + '/HitWalker2/')
+            return redirect('/HitWalker2'+prog_type)
     else:
         form = SetPasswordForm(request.user)
 
@@ -286,10 +293,8 @@ def get_default_parameters(request):
         
         return HttpResponseServerError()
 
-@login_required(login_url=prog_type + '/HitWalker2/login/')
+@login_required(login_url='/HitWalker2'+prog_type+'/login/')
 def index(request, retry_message):
-    
-    print request.session.keys()
     
     if request.session.has_key('inp_params'):
         index_field_dict = request.session['inp_params']
@@ -332,11 +337,11 @@ def index(request, retry_message):
     
     return render(request, 'network/index.html', context)
 
-@login_required(login_url=prog_type + '/HitWalker2/login/')
+@login_required(login_url='/HitWalker2'+prog_type+'/login/')
 def table(request):
     
     if len(request.POST) == 0:
-        return redirect(prog_type + '/HitWalker2/')
+        return redirect('/HitWalker2'+prog_type)
     elif request.POST.has_key("redirect"):
         
         seed_list = request.session['seed_list']
@@ -962,13 +967,13 @@ def get_graph(request):
         return HttpResponseServerError()
 
 @ensure_csrf_cookie
-@login_required(login_url=prog_type+'/HitWalker2/login/')
+@login_required(login_url='/HitWalker2'+prog_type+'/login/')
 def network(request):
     
     
     if len(request.POST) == 0:
         
-        return redirect(prog_type+'/HitWalker2/')
+        return redirect('/HitWalker2'+prog_type)
     else:
     
         default_css_classes, new_css_path, node_type_transl, edge_type_transl = generate_css(str(request.user))
@@ -1006,12 +1011,12 @@ def network(request):
         return render(request, 'network/network.html', ret_json)
 
 @ensure_csrf_cookie
-@login_required(login_url=prog_type+'/HitWalker2/login/')
+@login_required(login_url='/HitWalker2'+prog_type+'/login/')
 def panel(request):
     
     if len(request.POST) == 0:
         
-        return redirect(prog_type+'/HitWalker2/')
+        return redirect('/HitWalker2'+prog_type)
     elif request.POST.has_key("output_format") and request.POST.has_key("data"):
         
         try:
