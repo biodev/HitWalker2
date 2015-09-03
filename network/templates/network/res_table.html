@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!--Stilll need to implement the error messages from bootstrap...-->
 <html>
 <head>
     <meta charset="utf-8">
@@ -35,16 +34,16 @@
      <div class="navbar navbar-default" role="navigation">
         <div class="container-fluid">
             <div class="navbar-header">
-                <a class="navbar-brand" href="{{prog_type}}/HitWalker2">HitWalker2</a>
+                <a class="navbar-brand" href="/HitWalker2{{prog_type}}">HitWalker2</a>
             </div>
             <ul class="nav navbar-nav">
-                <li ><a href="{{prog_type}}/HitWalker2">Select Subjects</a></li>
-                <li class="active"><a href="{{prog_type}}/HitWalker2/table" style="pointer-events:none">Select Genes</a></li>
-                <li class="disabled"><a href="{{prog_type}}/HitWalker2/panel" style="pointer-events:none">Visualize and Query</a></li>
+                <li ><a href="/HitWalker2{{prog_type}}">Select Subjects</a></li>
+                <li class="active"><a href="/HitWalker2{{prog_type}}/table" style="pointer-events:none">Select Genes</a></li>
+                <li class="disabled"><a href="/HitWalker2{{prog_type}}/panel" style="pointer-events:none">Visualize and Query</a></li>
             </ul>
             <ul class="nav navbar-nav navbar-right">
                 <li><p class="navbar-text">Hello {{username}}</p></li>
-                <li><a href="{{prog_type}}/HitWalker2/logout">logout</a></li>
+                <li><a href="/HitWalker2{{prog_type}}/logout">logout</a></li>
             </ul>
         </div>
         </div>
@@ -76,7 +75,7 @@
             <button type="button" onclick="html_to_csv_d3()" class="btn btn-default">Export as CSV</button>
         </div>
     </div>
-    <form action="{{prog_type}}/HitWalker2/panel/" method="post", onsubmit="return check_selections()">
+    <form action="/HitWalker2{{prog_type}}/panel/" method="post", onsubmit="return check_selections()">
         {% csrf_token %}
         <!-- This is from  http://stackoverflow.com/questions/18795967/how-to-center-spin-js-spinner-in-bootstrap-3-modal  and spin.js       -->
     <div id="spinner_row" class="row">

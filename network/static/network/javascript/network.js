@@ -573,7 +573,7 @@ function copy_nodes(query_nodes, subj_nodes, g_ind)
     var post_node = {query:JSON.stringify(use_queries), subj:JSON.stringify(use_subj)};
     
     //the nodes will be "copied" to the new panel and new edges will be added to them
-   $.post("/HitWalker2/copy_nodes/", post_node, function(data, status, xhr)
+   $.post("/HitWalker2"+prog_type+"/copy_nodes/", post_node, function(data, status, xhr)
       {
            if (status == "success")
            {
@@ -1122,7 +1122,7 @@ function post_to_fullfill (obj)
     
     post_node.nodes = JSON.stringify(node_dict);
     
-    $.post("/HitWalker2/fullfill_node_query/", post_node, function(data, status, xhr){
+    $.post("/HitWalker2"+prog_type+"/fullfill_node_query/", post_node, function(data, status, xhr){
       
       if (status == "success"){
          
@@ -1201,7 +1201,7 @@ function provide_data (query_selection,freq_choice, ret_node_type, display_type)
       spinner.stop();
    }else{
       
-      $.post("/HitWalker2/provide_data_for_request/", request_data, function(data, status, xhr)
+      $.post("/HitWalker2"+prog_type+"/provide_data_for_request/", request_data, function(data, status, xhr)
        {
             if (status == "success")
             {
@@ -2146,7 +2146,7 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                              
                                              
                                              
-                                             $.post("/HitWalker2/node_query/", post_node, function(data, status, xhr)
+                                             $.post("/HitWalker2"+prog_type+"/node_query/", post_node, function(data, status, xhr)
                                                 {
                                                      if (status == "success")
                                                      {
@@ -2191,7 +2191,7 @@ function update_graph(vis, graph_obj,w,h, shiftKey)
                                             
                                             var post_node = {'nodes':JSON.stringify(post_list)}
                                             
-                                            $.post("/HitWalker2/multi_node_query/", post_node, function(data, status, xhr)
+                                            $.post("/HitWalker2"+prog_type+"/multi_node_query/", post_node, function(data, status, xhr)
                                                {
                                                     if (status == "success")
                                                     {

@@ -36,21 +36,21 @@
         <div class="navbar navbar-default" role="navigation">
         <div class="container-fluid">
             <div class="navbar-header">
-                <a class="navbar-brand" href="{{prog_type}}/HitWalker2">HitWalker2</a>
+                <a class="navbar-brand" href="/HitWalker2{{prog_type}}">HitWalker2</a>
             </div>
             <ul class="nav navbar-nav">
-                <li class="active"><a href="{{prog_type}}/HitWalker2">Select Subjects</a></li>
-                <li class="disabled"><a href="{{prog_type}}/HitWalker2/table" style="pointer-events:none">Select Genes</a></li>
-                <li class="disabled"><a href="{{prog_type}}/HitWalker2/panel" style="pointer-events:none">Visualize and Query</a></li>
+                <li class="active"><a href="/HitWalker2{{prog_type}}">Select Subjects</a></li>
+                <li class="disabled"><a href="/HitWalker2{{prog_type}}/table" style="pointer-events:none">Select Genes</a></li>
+                <li class="disabled"><a href="/HitWalker2{{prog_type}}/panel" style="pointer-events:none">Visualize and Query</a></li>
             </ul>
             <ul class="nav navbar-nav navbar-right">
                 <li><p class="navbar-text">Hello {{username}}</p></li>
                 <li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown" style="cursor:pointer">Manage Account<span class="caret"></span></a>
                     <ul class="dropdown-menu" role="menu">
-                    <li><a href="{{prog_type}}/HitWalker2/password">Change Password</a></li>
+                    <li><a href="/HitWalker2{{prog_type}}/password">Change Password</a></li>
                     </ul>
                 </li>
-                <li><a href="{{prog_type}}/HitWalker2/logout">logout</a></li>
+                <li><a href="/HitWalker2{{prog_type}}/logout">logout</a></li>
 		<!--<li><a><small id="version">@VERSION@</small></a></li>-->
             </ul>
         </div>
@@ -104,8 +104,8 @@
                 </div>
                 <div class="col-md-6">
                     <div class="btn-group">
-                        <button type="submit" id="prioritize" form="overall_form" formaction="{{prog_type}}/HitWalker2/table/" formmethod="post" class="btn btn-primary" tabindex=1 disabled>Prioritize</button>
-                        <button type="submit" id="query" form="overall_form" formaction="{{prog_type}}/HitWalker2/panel/" formmethod="post" class="btn btn-primary" tabindex=2 disabled>Query</button>
+                        <button type="submit" id="prioritize" form="overall_form" formaction="/HitWalker2{{prog_type}}/table/" formmethod="post" class="btn btn-primary" tabindex=1 disabled>Prioritize</button>
+                        <button type="submit" id="query" form="overall_form" formaction="/HitWalker2{{prog_type}}/panel/" formmethod="post" class="btn btn-primary" tabindex=2 disabled>Query</button>
                     </div>
                 </div>
         </div>
@@ -661,7 +661,7 @@
                 minimumInputLength: 2,
                 placeholder: "Please Enter a Subject Name",
                 query: function(query){
-                    $.post("{{prog_type}}/HitWalker2/match_sample/", {query:query.term}, function(data, status, xhr)
+                    $.post("/HitWalker2{{prog_type}}/match_sample/", {query:query.term}, function(data, status, xhr)
                                            {
                                                 if (status == "success")
                                                 {   
@@ -1139,7 +1139,7 @@
 	    
 	    spinner.stop();
 	}else{
-	    $.post("{{prog_type}}/HitWalker2/get_sample_rels/", {cur_id:cur_id}, function(data, status, xhr)
+	    $.post("/HitWalker2{{prog_type}}/get_sample_rels/", {cur_id:cur_id}, function(data, status, xhr)
                                            {
                                                 if (status == "success")
                                                 {
@@ -1198,7 +1198,7 @@
         if (sel_name.length == 1)
         {
             
-              $.post(prog_type+"/HitWalker2/load_parameters/", {load_name:sel_name[0]},
+              $.post("/HitWalker2"+prog_type+"/load_parameters/", {load_name:sel_name[0]},
                                         function(data, status, xhr)
                                            {
                                                 if (status == "success")
@@ -1289,7 +1289,7 @@
     var reset_def_filters = function()
     {
         
-        $.post("{{prog_type}}/HitWalker2/get_default_parameters/",{}, function(data, status, xhr)
+        $.post("/HitWalker2{{prog_type}}/get_default_parameters/",{}, function(data, status, xhr)
                {
                 if (status == "success")
                 {
@@ -1326,7 +1326,7 @@
         if (save_name.value != "")
         {
             
-            $.post(prog_type+"/HitWalker2/save_parameters/", {save_name:save_name, adjust_fields:serial_param},
+            $.post("/HitWalker2"+prog_type+"/save_parameters/", {save_name:save_name, adjust_fields:serial_param},
                                         function(data, status, xhr)
                                            {
                                                 if (status == "success")
