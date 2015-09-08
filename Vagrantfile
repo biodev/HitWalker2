@@ -80,6 +80,9 @@ end
   
   cd /vagrant/HitWalker2/populate
   
+  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("VariantAnnotation")'
+  
+  
   sudo ./roxygen_build.sh install
   
   sudo chown -R vagrant:vagrant /var/www/

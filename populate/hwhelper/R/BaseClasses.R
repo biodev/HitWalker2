@@ -585,6 +585,93 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.mo
     load.neo4j(.data=probe.to.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
+get.biomart.mapping <- function(host="feb2014.archive.ensembl.org"){
+  sel.obj <- useMart(host='feb2014.archive.ensembl.org', biomart='ENSEMBL_MART_ENSEMBL', dataset='hsapiens_gene_ensembl')
+  
+  #get all the gene IDs
+  
+  temp <- getBM(mart=sel.obj, attributes="ensembl_gene_id")
+  
+  ret.dta <- select(sel.obj, keys=temp[,1], columns=c("ensembl_gene_id", "entrezgene"), keytype="ensembl_gene_id")
+
+  names(ret.dta) <- c("Gene", "entrezID")
+  
+  return(ret.dta)
+}
+
+#' GATK/Ensembl VEP VCF Representation
+#' 
+#' A class for representing general variant data stored in GATK flavored VCF files annotated with Ensembl VEP
+#'
+
+gatkvcf_class <- setClass(Class="VCFTable", representation=list(vcf.dta="data.frame", ensembl.to.entrez="data.frame"), contains="NeoData",
+                          prototype = list(base.query='',
+                                           template.query=''))
+
+#' @rdname class_helpers
+#' @param vcf.file The path to a VCF file that has been annotated by Ensembl VEP.  If the 'PICK' column is defined, only those variants will be imported.
+#' @param genome Optional genome version used in the VCF file.
+#' @param ensembl.to.entrez needs to be a data.frame with a 'Gene' column indicating the Ensembl IDs and an entrezID column containing the EntrezIDs or NA if not available.
+parse.vcf.vt <- function(vcf.file, genome="Unknown", sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation", ensembl.to.entrez=get.biomart.mapping()){
+  
+  vcf.obj <- readVcf(file=vcf.file, genome=genome)
+  
+  vcf.dta <- vcf.to.table(vcf.obj)
+  
+  sub.vcf.dta <- vcf.dta[,c("seqnames", "start", "end", "REF", "ALT", "FILTER", "MQ0", "Gene", "Feature", "HGVSp",
+                            "Consequence", "Protein_position", "Amino_acids", "Existing_variation", "SYMBOL", "SIFT", 
+                            "PolyPhen", "RefSeq", "samples", "genotypes")]
+  
+  return(new("VCFTable", vcf.dta=sub.vcf.dta, ensembl.to.entrez=ensembl.to.entrez, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
+}
+
+setMethod("sampleNames", signature("VCFTable"), function(object){
+  return(unique(object$samples))
+})
+
+setMethod("fromSample", signature("VCFTable"), function(obj, neo.path=NULL){
+  #first sample -> variant
+  #the name here will be derived from the HGVSp column as that provides potentially enough information to uniquely id a variant as these should all be protein-coding variants
+  #will keep missing values as "" for now
+  
+  sample.vcf <- obj@vcf.dta
+  
+  samp.vcf <- sample.vcf[,c("samples", "HGVSp", "FILTER", "MQ0", "seqnames", "start", "end", "REF", "ALT")]
+  names(samp.vcf) <- c("sample", nodeName(obj), "FILTER", "MQ0", paste(obj@node.name, "seqnames", "start", "end", "REF", "ALT"))
+  
+  #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
+  
+  load.neo4j(.data=samp.vcf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+})
+
+setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.model="entrez"){
+  #then add in the Variation->EntrezID relationships
+  
+  if (gene.model != "entrez")
+  {
+    stop("ERROR: Only gene.model = 'entrez' is currently supported")
+  }
+  
+  cur.vcf <- obj@vcf.dta
+  
+  #only keep one row for each gene/variant then convert to entrez IDs
+  #note there are still potentially many entrez ids to one ensembl ID..
+  
+  ens.gene.dta <- cur.vcf[!duplicated(cur.vcf[,c("Gene", "HGVSp")]),]
+  
+  ens.gene.merge <- merge(ens.gene.dta, obj@ensembl.to.entrez, by="Gene", all=F, incomparables=NA, sort=F)
+  
+  ent.genes <- ens.gene.merge[is.na(ens.gene.merge$entrezID)==F,]
+  
+  ent.genes <- ent.genes[,c("HGVSp", "entrezID", "Consequence", "Protein_position", "Amino_acids", "SIFT", "PolyPhen")]
+  
+  names(ent.genes) <- c(nodeName(obj), "entrezID","consequence", "protein_position", "amino_acids", "sift", "polyphen")
+  
+  load.neo4j(.data=var.gene.dta, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
+  
+})
+
+
 
 #' CCLE MAF Representation
 #'
