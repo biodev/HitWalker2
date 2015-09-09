@@ -82,6 +82,59 @@ NeoData <- setClass(Class="NeoData", representation=list(sample.edge.name="chara
 #' @slot display_name Name to be displayed to the user
 HwHit <- setClass(Class="HwHit", representation=list(default="numeric", direction="character", range="numeric", display_name="character"))
 
+AnnotatedMatrix <- setClass(Class="AnnotatedMatrix", representation = list(matrix="matrix", mapping="data.frame"), contains="NeoData")
+
+setMethod("getMatrix", signature("AnnotatedMatrix"), function(obj)
+{
+  return(obj@matrix)
+})
+
+setMethod("getAnnotation", signature("AnnotatedMatrix"), function(obj){
+  return(obj@mapping)
+})
+
+setMethod("sampleNames", signature("AnnotatedMatrix"), function(object){
+  return(unique(colnames(getMatrix(object))))
+})
+
+setMethod("toGene", signature("AnnotatedMatrix"), function(obj, neo.path=NULL, gene.model=c("entrez", "ensembl")){
+  
+  mat.genes <- getAnnotation(obj)
+  
+  mat.genes <- mat.genes[complete.cases(mat.genes),]
+  mat.genes <- mat.genes[,c(nodeName(obj), "gene", "weight")]
+  names(drug.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
+  
+  load.neo4j(.data=drug.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+})
+
+setMethod("fromSample", signature("AnnotatedMatrix"), function(obj, neo.path=NULL){
+  
+  gene.mat <- getMatrix(obj)
+  
+  gene.dta <- melt(gene.mat)
+  
+  names(gene.dta) <- c(nodeName(obj), "sample", "score")
+  
+  for(i in 1:2){
+    gene.dta[,i] <- as.character(gene.dta[,i])
+  }
+  
+  #remove any na scores
+  
+  if (sum(is.na(gene.dta$score)) != sum(is.na(gene.dta))){
+    stop("ERROR: NAs in other columns than the score column detected")
+  }
+  
+  gene.dta <- gene.dta[complete.cases(gene.dta),]
+  
+  #reorder the edges
+  
+  gene.dta <- gene.dta[,c("sample", nodeName(obj), "score")]
+  
+  load.neo4j(.data=gene.dta, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+})
+
 setMethod("nodeName", signature("NeoData"), function(obj){
     return(obj@node.name)
 })
@@ -586,6 +639,9 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.mo
 })
 
 get.biomart.mapping <- function(host="feb2014.archive.ensembl.org"){
+  
+  require(biomaRt)
+  
   sel.obj <- useMart(host='feb2014.archive.ensembl.org', biomart='ENSEMBL_MART_ENSEMBL', dataset='hsapiens_gene_ensembl')
   
   #get all the gene IDs
@@ -605,14 +661,24 @@ get.biomart.mapping <- function(host="feb2014.archive.ensembl.org"){
 #'
 
 gatkvcf_class <- setClass(Class="VCFTable", representation=list(vcf.dta="data.frame", ensembl.to.entrez="data.frame"), contains="NeoData",
-                          prototype = list(base.query='',
-                                           template.query=''))
+                          prototype = list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFERRED_TO]-(symb) WHERE d.type = "DNASeq" AND subject.name IN {SAMPLE}
+                                          RETURN var.name AS Variant_Position, gene.name AS Gene, symb.name AS Symbol,
+                                           r2.consequnce AS Consequence , REPLACE(RTRIM(REDUCE(str="",n IN var.Existing_Variation|str+n+" ")), " ", ";") AS Existing_Variation,
+                                           r2.sift AS SIFT, r2.polyphen AS Polyphen, 0 AS query_ind, 1 AS gene_ind, var.name + "_" + gene.name AS row_id, subject.name AS Sample ',
+                                           template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE d.type = "DNASeq" AND $$lower_coll_type$$.name IN {$$coll_type$$}
+                                          WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll',
+                                           sample.edge.name="HAS_DNASEQ", 
+                                           gene.edge.name="IMPACTS", 
+                                           node.name="variation"))
 
 #' @rdname class_helpers
 #' @param vcf.file The path to a VCF file that has been annotated by Ensembl VEP.  If the 'PICK' column is defined, only those variants will be imported.
 #' @param genome Optional genome version used in the VCF file.
 #' @param ensembl.to.entrez needs to be a data.frame with a 'Gene' column indicating the Ensembl IDs and an entrezID column containing the EntrezIDs or NA if not available.
-parse.vcf.vt <- function(vcf.file, genome="Unknown", sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation", ensembl.to.entrez=get.biomart.mapping()){
+parse.vcf.vt <- function(vcf.file, genome="Unknown",ensembl.to.entrez=get.biomart.mapping()){
+  
+  require(VariantAnnotation)
+  require(genotools)
   
   vcf.obj <- readVcf(file=vcf.file, genome=genome)
   
@@ -626,7 +692,7 @@ parse.vcf.vt <- function(vcf.file, genome="Unknown", sample.edge.name="HAS_DNASE
 }
 
 setMethod("sampleNames", signature("VCFTable"), function(object){
-  return(unique(object$samples))
+  return(unique(object@vcf.dta$samples))
 })
 
 setMethod("fromSample", signature("VCFTable"), function(obj, neo.path=NULL){
@@ -636,15 +702,15 @@ setMethod("fromSample", signature("VCFTable"), function(obj, neo.path=NULL){
   
   sample.vcf <- obj@vcf.dta
   
-  samp.vcf <- sample.vcf[,c("samples", "HGVSp", "FILTER", "MQ0", "seqnames", "start", "end", "REF", "ALT")]
-  names(samp.vcf) <- c("sample", nodeName(obj), "FILTER", "MQ0", paste(obj@node.name, "seqnames", "start", "end", "REF", "ALT"))
+  samp.vcf <- sample.vcf[,c("samples", "HGVSp", "FILTER", "MQ0", "seqnames", "start", "end", "REF", "ALT", "Existing_variation")]
+  names(samp.vcf) <- c("sample", nodeName(obj), "FILTER", "MQ0", paste(nodeName(obj), "seqnames", "start", "end", "REF", "ALT", "Existing_variation"))
   
   #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
   
   load.neo4j(.data=samp.vcf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
-setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.model="entrez"){
+setMethod("toGene", signature("VCFTable"), function(obj, neo.path=NULL, gene.model="entrez"){
   #then add in the Variation->EntrezID relationships
   
   if (gene.model != "entrez")
@@ -771,6 +837,43 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.mode
 })
 
 
+GeneSet_class <- setClass(Class="GeneSet", contains=c("AnnotatedMatrix", "HwHit"),
+                          prototype = list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Gene_Set" AND subject.name IN {SAMPLE}
+                                           RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, r.score*r2.weight AS score, score > $PAR_NAME$ AS is_hit;',
+                                           template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(gene:EntrezID) WHERE d.type = "Gene_Set" AND r.score*r2.weight > $PAR_NAME$ AND
+                                           $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
+                                           ORDER BY use_coll DESC RETURN ret_type, use_coll',
+                                           sample.edge.name="HAS_GENE_SET", gene.edge.name="ASSIGNED_TO", node.name="suppliedSymbol",
+                                           
+                                           default=0, direction=">", range=c(0, 100), display_name="GeneSet (Hit) Threshold"))
+
+GeneSet <- function(mat, mapping){
+  
+  if(missing(mat) || is.null(mat) || all(is.na(mat)) || class(mat) != "matrix")
+  {
+    stop("ERROR: need to supply a matrix for mat")
+  }
+  
+  if (missing(mapping) || is.null(mapping) || all(is.na(mapping)) || class(mapping) != "data.frame")
+  {
+    stop("ERROR: need to supply a mapping data.frame containing the suppliedSymbol->gene mappings")
+  }
+  
+  if (all(c("suppliedSymbol", "gene") %in% names(mapping)) == F)
+  {
+    stop("ERROR: the mapping data.frame needs to have columns for both suppliedSymbol and gene")
+  }
+  
+  if (length(intersect(mapping$suppliedSymbol, rownames(mat))) == 0)
+  {
+    stop("ERROR: There is no overlap between the rownames of mat and mapping$drug.  Is the matrix of the form: suppliedSymbol x sample?")
+  }
+  
+  return(new("GeneSet", matrix=mat, mapping=mapping))
+}
+
+
+
 #' Drug Data Representation
 #'
 #' A basic class for representing drug panel results for a set of samples
@@ -778,7 +881,7 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.mode
 #' @aliases getMatrix getAnnotation
 #' @slot matrix, a matrix containing a sinlge summary value for each drug (rows) and each sample (columns).  
 #' @slot mapping A \code{data.frame} containing the mapping from drug to gene.  It should contain a 'drug' column, a 'gene' column and a 'weight' column which indicates the confidence of the mapping.
-DrugMatrix_class <- setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains=c("NeoData", "HwHit"),
+DrugMatrix_class <- setClass(Class="DrugMatrix", contains=c("HwHit", "AnnotatedMatrix"),
          prototype=list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Drug_Assay" AND subject.name IN {SAMPLE}
                         WITH subject, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
                         RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, effect_score AS score, effect_score > $PAR_NAME$ AS is_hit;',
@@ -791,19 +894,6 @@ DrugMatrix_class <- setClass(Class="DrugMatrix", representation=list(matrix="mat
                         sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug",
                         
                         default=0, direction=">", range=c(-100, 100), display_name="GeneScore (Hit) Threshold"))
-
-setMethod("getMatrix", signature("DrugMatrix"), function(obj)
-          {
-                return(obj@matrix)
-          })
-
-setMethod("getAnnotation", signature("DrugMatrix"), function(obj){
-        return(obj@mapping)
-})
-
-setMethod("sampleNames", signature("DrugMatrix"), function(object){
-    return(unique(colnames(getMatrix(object))))
-})
 
 #' @rdname class_helpers
 #' @param mat A \code{matrix} of the form drug x sample with named rows and columns.
@@ -871,18 +961,18 @@ setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path=NULL){
     
 })
 
-#' @describeIn DrugMatrix_class The mapping from drug to gene taken from the \code{mapping} slot.
-#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
-setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path=NULL, gene.model=c("entrez", "ensembl")){
-    
-    drug.genes <- getAnnotation(obj)
-    
-    drug.genes <- drug.genes[complete.cases(drug.genes),]
-    drug.genes <- drug.genes[,c("drug", "gene", "weight")]
-    names(drug.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
-    
-    load.neo4j(.data=drug.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-})
+# @describeIn DrugMatrix_class The mapping from drug to gene taken from the \code{mapping} slot.
+# @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
+# setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path=NULL, gene.model=c("entrez", "ensembl")){
+#     
+#     drug.genes <- getAnnotation(obj)
+#     
+#     drug.genes <- drug.genes[complete.cases(drug.genes),]
+#     drug.genes <- drug.genes[,c("drug", "gene", "weight")]
+#     names(drug.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
+#     
+#     load.neo4j(.data=drug.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+# })
 
 
 #' @rdname test_helpers

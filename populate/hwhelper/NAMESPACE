@@ -4,10 +4,7 @@ import(reshape2)
 import(igraph)
 import(rjson)
 
-importFrom(VariantAnnotation, readVcf)
-importFrom(genotools, vcf.to.table)
-
-exportClasses(DrugMatrix, CCLEMaf, HW2exprSet, NeoData, HwHit, VCFTable)
+exportClasses(DrugMatrix, CCLEMaf, HW2exprSet, NeoData, HwHit, VCFTable, AnnotatedMatrix, GeneSet)
 exportMethods('addSamples<-', populate, configure, fromSample, toGene, sampleEdge, geneEdge, getFrequency, findHits, subjectAttrs, subjectSubset)
 export(readMAF.ccle, DrugMatrix, makeHW2Config, HW2exprSet, compute.graph.structure, Subject, load.neo4j,
-process_matrix_graph, get_direct_connections, get_gene_connections, encode_groups, parse.vcf.vt)
+process_matrix_graph, get_direct_connections, get_gene_connections, encode_groups, parse.vcf.vt, GeneSet)
