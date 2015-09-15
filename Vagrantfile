@@ -13,6 +13,9 @@ Vagrant.configure(2) do |config|
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
   config.vm.box = "bottomly/HitWalker2_base"
+   config.vm.define :hw2default do |t|
+        end
+
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
@@ -47,7 +50,7 @@ Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |vb|
   #   # Display the VirtualBox GUI when booting the machine
   #vb.gui = true
-  vb.name="ccle_real"
+  vb.name="hw2default"
   #   # Customize the amount of memory on the VM:
   vb.memory = "10240"
   vb.cpus = 2   
@@ -80,7 +83,7 @@ end
   
   cd /vagrant/HitWalker2/populate
   
-  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("VariantAnnotation")'
+  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("VariantAnnotation", "SNPRelate", "ensemblVEP", "biomaRt")'
   
   
   sudo ./roxygen_build.sh install

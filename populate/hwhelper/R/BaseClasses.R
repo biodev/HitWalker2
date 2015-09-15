@@ -103,9 +103,9 @@ setMethod("toGene", signature("AnnotatedMatrix"), function(obj, neo.path=NULL, g
   
   mat.genes <- mat.genes[complete.cases(mat.genes),]
   mat.genes <- mat.genes[,c(nodeName(obj), "gene", "weight")]
-  names(drug.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
+  names(mat.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
   
-  load.neo4j(.data=drug.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+  load.neo4j(.data=mat.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
 setMethod("fromSample", signature("AnnotatedMatrix"), function(obj, neo.path=NULL){
@@ -684,7 +684,7 @@ parse.vcf.vt <- function(vcf.file, genome="Unknown",ensembl.to.entrez=get.biomar
   
   vcf.dta <- vcf.to.table(vcf.obj)
   
-  sub.vcf.dta <- vcf.dta[,c("seqnames", "start", "end", "REF", "ALT", "FILTER", "MQ0", "Gene", "Feature", "HGVSp",
+  sub.vcf.dta <- vcf.dta[,c("seqnames", "start", "end", "REF", "ALT", "FILTER", "MQ0", "Gene", "Feature", "HGVSp", "HGVSc",
                             "Consequence", "Protein_position", "Amino_acids", "Existing_variation", "SYMBOL", "SIFT", 
                             "PolyPhen", "RefSeq", "samples", "genotypes")]
   
@@ -695,6 +695,16 @@ setMethod("sampleNames", signature("VCFTable"), function(object){
   return(unique(object@vcf.dta$samples))
 })
 
+factors.to.chars <- function(dta){
+  for (i in colnames(dta)){
+    if (is.factor(dta[,i])){
+      dta[,i] <- as.character(dta[,i])
+    }
+  }
+  
+  return(dta)
+}
+
 setMethod("fromSample", signature("VCFTable"), function(obj, neo.path=NULL){
   #first sample -> variant
   #the name here will be derived from the HGVSp column as that provides potentially enough information to uniquely id a variant as these should all be protein-coding variants
@@ -702,10 +712,12 @@ setMethod("fromSample", signature("VCFTable"), function(obj, neo.path=NULL){
   
   sample.vcf <- obj@vcf.dta
   
-  samp.vcf <- sample.vcf[,c("samples", "HGVSp", "FILTER", "MQ0", "seqnames", "start", "end", "REF", "ALT", "Existing_variation")]
-  names(samp.vcf) <- c("sample", nodeName(obj), "FILTER", "MQ0", paste(nodeName(obj), "seqnames", "start", "end", "REF", "ALT", "Existing_variation"))
+  samp.vcf <- sample.vcf[,c("samples", "HGVSc", "FILTER", "MQ0", "seqnames", "start", "end", "REF", "ALT", "Existing_variation")]
+  names(samp.vcf) <- c("sample", nodeName(obj), "FILTER", "MQ0", paste(nodeName(obj), c("seqnames", "start", "end", "REF", "ALT", "Existing_variation"), sep="."))
   
-  #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
+  samp.vcf <- factors.to.chars(samp.vcf)
+  
+  samp.vcf[is.na(samp.vcf)] <- ""
   
   load.neo4j(.data=samp.vcf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
@@ -725,15 +737,22 @@ setMethod("toGene", signature("VCFTable"), function(obj, neo.path=NULL, gene.mod
   
   ens.gene.dta <- cur.vcf[!duplicated(cur.vcf[,c("Gene", "HGVSp")]),]
   
+  ens.gene.dta$Gene <- as.character(ens.gene.dta$Gene)
+  obj@ensembl.to.entrez$Gene <- as.character(obj@ensembl.to.entrez$Gene)
+  
   ens.gene.merge <- merge(ens.gene.dta, obj@ensembl.to.entrez, by="Gene", all=F, incomparables=NA, sort=F)
   
   ent.genes <- ens.gene.merge[is.na(ens.gene.merge$entrezID)==F,]
   
-  ent.genes <- ent.genes[,c("HGVSp", "entrezID", "Consequence", "Protein_position", "Amino_acids", "SIFT", "PolyPhen")]
+  ent.genes <- ent.genes[,c("HGVSc", "entrezID", "Consequence", "Protein_position", "Amino_acids", "SIFT", "PolyPhen")]
   
   names(ent.genes) <- c(nodeName(obj), "entrezID","consequence", "protein_position", "amino_acids", "sift", "polyphen")
   
-  load.neo4j(.data=var.gene.dta, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
+  ent.genes <- factors.to.chars(ent.genes)
+  
+  ent.genes[is.na(ent.genes)] <- ""
+  
+  load.neo4j(.data=ent.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", unique.rels=F)  
   
 })
 
@@ -839,7 +858,7 @@ setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.mode
 
 GeneSet_class <- setClass(Class="GeneSet", contains=c("AnnotatedMatrix", "HwHit"),
                           prototype = list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Gene_Set" AND subject.name IN {SAMPLE}
-                                           RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, r.score*r2.weight AS score, score > $PAR_NAME$ AS is_hit;',
+                                           RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, r.score*r2.weight AS score, r.score*r2.weight > $PAR_NAME$ AS is_hit;',
                                            template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(gene:EntrezID) WHERE d.type = "Gene_Set" AND r.score*r2.weight > $PAR_NAME$ AND
                                            $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
                                            ORDER BY use_coll DESC RETURN ret_type, use_coll',
