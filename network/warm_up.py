@@ -35,7 +35,7 @@ if __name__ == '__main__':
         
         whole_query = re.sub("\{name:.+\}", "", cur_query['query'])
         
-        whole_query = re.sub("WITH.+RETURN", "RETURN", whole_query)
+        whole_query = re.sub("WHERE.+RETURN", "RETURN", whole_query)
         
         if i == 'gene_names':
             use_query = whole_query + " LIMIT 10"

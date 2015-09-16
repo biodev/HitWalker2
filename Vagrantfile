@@ -84,7 +84,8 @@ end
   cd /vagrant/HitWalker2/populate
   
   sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("VariantAnnotation", "SNPRelate", "ensemblVEP", "biomaRt")'
-  
+ 
+  sudo R CMD INSTALL genotools_* 
   
   sudo ./roxygen_build.sh install
   

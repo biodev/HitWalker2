@@ -533,6 +533,15 @@ Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
     return(new("Subject", subject.info=subject.info, subject.to.sample=subject.to.sample, type=type))
 }
 
+##in progress, generalizing the templates so it is less work for the configurer
+base.hit.template <- 'MATCH(subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression"'
+
+#MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Gene_Set" AND subject.name IN {SAMPLE}
+#RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, r.score*r2.weight AS score, r.score*r2.weight > $PAR_NAME$ AS is_hit;
+
+#ANY(x IN [subject.name, sample.name] WHERE x IN {SAMPLE})
+
+base.query.template <- ''
 
 ##Note here, that for dense datatypes like expression, don't actually return possible hits
 #' Basic Representation for Expression Array Data
