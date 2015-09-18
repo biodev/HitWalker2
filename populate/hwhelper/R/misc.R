@@ -318,3 +318,31 @@ in.csv.col <- function(vec, search.vals, delim.str=",", match.func=any)
                      })
     return(in.vec)
 }
+
+get.biomart.mapping <- function(host="feb2014.archive.ensembl.org"){
+  
+  require(biomaRt)
+  
+  sel.obj <- useMart(host='feb2014.archive.ensembl.org', biomart='ENSEMBL_MART_ENSEMBL', dataset='hsapiens_gene_ensembl')
+  
+  #get all the gene IDs
+  
+  temp <- getBM(mart=sel.obj, attributes="ensembl_gene_id")
+  
+  ret.dta <- select(sel.obj, keys=temp[,1], columns=c("ensembl_gene_id", "entrezgene"), keytype="ensembl_gene_id")
+
+  names(ret.dta) <- c("Gene", "entrezID")
+  
+  return(ret.dta)
+}
+
+factors.to.chars <- function(dta){
+  for (i in colnames(dta)){
+    if (is.factor(dta[,i])){
+      dta[,i] <- as.character(dta[,i])
+    }
+  }
+  
+  return(dta)
+}
+
