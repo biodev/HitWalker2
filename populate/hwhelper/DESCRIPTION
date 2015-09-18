@@ -11,4 +11,4 @@ Suggests: affy, genefilter, sva, hgu133plus2.db, RNeo4j, Matrix, biomaRt, genoto
 Description: This package provides functionality to facilitate setting up a HitWalker2 instance including
 	data import and querying in Neo4j. 
 License: GPL-3
-Collate: misc.R neointerface.R BaseClasses.R
+Collate: misc.R neointerface.R BaseClasses.R HwHit.R Queries.R TestHelpers.R 

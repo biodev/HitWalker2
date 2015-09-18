@@ -28,6 +28,11 @@ setMethod("toGene", signature("AnnotatedMatrix"), function(obj, neo.path=NULL, g
   mat.genes <- getAnnotation(obj)
   
   mat.genes <- mat.genes[complete.cases(mat.genes),]
+  
+  if ("weight" %in% colnames(mat.genes) == F){
+    mat.genes$weight <- 1
+  }
+  
   mat.genes <- mat.genes[,c(nodeName(obj), "gene", "weight")]
   names(mat.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
   
@@ -61,15 +66,42 @@ setMethod("fromSample", signature("AnnotatedMatrix"), function(obj, neo.path=NUL
   load.neo4j(.data=gene.dta, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
-##in progress, generalizing the templates so it is less work for the configurer
-base.hit.template <- 'MATCH(subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression"'
+##in progress, generalizing the templates so it is less work for the configurer (person)
 
-#MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Gene_Set" AND subject.name IN {SAMPLE}
-#RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, r.score*r2.weight AS score, r.score*r2.weight > $PAR_NAME$ AS is_hit;
+fill.query.slots <- function(obj){
+  
+  sum.dir <- ifelse(obj@direction == ">", "MAX", "MIN")
+  
+  hit.crit <- ifelse(obj@is.dense, "true", paste0(sum.dir, "(r.score*r2.weight) > $PAR_NAME$"))
+  
+  type.name <- capwords(tolower(sub("HAS_", "", sampleEdge(obj))))
+  
+  if (length(obj@base.query) == 0){
+    
+    obj@base.query <- gsub("\\s*\n\\s*", " ", paste0('MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:',sampleEdge(obj),']-()-[r2:',geneEdge(obj),']-(o:EntrezID{name:{GENE}}) WHERE d.type = "',type.name,'" AND 
+     ANY(x IN [subject.name, sample.name] WHERE x IN {SAMPLE})
+     RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, ',sum.dir,'(r.score*r2.weight) AS score, ',hit.crit,' AS is_hit;'))
+    
+  }
+  
+  if (length(obj@template.query) == 0){
+    
+    obj@template.query <- gsub("\\s*\n\\s*", " ", paste0('MATCH(subject:$SUBJECT$)-[d:DERIVED]-()-[r:',sampleEdge(obj),']-()-[r2:',geneEdge(obj),']-(gene:EntrezID) WHERE d.type = "',type.name,'" 
+    AND r.score*r2.weight > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
+    WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll'))
+  
+    }
+  
+  return(obj)
+}
 
-#ANY(x IN [subject.name, sample.name] WHERE x IN {SAMPLE})
-
-base.query.template <- ''
+#tests for geneset and HW2exprSet : temp <- HW2exprSet(ExpressionSet())
+#base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Gene_Set" AND subject.name IN {SAMPLE}
+#RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, r.score*r2.weight AS score, r.score*r2.weight > $PAR_NAME$ AS is_hit;',
+#template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(gene:EntrezID) WHERE d.type = "Gene_Set" AND r.score*r2.weight > $PAR_NAME$ AND
+#$$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
+#ORDER BY use_coll DESC RETURN ret_type, use_coll',
+#
 
 ##Note here, that for dense datatypes like expression, don't actually return possible hits
 #' Basic Representation for Expression Array Data
@@ -79,12 +111,7 @@ base.query.template <- ''
 #' @slot exprs, an \code{ExpressionSet} containing expression data.
 HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains=c("NeoData", "HwHit"),
                              prototype=list(sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet",
-                                            default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold",
-                                            base.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression" AND HAS(r.score) AND subject.name IN {SAMPLE}
-                                            AND r.score > $PAR_NAME$ RETURN m.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, true AS is_hit',
-                                            
-                                            template.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WHERE d.type = "Affy_Expression" AND r.score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
-                                            WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll'))
+                                            default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold", is.dense=TRUE))
 
 #' @rdname class_helpers
 #' @param exprs An ExpressionSet
@@ -93,7 +120,7 @@ HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="Expr
 #' @param node.name The name that should be given to the assay units in the Neo4j database.
 HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet"){
   
-  return(new("HW2exprSet", exprs=exprs, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
+  return(fill.query.slots(new("HW2exprSet", exprs=exprs, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name)))
 }
 
 #' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the
@@ -170,19 +197,16 @@ setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.mo
   probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
   names(probe.to.gene) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"))
   
+  probe.to.gene$weight <- 1
+  
   #load the probe->gene mappings
   
   load.neo4j(.data=probe.to.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
 })
 
 GeneSet_class <- setClass(Class="GeneSet", contains=c("AnnotatedMatrix", "HwHit"),
-                          prototype = list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Gene_Set" AND subject.name IN {SAMPLE}
-                                           RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, r.score*r2.weight AS score, r.score*r2.weight > $PAR_NAME$ AS is_hit;',
-                                           template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_GENE_SET]-(m)-[r2:ASSIGNED_TO]-(gene:EntrezID) WHERE d.type = "Gene_Set" AND r.score*r2.weight > $PAR_NAME$ AND
-                                           $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
-                                           ORDER BY use_coll DESC RETURN ret_type, use_coll',
+                          prototype = list(
                                            sample.edge.name="HAS_GENE_SET", gene.edge.name="ASSIGNED_TO", node.name="suppliedSymbol",
-                                           
                                            default=0, direction=">", range=c(0, 100), display_name="GeneSet (Hit) Threshold"))
 
 GeneSet <- function(mat, mapping){
@@ -207,10 +231,11 @@ GeneSet <- function(mat, mapping){
     stop("ERROR: There is no overlap between the rownames of mat and mapping$drug.  Is the matrix of the form: suppliedSymbol x sample?")
   }
   
-  return(new("GeneSet", matrix=mat, mapping=mapping))
+  return(fill.query.slots(new("GeneSet", matrix=mat, mapping=mapping)))
 }
 
 
+#GeneScore and siRNA representation here
 
 #' Drug Data Representation
 #'
@@ -220,7 +245,8 @@ GeneSet <- function(mat, mapping){
 #' @slot matrix, a matrix containing a sinlge summary value for each drug (rows) and each sample (columns).  
 #' @slot mapping A \code{data.frame} containing the mapping from drug to gene.  It should contain a 'drug' column, a 'gene' column and a 'weight' column which indicates the confidence of the mapping.
 DrugMatrix_class <- setClass(Class="DrugMatrix", contains=c("HwHit", "AnnotatedMatrix"),
-                             prototype=list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Drug_Assay" AND subject.name IN {SAMPLE}
+                             prototype=list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Drug_Assay" AND 
+                                            ANY(x IN [subject.name, sample.name] WHERE x IN {SAMPLE})
                                             WITH subject, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
                                             RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, effect_score AS score, effect_score > $PAR_NAME$ AS is_hit;',
                                             

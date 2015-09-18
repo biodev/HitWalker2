@@ -3,6 +3,10 @@
 #' A class for representing general variant data stored in GATK flavored VCF files annotated with Ensembl VEP
 #'
 
+fill.query.slots.vars <- function(){
+  
+}
+
 gatkvcf_class <- setClass(Class="VCFTable", representation=list(vcf.dta="data.frame", ensembl.to.entrez="data.frame"), contains="NeoData",
                           prototype = list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFERRED_TO]-(symb) WHERE d.type = "DNASeq" AND subject.name IN {SAMPLE}
                                           RETURN var.name AS Variant_Position, gene.name AS Gene, symb.name AS Symbol,
