@@ -1227,50 +1227,57 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
     
     if cypher_session == None:
         from config import cypher_session
-        
-    session = cypher.Session(cypher_session)
-    tx = session.create_transaction()
     
     nodes = NodeList()
     
     if config_struct.has_key(node_type):
         for i_ind, i in enumerate(config_struct[node_type]):
-            for j_ind, j in enumerate(names):
-                if j != None:
-                    if i.has_key('session_params') and i['session_params'] != None:
-                       use_param = {indexed_name:j}
-                       for par in i['session_params']:
-                            use_key = par[-1]
-                            use_elem = iterate_dict(request.session, par)
-                            if use_elem != None:
-                                use_param[use_key] = use_elem
-                    else:
-                        use_param = {indexed_name:j}
-                        
-                    if len(param_list) > 0:
-                        for p_key in param_list[j_ind].keys():
-                            use_param[p_key] = param_list[j_ind][p_key]
-                    
-                    use_query = i['query']
-                    
-                    for var_elem in request.session['where_vars']:
-                        use_query = add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
-                    
-                    missing_params = get_necessary_params(use_query).difference(set(use_param.keys()))
-                    
-                    if len(missing_params) == 0:
-                        tx.append(use_query, use_param)
-                    elif len(missing_params) > 0 and missing_param=="fail":
-                        raise Exception("Cannot find parameter(s) " + str(list(missing_params)) + " and missing_param is set to 'fail'")
-                    #otherwise this implies skip
             
-            if len(names) > 0:
-                if i_ind == (len(config_struct[node_type])-1):
+            if (i.has_key('db_type') == False) or (i.has_key('db_type') and i['db_type'] == 'neo4j'):
+                
+                session = cypher.Session(cypher_session)
+                tx = session.create_transaction()
+                
+                for j_ind, j in enumerate(names):
+                    if j != None:
+                        if i.has_key('session_params') and i['session_params'] != None:
+                           use_param = {indexed_name:j}
+                           for par in i['session_params']:
+                                use_key = par[-1]
+                                use_elem = iterate_dict(request.session, par)
+                                if use_elem != None:
+                                    use_param[use_key] = use_elem
+                        else:
+                            use_param = {indexed_name:j}
+                            
+                        if len(param_list) > 0:
+                            for p_key in param_list[j_ind].keys():
+                                use_param[p_key] = param_list[j_ind][p_key]
+                            
+                        use_query = i['query']
+                        
+                        for var_elem in request.session['where_vars']:
+                            use_query = add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+                        
+                        missing_params = get_necessary_params(use_query).difference(set(use_param.keys()))
+                        
+                        if len(missing_params) == 0:
+                            tx.append(use_query, use_param)
+                        elif len(missing_params) > 0 and missing_param=="fail":
+                            raise Exception("Cannot find parameter(s) " + str(list(missing_params)) + " and missing_param is set to 'fail'")
+                        #otherwise this implies skip
+                
+                if len(names) > 0:
                     res_list = tx.commit()
-                else:
-                    res_list = tx.execute()
-                    
-                i['handler'](res_list, nodes, request)
+                        
+            elif i.has_key('db_type') and i['db_type'] == 'sql':
+                
+                print 'db'
+                
+            else:
+                raise Exception("specified db_type is not defined")
+                
+            i['handler'](res_list, nodes, request)
     else:
         raise Exception("config_struct does not have specified node_type")
     
