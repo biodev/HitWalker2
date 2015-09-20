@@ -1273,11 +1273,14 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
             elif i.has_key('db_type') and i['db_type'] == 'sql':
                 
                 print 'db'
+                res_list = []
                 
             else:
                 raise Exception("specified db_type is not defined")
-                
-            i['handler'](res_list, nodes, request)
+            
+            if len(res_list) > 0:
+            
+                i['handler'](res_list, nodes, request)
     else:
         raise Exception("config_struct does not have specified node_type")
     

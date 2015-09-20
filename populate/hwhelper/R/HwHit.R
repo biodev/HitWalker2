@@ -74,7 +74,7 @@ fill.query.slots <- function(obj){
   
   hit.crit <- ifelse(obj@is.dense, "true", paste0(sum.dir, "(r.score*r2.weight) > $PAR_NAME$"))
   
-  type.name <- capwords(tolower(sub("HAS_", "", sampleEdge(obj))))
+  type.name <- typeName(obj)
   
   if (length(obj@base.query) == 0){
     

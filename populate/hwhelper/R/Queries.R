@@ -100,35 +100,27 @@ setMethod("toGene", signature("VCFTable"), function(obj, neo.path=NULL, gene.mod
 #' A basic class for representing the Cancer Cell Line Encyclopedia style Mutation Annotation Format files.
 #'
 #' @slot maf, a \code{data.frame} representation of the MAF file.
-CCLEMaf_class <- setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData",
-                          prototype=list(
-                            base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFERRED_TO]-(symb) WHERE d.type = "DNASeq" AND subject.name IN {SAMPLE}
-                            RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
-                            r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,
-                            r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id, subject.name AS Sample ',
-                            
-                            template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE d.type = "DNASeq" AND $$lower_coll_type$$.name IN {$$coll_type$$}
-                            WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll'
-                          ))
+CCLEMaf_class <- setClass(Class="CCLEMaf", representation=list(data="data.frame"), contains="NeoData")
 #' @rdname class_helpers
 #' @param file.name The path to the CCLE MAF file.
-readMAF.ccle <- function(file.name, sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation")
+readMAF.ccle <- function(file.name, node.name="variation", sample.edge.name="HAS_DNASEQ")
 {
   use.maf <- read.delim(file.name, sep="\t", stringsAsFactors=F)
   
   keep.maf <- use.maf[,c("Entrez_Gene_Id", "Genome_Change", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change",
                          "Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
   
-  return(new("CCLEMaf", maf=keep.maf, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
+  names(keep.maf)[c(1:2,9)] <- c("gene", "name", "sample")
+  
+  return(new("CCLEMaf", data=keep.maf, node.name=node.name, is.dense=T, sample.edge.name=sample.edge.name))
 }
 
-setGeneric("maf", def=function(obj,...) standardGeneric("maf"))
-setMethod("maf", signature("CCLEMaf"), function(obj){
-  return(obj@maf)
+setMethod("data", signature("CCLEMaf"), function(obj){
+  return(obj@data)
 })
 
 setMethod("sampleNames", signature("CCLEMaf"), function(object){
-  return(unique(maf(object)$Tumor_Sample_Barcode))
+  return(unique(data(object)$sample))
 })
 
 #' @describeIn CCLEMaf_class Loads the sample to variant data into Neo4j.  The sample annotation is taken from the 'Tumor_Sample_Barcode' column and the variant annotation is taken from the 'Genome_Change' column.

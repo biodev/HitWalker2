@@ -76,16 +76,18 @@ end
   #this is only for a non-ssl version
   sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
   sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
-  
+
+  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("VariantAnnotation", "SNPRelate", "ensemblVEP", "biomaRt"))' 
+ 
+  cd /vagrant
+  sudo R CMD build genotools
+  sudo R CMD INSTALL genotools_*
+ 
   cp -r /vagrant/HitWalker2 /home/vagrant/
   
   sudo chown -R vagrant:vagrant /home/vagrant/HitWalker2
   
   cd /vagrant/HitWalker2/populate
-  
-  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("VariantAnnotation", "SNPRelate", "ensemblVEP", "biomaRt")'
- 
-  sudo R CMD INSTALL genotools_* 
   
   sudo ./roxygen_build.sh install
   
@@ -168,9 +170,13 @@ exec gunicorn -k eventlet HitWalker2.wsgi:application
   cd ..
   
   python manage.py collectstatic --noinput
-  
-  Rscript -e 'library(hwhelper)' -e 'load("/vagrant/hw2_config.RData")' -e 'configure(hw2.conf)'
-  
+
+  if [ -f /vagrant/hw2_config.RData ]
+  then 
+ 
+  	Rscript -e 'library(hwhelper)' -e 'load("/vagrant/hw2_config.RData")' -e 'configure(hw2.conf)'
+  fi
+
   cd /vagrant
   
   sudo restart HitWalker2

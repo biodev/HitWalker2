@@ -1,3 +1,4 @@
+import(RSQLite)
 import(methods)
 import(Biobase)
 import(reshape2)

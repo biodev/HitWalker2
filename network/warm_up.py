@@ -79,7 +79,8 @@ if __name__ == '__main__':
         
         if isinstance(cur_val, list):
             cur_val = cur_val[0]
-        
+        print cur_val
+        print param_key
         print get_nodes([cur_val], i, request, param_list=[param_key]).display_names()
     
     #gene, subject and pathway searches
@@ -109,7 +110,8 @@ if __name__ == '__main__':
     
     for i in config.node_group_content.items():
         for j in i[1]['options']:
-            print list(neo4j.CypherQuery(graph_db, j['query']).execute(**param_dict))
+            if j['query'] != '':
+                print list(neo4j.CypherQuery(graph_db, j['query']).execute(**param_dict))
     
     #carry out the shortest path query
     

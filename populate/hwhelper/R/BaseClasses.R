@@ -10,6 +10,7 @@ setGeneric("dataTypes", def=function(obj,...) standardGeneric("dataTypes"))
 setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
+setGeneric("typeName", def=function(obj,...) standardGeneric("typeName"))
 
 
 #' Shared Generics
@@ -86,6 +87,11 @@ setMethod("sampleEdge", signature("NeoData"), function(obj){
 setMethod("geneEdge", signature("NeoData"), function(obj){
     return(obj@gene.edge.name)
 })
+
+setMethod("typeName", signature("NeoData"), function(obj){
+  capwords(tolower(sub("HAS_", "", sampleEdge(obj))))
+})
+
 
 #' Subject-level information
 #'
@@ -166,10 +172,12 @@ setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel
     
 })
 
+setGeneric("data", def=function(obj,...) standardGeneric("data"))
+
 #' @describeIn HW2Config Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
 #' @param neo.path If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.
 #' @param skip If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
-setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL){
+setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL, db.path="/var/www/hitwalker2_inst/data.db"){
     
     if (missing(skip) || is.null(skip) || all(is.na(skip)))
     {
@@ -195,14 +203,38 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
         names(subject.info)[2:ncol(subject.info)] <- paste(names(subject.info)[1], names(subject.info)[2:ncol(subject.info)], sep=".")
     }
     
+    #should also load the subject info into the sql database in case there is a dense datatype...
+    
     load.neo4j(.data=subject.info, edge.name=NULL,commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
     load.neo4j(.data=obj@subject@subject.to.sample, edge.name="DERIVED", commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", merge.from=F)
+    
+    temp.sub.dta <- obj@subject@subject.to.sample
+    names(temp.sub.dta) <- tolower(names(temp.sub.dta))
     
     for(i in setdiff(seq_along(obj.list), skip))
     {
         message(paste("Starting:", i))
-        fromSample(obj.list[[i]], neo.path=neo.path)
-        toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
+        
+        if (obj.list[[i]]@is.dense == F){
+          fromSample(obj.list[[i]], neo.path=neo.path)
+          toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
+        }else{
+          
+          temp.tab.dta <- data(obj.list[[i]])
+          temp.tab.dta$type <- typeName(obj.list[[i]])
+          
+          w.tab <- merge(temp.tab.dta, temp.sub.dta, by=c("sample", "type"), all=T, sort=F)
+          
+          w.tab$id <- 1:nrow(w.tab)
+          
+          con <- dbConnect(SQLite(), db.path)
+          
+          dbWriteTable(conn=con, name=capwords(nodeName(obj.list[[i]])), value=w.tab, row.names=F)
+          
+          dbDisconnect(con)
+        }
+        
+       
     }
     
 })
@@ -278,7 +310,7 @@ multi.gsub <- function(patterns, replacements, use.str)
 #' @param base.dir Directory where the template files are located
 #' @param dest.dir Directory where the complete template files should be placed.
 #' @param make.graph.struct If TRUE, generate and stage a graph_struct file
-setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/", make.graph.struct=T){
+setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/", make.graph.struct=T, db.path="/var/www/hitwalker2_inst/data.db"){
     #copySubstitute() --which is part of Biobase
     
     if (file.exists(dest.dir) == F)
@@ -295,12 +327,12 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     subj.name <- capwords(subjectName(obj))
     
-    base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WITH subject, sample, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias END AS query_names WHERE ANY(x IN query_names WHERE x = "$$sample$$") WITH subject, sample ')
+    base.query <- paste0('MATCH (subject:',subj.name,')-[d:DERIVED]->(sample) WITH subject, sample, d, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias END AS query_names WHERE ANY(x IN query_names WHERE x = "$$sample$$") WITH subject, sample ')
     
     prev.types <- character()
-    
+     
     for(i in dataTypes(obj)){
-        base.query <- append(base.query, paste0('OPTIONAL MATCH (sample)-[:',relNames(obj, data.type=i, rel.type="from"),']-(res) WITH subject, sample',paste(c(" ", prev.types), collapse=" , "),', COUNT(res) AS ',i,' '))
+        base.query <- append(base.query, paste0(', SUM(CASE WHEN d.type = "', typeName(obj@data.list[[i]]), '" THEN 1 ELSE 0 END) AS ', i))
         prev.types <- append(prev.types, i)
     }
     
@@ -328,10 +360,17 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
             use.params <- "None"
         }
         
+        #need to add in db_type:sql
         
-        temp.query <- paste0(i,"= {'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T)), "', 'handler':",handler,", 'session_params':",use.params, "}")
+        if (obj@data.list[[i]]@is.dense){
+          db.type <- "sql"
+        }else{
+          db.type <- "neo4j"
+        }
+        
+        temp.query <- paste0(i,"= {'db_type':'",db.type,"','query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T)), "', 'handler':",handler,", 'session_params':",use.params, "}")
         base.queries <- append(base.queries, temp.query)
-        templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T)), "', 'handler':None, 'session_params':",use.params, "}"))
+        templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'db_type':'",db.type,"','title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T)), "', 'handler':None, 'session_params':",use.params, "}"))
     }
     
     subj.dta <- obj@subject@subject.info
@@ -372,9 +411,41 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
         cur.dir <- getwd()
         setwd(dirname(dest.dir))
         system("./change_hw2_instance.sh tmpl")
+        
         setwd(cur.dir)
     }else{
         message("Cannot find 'change_hw2_instance.sh', skipping config file setup")
+    }
+    
+    if (file.exists(db.path)){
+    
+      cur.dir <- getwd()
+      setwd(dirname(dest.dir))
+      
+      suppressWarnings(cur.mods <- readLines("network/models.py"))
+      
+      p.con <- pipe("python manage.py inspectdb --database=data")
+      
+      addl.mods <- readLines(p.con)
+      
+      close(p.con)
+      
+      which.pk <- grep("\\s*id\\s*=", addl.mods)
+      for(i in which.pk){
+        addl.mods[which.pk] <- sub("id = .*", "id = models.IntegerField(primary_key=True),", addl.mods[which.pk])
+      }
+      
+      classes <- grep("class", addl.mods)
+      
+      first.class <- which.min(classes)
+      
+      addl.mods <- addl.mods[-c(1:(classes[first.class]-1))]
+      
+      all.mods <- c(cur.mods, addl.mods)
+      
+      writeLines(all.mods, con="network/models.py")
+      
+      setwd(cur.dir)
     }
     
     if (make.graph.struct){
@@ -407,7 +478,13 @@ setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
         
         call.list$stringsAsFactors <- F
         
+        use.type <- typeName(value)
+        
         value <- do.call(data.frame, call.list)
+        
+        if ("type" %in% names(value) == F){
+          value$type <- use.type
+        }
     }
     
     if (('sample' %in% names(value) && names(obj@subject.info)[1] %in% names(value)) == F)
