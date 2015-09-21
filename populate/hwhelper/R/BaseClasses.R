@@ -229,7 +229,7 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
           
           con <- dbConnect(SQLite(), db.path)
           
-          dbWriteTable(conn=con, name=capwords(nodeName(obj.list[[i]])), value=w.tab, row.names=F)
+          dbWriteTable(conn=con, name=names(obj.list)[i], value=w.tab, row.names=F)
           
           dbDisconnect(con)
         }

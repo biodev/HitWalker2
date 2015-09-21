@@ -124,7 +124,7 @@ for i in data_types['seeds']:
     hit_session_dict[i] = [core.customize_query(eval(i), query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_hits)]
 
 #Here we also need to have 'query_ind', 'gene_ind' and a unique 'row_id'
-query_prior_dict = dict([(data_types['target'], [core.customize_query(eval(data_types['target']), query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_query_prior)])])
+query_prior_dict = dict([(data_types['target'], [core.customize_query(eval(data_types['target']), colnames=["sample", "@SUBJECT@"], query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_dense_query)])])
 
 score_hits=core.no_combining
 convert_ids_to=custom_functions.gene_seed_list_to_protein

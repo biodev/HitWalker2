@@ -10,6 +10,7 @@ import copy
 import itertools
 from py2neo import neo4j, cypher
 import numpy as np
+import network.models
 
 ###classes
 
@@ -876,6 +877,25 @@ def get_nodes_from_config(request, session_dict):
     
     return nl
 
+def handle_dense_query(res_list, nodes, request):
+    table_header = filter(lambda x: x.startswith("_")==False, res_list[0][0].__dict__.keys())
+    
+    nodes.attributes['header'] = table_header[:]
+    
+    ext_head = map(lambda x: table_header.index(x),['name', 'gene'])
+    
+    for i in res_list:
+        for j in i:
+            
+            j_m = map(lambda x: x[1], filter(lambda y: y[0].startswith("_")==False, j.__dict__.items()))
+            
+            table_header.extend(["gene_ind", "query_ind", "row_id"])
+            j_m.extend(ext_head)
+            j_m.append(str(j_m[ext_head[0]])+str(j_m[ext_head[1]]))
+            print j_m
+            nodes.add(RowNode(j_m, copy.copy(table_header)))
+    
+
 def handle_query_prior(res_list, nodes, request):
     
     table_header = list(cypherHeader(res_list))
@@ -912,6 +932,12 @@ def customize_query(inp_query, **kwargs):
             
         else:
             new_query[i] = inp_query[i]
+    
+    diff_keys = set(kwargs.keys()).difference(set(inp_query.keys()))
+    
+    for i in diff_keys:
+        new_query[i] = kwargs[i]
+    
     return new_query
 
 def iterate_dict(cur_dict, name_list):
@@ -1271,9 +1297,21 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                     res_list = tx.commit()
                         
             elif i.has_key('db_type') and i['db_type'] == 'sql':
-                
+                from django.db.models import Q
                 print 'db'
+                print names
+                print node_type
+                print param_list
+                #also need to getattr Variation etc, sub something else for gene__in
+                cur_mod = getattr(network.models, node_type)
                 res_list = []
+                for j in names:
+                    if isinstance(i['colnames'], str):
+                        comb_q = Q(**{i['colnames'].lower()+"__in":j})
+                    elif len(i['colnames']) == 2:
+                        comb_q = Q(**{i['colnames'][0].lower()+"__in":j}) | Q(**{i['colnames'][1].lower()+"__in":j})
+                    
+                    res_list.append(cur_mod.objects.using("data").filter(comb_q))
                 
             else:
                 raise Exception("specified db_type is not defined")

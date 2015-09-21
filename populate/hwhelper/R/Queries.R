@@ -108,7 +108,7 @@ readMAF.ccle <- function(file.name, node.name="variation", sample.edge.name="HAS
   use.maf <- read.delim(file.name, sep="\t", stringsAsFactors=F)
   
   keep.maf <- use.maf[,c("Entrez_Gene_Id", "Genome_Change", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change",
-                         "Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
+                         "Tumor_Sample_Barcode", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
   
   names(keep.maf)[c(1:2,9)] <- c("gene", "name", "sample")
   
