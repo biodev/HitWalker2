@@ -249,7 +249,7 @@ class RowNode(Node):
         
         row_name = row[row_header.index('row_id')]
         
-        self.node_dict = {'id':row_name, 'display_name':row_name, 'attributes':{'gene':row[row[row_header.index('gene_ind')]], 'query':row[row[row_header.index('query_ind')]], 'node_type':'row'}, 'children':NodeList()}
+        self.node_dict = {'id':row_name, 'display_name':row_name, 'attributes':{'gene':str(row[row[row_header.index('gene_ind')]]), 'query':str(row[row[row_header.index('query_ind')]]), 'node_type':'row'}, 'children':NodeList()}
         
         row.pop(row_header.index('query_ind'))
         row_header.pop(row_header.index('query_ind'))
@@ -511,6 +511,39 @@ class TargetChildNode(Node):
         
     def todict(self):
         return super(TargetChildNode, self).todict()
+
+def handle_dense_gene_targets(res_list, nodes, request):
+    
+    from config import data_types
+    
+    table_header = filter(lambda x: x.startswith("_")==False, res_list[0][0].__dict__.keys())
+    
+    nodes.attributes['header'] = table_header[:]
+    
+    ext_head = map(lambda x: table_header.index(x),['gene', 'name'])
+    
+    var_name = len(table_header) + 1#query_ind below
+    samp_name = ext_head.index('sample')
+    gene_name = len(table_header)
+    
+    for i in res_list:
+        for j in i:
+            
+            j_m = map(lambda x: x[1], filter(lambda y: y[0].startswith("_")==False, j.__dict__.items()))
+            
+            table_header.extend(["gene_ind", "query_ind", "row_id"])
+            j_m.extend(ext_head)
+            j_m.append(str(j_m[ext_head[0]])+str(j_m[ext_head[1]]))
+            
+            gene_list = collections.defaultdict(list)
+            for k in use_j:
+                gene_list[k[k[var_name]]].append(k[samp_name])
+            
+            cur_gene = nodes.getNode(j_m[j_m[gene_name]])
+            
+            for k in gene_list.items():
+                variant = TargetChildNode(cur_gene, k[0], k[1], data_types['target'])
+                nodes.addChild(cur_gene.id, variant)
 
 def handle_gene_targets(res_list, nodes, request):
     
@@ -882,7 +915,7 @@ def handle_dense_query(res_list, nodes, request):
     
     nodes.attributes['header'] = table_header[:]
     
-    ext_head = map(lambda x: table_header.index(x),['name', 'gene'])
+    ext_head = map(lambda x: table_header.index(x),['gene', 'name'])
     
     for i in res_list:
         for j in i:
@@ -1301,9 +1334,10 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                 print 'db'
                 print names
                 print node_type
+                print i['datatype']
                 print param_list
                 #also need to getattr Variation etc, sub something else for gene__in
-                cur_mod = getattr(network.models, node_type)
+                cur_mod = getattr(network.models, i['datatype'])
                 res_list = []
                 for j in names:
                     if isinstance(i['colnames'], str):

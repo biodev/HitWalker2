@@ -368,7 +368,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
           db.type <- "neo4j"
         }
         
-        temp.query <- paste0(i,"= {'db_type':'",db.type,"','query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T)), "', 'handler':",handler,", 'session_params':",use.params, "}")
+        temp.query <- paste0(i,"= {'db_type':'",db.type,"', 'datatype':'",i,"','query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T)), "', 'handler':",handler,", 'session_params':",use.params, "}")
         base.queries <- append(base.queries, temp.query)
         templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'db_type':'",db.type,"','title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T)), "', 'handler':None, 'session_params':",use.params, "}"))
     }
