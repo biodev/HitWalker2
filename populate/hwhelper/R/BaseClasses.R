@@ -223,7 +223,7 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
           temp.tab.dta <- data(obj.list[[i]])
           temp.tab.dta$type <- typeName(obj.list[[i]])
           
-          w.tab <- merge(temp.tab.dta, temp.sub.dta, by=c("sample", "type"), all=T, sort=F)
+          w.tab <- merge(temp.tab.dta, temp.sub.dta, by=c("sample", "type"), all=F, sort=F)
           
           w.tab$id <- 1:nrow(w.tab)
           
