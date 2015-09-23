@@ -515,31 +515,20 @@ class TargetChildNode(Node):
 def handle_dense_gene_targets(res_list, nodes, request):
 
     from config import data_types
-    #print 'hello dan'
-    #print res_list
-    table_header = filter(lambda x: x.startswith("_")==False, res_list[0][0].__dict__.keys())
-    print table_header
-    
-    subj_name = table_header.index('subject')
-    gene_name = table_header.index('gene')
-    
-    print var_name
-
     for i in res_list:
+        var_list = collections.defaultdict(list)
+        gene_set = set()
         for j in i:
-            
-            j_m = map(lambda x: x[1], filter(lambda y: y[0].startswith("_")==False, j.__dict__.items()))
-            j_m.append(str(j_m[ext_head[0]])+str(j_m[ext_head[1]]))
-            
-            print j_m       
-            gene_list = collections.defaultdict(list)
-            for k in use_j:
-                gene_list['name'].append(k[subj_name])
-            
-            cur_gene = nodes.getNode(j_m[gene_name])
-            
-            for k in gene_list.items():
-                variant = TargetChildNode(cur_gene, k[0], k[1], data_types['target'])
+                gene_set.add(j.gene)
+                var_list[j.name].append(j.subject)
+        #print var_list
+        if len(gene_set) != 1:
+                print 'fail'
+                print gene_set
+                raise Exception("Only expected a single gene in 'handle_dense_gene_targets'")
+        cur_gene = nodes.getNode(str(gene_set.pop()))
+        for j in var_list.items():
+                variant = TargetChildNode(cur_gene, j[0], j[1], data_types['target'])
                 nodes.addChild(cur_gene.id, variant)
                 
 def handle_gene_targets(res_list, nodes, request):
@@ -1336,19 +1325,21 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                 #also need to getattr Variation etc, sub something else for gene__in
                 cur_mod = getattr(network.models, i['datatype'])
                 res_list = []
-                for j in names:
+                for j_ind, j in enumerate(names):
                     if isinstance(j, list) == False:
                         j = [j]
-                    if i.has_key('colnames') == False:
-                        comb_q = Q(**{node_type.lower()+"__in":j})
-                    elif isinstance(i['colnames'], str):
-                        comb_q = Q(**{i['colnames'].lower()+"__in":j})
-                    elif len(i['colnames']) == 2:
-                        comb_q = Q(**{i['colnames'][0].lower()+"__in":j}) | Q(**{i['colnames'][1].lower()+"__in":j})
-                    
+                    if node_type == i['datatype']:
+                        use_nt = 'sample'
+                    else:
+                        use_nt = node_type[:]
+                    comb_q = Q(**{use_nt.lower()+"__in":j})
+                    if len(param_list) > 0:
+                        for k in param_list[j_ind].items():
+                                if k[0] == i['datatype']:
+                                        comb_q = comb_q & Q(**{"sample__in":k[1]})
                     db_res = cur_mod.objects.using("data").filter(comb_q)
                     if len(db_res) > 0:
-                        res_list.append(db_res)
+                        res_list.append(db_res)  
                 
             else:
                 raise Exception("specified db_type is not defined")
