@@ -513,38 +513,35 @@ class TargetChildNode(Node):
         return super(TargetChildNode, self).todict()
 
 def handle_dense_gene_targets(res_list, nodes, request):
-    
+
     from config import data_types
-    
+    #print 'hello dan'
+    #print res_list
     table_header = filter(lambda x: x.startswith("_")==False, res_list[0][0].__dict__.keys())
+    print table_header
     
-    nodes.attributes['header'] = table_header[:]
+    subj_name = table_header.index('subject')
+    gene_name = table_header.index('gene')
     
-    ext_head = map(lambda x: table_header.index(x),['gene', 'name'])
-    
-    var_name = len(table_header) + 1#query_ind below
-    samp_name = ext_head.index('sample')
-    gene_name = len(table_header)
-    
+    print var_name
+
     for i in res_list:
         for j in i:
             
             j_m = map(lambda x: x[1], filter(lambda y: y[0].startswith("_")==False, j.__dict__.items()))
-            
-            table_header.extend(["gene_ind", "query_ind", "row_id"])
-            j_m.extend(ext_head)
             j_m.append(str(j_m[ext_head[0]])+str(j_m[ext_head[1]]))
             
+            print j_m       
             gene_list = collections.defaultdict(list)
             for k in use_j:
-                gene_list[k[k[var_name]]].append(k[samp_name])
+                gene_list['name'].append(k[subj_name])
             
-            cur_gene = nodes.getNode(j_m[j_m[gene_name]])
+            cur_gene = nodes.getNode(j_m[gene_name])
             
             for k in gene_list.items():
                 variant = TargetChildNode(cur_gene, k[0], k[1], data_types['target'])
                 nodes.addChild(cur_gene.id, variant)
-
+                
 def handle_gene_targets(res_list, nodes, request):
     
     if len(res_list) > 0:
@@ -1340,12 +1337,18 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                 cur_mod = getattr(network.models, i['datatype'])
                 res_list = []
                 for j in names:
-                    if isinstance(i['colnames'], str):
+                    if isinstance(j, list) == False:
+                        j = [j]
+                    if i.has_key('colnames') == False:
+                        comb_q = Q(**{node_type.lower()+"__in":j})
+                    elif isinstance(i['colnames'], str):
                         comb_q = Q(**{i['colnames'].lower()+"__in":j})
                     elif len(i['colnames']) == 2:
                         comb_q = Q(**{i['colnames'][0].lower()+"__in":j}) | Q(**{i['colnames'][1].lower()+"__in":j})
                     
-                    res_list.append(cur_mod.objects.using("data").filter(comb_q))
+                    db_res = cur_mod.objects.using("data").filter(comb_q)
+                    if len(db_res) > 0:
+                        res_list.append(db_res)
                 
             else:
                 raise Exception("specified db_type is not defined")

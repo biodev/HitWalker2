@@ -210,6 +210,7 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
     
     temp.sub.dta <- obj@subject@subject.to.sample
     names(temp.sub.dta) <- tolower(names(temp.sub.dta))
+    names(temp.sub.dta)[names(temp.sub.dta) == tolower(subjectName(obj))] <- "subject"
     
     for(i in setdiff(seq_along(obj.list), skip))
     {
@@ -364,6 +365,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
         
         if (obj@data.list[[i]]@is.dense){
           db.type <- "sql"
+          handler <- sub("handle_","handle_dense_",handler)
         }else{
           db.type <- "neo4j"
         }
