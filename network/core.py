@@ -10,7 +10,6 @@ import copy
 import itertools
 from py2neo import neo4j, cypher
 import numpy as np
-import network.models
 
 ###classes
 
@@ -1055,7 +1054,7 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     #just want to create a base set of nodes here, will add the specific children and such below when iterating through the different rel types
     
     for key,val in query_types.items():
-        temp_nl = get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip")
+        temp_nl = get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip", only_base=True)
         
         if len(temp_nl) > 0:
         
@@ -1256,7 +1255,7 @@ def apply_grouping2(cur_graph, query_nodes, never_group=False, exclude_type=""):
     else:
         return cur_graph
 
-def get_nodes(names, node_type, request, indexed_name="name",  config_struct = None, param_list=[], missing_param="fail", cypher_session=None):
+def get_nodes(names, node_type, request, indexed_name="name",  config_struct = None, param_list=[], missing_param="fail", cypher_session=None, only_base=False):
     
     if missing_param != "fail" and missing_param != "skip":
         raise Exception("missing_param needs to be either fail or skip")
@@ -1278,6 +1277,9 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
     if config_struct.has_key(node_type):
         for i_ind, i in enumerate(config_struct[node_type]):
             
+            if (only_base == True) and ((i.has_key('base') == False) or (i['base'] == False)):
+                continue
+            res_list = []
             if (i.has_key('db_type') == False) or (i.has_key('db_type') and i['db_type'] == 'neo4j'):
                 
                 session = cypher.Session(cypher_session)
@@ -1308,14 +1310,16 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                         
                         if len(missing_params) == 0:
                             tx.append(use_query, use_param)
+                            
                         elif len(missing_params) > 0 and missing_param=="fail":
                             raise Exception("Cannot find parameter(s) " + str(list(missing_params)) + " and missing_param is set to 'fail'")
                         #otherwise this implies skip
                 
-                if len(names) > 0:
+                if len(tx._statements) > 0:
                     res_list = tx.commit()
                         
             elif i.has_key('db_type') and i['db_type'] == 'sql':
+                import network.models
                 from django.db.models import Q
                 print 'db'
                 print names
@@ -1335,8 +1339,11 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                     comb_q = Q(**{use_nt.lower()+"__in":j})
                     if len(param_list) > 0:
                         for k in param_list[j_ind].items():
+                                #this is kind of confusing, ... sample-specific data will be specified as the given datatype while subject specific will be called SAMPLE
                                 if k[0] == i['datatype']:
                                         comb_q = comb_q & Q(**{"sample__in":k[1]})
+                                if k[0] == 'SAMPLE':
+                                        comb_q = comb_q & Q(**{"subject__in":k[1]})
                     db_res = cur_mod.objects.using("data").filter(comb_q)
                     if len(db_res) > 0:
                         res_list.append(db_res)  

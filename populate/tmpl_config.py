@@ -147,9 +147,9 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 #lambda x: [['query_samples', 'LabID', 'Variants']]
 
 node_queries={
-    'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
-    'Sample':[core.customize_query(sample, query=lambda x: x.replace("{SUBJECTID}", "{name}"))],
-    'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))]
+    'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"), base=True)],
+    'Sample':[core.customize_query(sample, query=lambda x: x.replace("{SUBJECTID}", "{name}"), base=True)],
+    'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"), base=True)]
 }
 
 #by default the user has no control over these parameters, if this was desired then these queries would need to be specified in 'adjust_fields' above and the unique id would need to be specified in session_params (e.g. core.customize_query(etc, etc, session_params=lambda x: [['gene_score']])
@@ -163,9 +163,9 @@ for i in data_list:
 #Whereas the node_queries are only involved in the get_shortest_paths functionality
 edge_queries = {
     'nodes':{
-        'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
-        'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))],
-        'Pathway':[core.customize_query(pathway, query=lambda x: x.replace("{PATHNAME}", "{name}"))]
+        'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"),base=True)],
+        'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"), base=True)],
+        'Pathway':[core.customize_query(pathway, query=lambda x: x.replace("{PATHNAME}", "{name}"), base=True)]
         },
     
     'edges':{

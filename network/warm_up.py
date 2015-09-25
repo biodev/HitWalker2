@@ -10,6 +10,7 @@ try:
     from core import get_nodes
     import custom_functions
 except:
+    print 'Cannot load modules...'
     sys.exit(0)
 
 class TestRequest():
@@ -72,6 +73,15 @@ if __name__ == '__main__':
     
     for i in config.data_list:
         param_key[i].append(samp_vals['subject'][0])
+    
+    #remove sql queries from the default config_struct before below
+    #this modifies config.node_queries indirectly but works for the remaning calls as opposed to making direct calls
+    tmp_node_queries = config.node_queries
+
+    for i in tmp_node_queries.keys():
+        for j_ind, j in enumerate(tmp_node_queries[i]):
+                if j['query'] == '':
+                        tmp_node_queries[i].pop(j_ind)
     
     for i in ['Gene', 'Sample', 'Subject']:
         
