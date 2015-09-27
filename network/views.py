@@ -801,33 +801,75 @@ def fullfill_node_query(request):
         
         #execute the query
         
-        graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
-        
+        temp_node_list = []
+        max_vals = []
         use_query = query_info['query']
         
-        for var_elem in request.session['where_vars']:
-            use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+        if (query_info.has_key('db_type') == False) or (query_info.has_key('db_type') and query_info['db_type'] == 'neo4j'):
         
-        #print use_query, node_queries
-        
-        #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
-        query = neo4j.CypherQuery(graph_db, use_query)
-        
-        
-        temp_node_list = []
-        #node_queries
-        max_vals = []
-        
-        for i in query.stream(**node_queries):
-            #print i.values
-            if (len(max_vals) == 0) or ((i.values[1] < max_vals[-1]) and (len(max_vals) < 5)):
-                max_vals.append(i.values[1])
-                temp_node_list.append((str(int(round((i.values[1]/float(cur_len))*100))), i.values[0]))
-            elif i.values[1] >= max_vals[-1]:
-                temp_node_list.append((str(int(round((i.values[1]/float(cur_len))*100))), i.values[0]))
+            graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
+            
+            for var_elem in request.session['where_vars']:
+                use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+            
+            #print use_query, node_queries
+            
+            #use_query = core.add_where_input_query(query_info['query'], request.session['where_template'], request.session['necessary_vars'], request.session['graph_struct'])
+            query = neo4j.CypherQuery(graph_db, use_query)
+            
+            
+            for i in query.stream(**node_queries):
+                #print i.values
+                if (len(max_vals) == 0) or ((i.values[1] < max_vals[-1]) and (len(max_vals) < 5)):
+                    max_vals.append(i.values[1])
+                    temp_node_list.append((str(int(round((i.values[1]/float(cur_len))*100))), i.values[0]))
+                elif i.values[1] >= max_vals[-1]:
+                    temp_node_list.append((str(int(round((i.values[1]/float(cur_len))*100))), i.values[0]))
+                else:
+                    break
+                
+        elif query_info.has_key('db_type') and query_info['db_type'] == 'sql':
+            
+            print node_queries
+
+            query_keys = node_queries.keys()
+
+            if len(query_keys) == 1:
+                node_type = query_keys[0]
             else:
-                break
-        
+                raise Exception("Can't handle multiple keys for node queries for now...s")
+
+            #should subset the basic config struct to just this datatype...
+
+            print copy.deepcopy(config.node_queries[node_type])
+            temp_query = filter(lambda x: ((x.has_key('db_type') == True) and (x['db_type'] == 'sql')) or ((x.has_key('base') == True) and (x['base'] == True)), copy.deepcopy(config.node_queries[node_type]))
+
+            print temp_query
+
+            node_list = core.get_nodes(node_queries[node_type], node_type, request, config_struct={node_type:temp_query})
+            #not sure what to do with param_list=[] etc as should probably add in the session_params from the template...s)
+            node_names = map(lambda x: x.getAttr(['id']), node_list)
+            res_set_list = []
+            for i in node_list:
+                temp_set = set()
+                for j in i.children():
+                        for k in j.getAttr(["attributes", "other_nodes"]):
+                                temp_set.add(k)
+                res_set_list.append(list(temp_set))
+            res_col = collections.Counter(reduce(lambda x,y: x+y,res_set_list))
+
+            for i in res_col.most_common():
+                if (len(max_vals) == 0) or ((i[1] < max_vals[-1]) and (len(max_vals) < 5)):
+                        max_vals.append(i[1])
+                        temp_node_list.append((str(int(round((i[1]/float(cur_len))*100))), i[0]))
+                elif i[1] >= max_vals[-1]:
+                        temp_node_list.append((str(int(round((i[1]/float(cur_len))*100))), i[0]))
+                else:
+                        break
+
+        else:
+            raise Exception("Unknown db_type")
+            
         ret_dict = collections.defaultdict(list)
         
         for k,v in temp_node_list:
