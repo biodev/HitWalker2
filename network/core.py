@@ -1038,7 +1038,7 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     all_nodes = NodeList()
     
     for key,val in all_node_dict.items():
-        all_nodes.extendIfNew(get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip"))
+        all_nodes.extendIfNew(get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip", only_base=True))
     
     #whereas query nodes can change type (e.g Pathway -> Gene)
     
