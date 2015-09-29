@@ -94,13 +94,6 @@ setMethod("toGene", signature("VCFTable"), function(obj, neo.path=NULL, gene.mod
 })
 
 
-
-#' CCLE MAF Representation
-#'
-#' A basic class for representing the Cancer Cell Line Encyclopedia style Mutation Annotation Format files.
-#'
-#' @slot maf, a \code{data.frame} representation of the MAF file.
-CCLEMaf_class <- setClass(Class="CCLEMaf", representation=list(data="data.frame"), contains="NeoData")
 #' @rdname class_helpers
 #' @param file.name The path to the CCLE MAF file.
 readMAF.ccle <- function(file.name, node.name="variation", sample.edge.name="HAS_DNASEQ")
@@ -112,75 +105,67 @@ readMAF.ccle <- function(file.name, node.name="variation", sample.edge.name="HAS
   
   names(keep.maf)[c(1:2,9)] <- c("gene", "name", "sample")
   
-  return(new("CCLEMaf", data=keep.maf, node.name=node.name, is.dense=T, sample.edge.name=sample.edge.name))
+  return(new("DenseNeoData", data=keep.maf, node.name=node.name, is.dense=T, sample.edge.name=sample.edge.name))
 }
 
-setMethod("data", signature("CCLEMaf"), function(obj){
-  return(obj@data)
-})
-
-setMethod("sampleNames", signature("CCLEMaf"), function(object){
-  return(unique(data(object)$sample))
-})
-
-#' @describeIn CCLEMaf_class Loads the sample to variant data into Neo4j.  The sample annotation is taken from the 'Tumor_Sample_Barcode' column and the variant annotation is taken from the 'Genome_Change' column.
-#' The following additional columns are added as attributes as well:
-#' \itemize{
-#'   \item Center
-#'   \item Sequencer
-#'   \item Alternative_allele_reads_count
-#'   \item Reference_allele_reads_count
-#'   \item dbSNP_RS
-#'   \item dbSNP_Val_Status
-#' }
-#' @param obj The optional path to a Neo4j database.
-#' @param neo.path The optional path to a Neo4j database.
-setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path=NULL){
-  #first sample -> variant
-  #the name here will be derived from the Genome_Change column as that provides potentially enough information to uniquely id a variant (indels might still be tricky...)
-  #will keep missing values as "" for now
-  
-  sample.maf <- maf(obj)
-  
-  samp.maf <- sample.maf[,c("Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
-  names(samp.maf) <- c("sample", nodeName(obj), "center", "sequencer", "alt_counts", "ref_counts", "variation.dbsnp", "variation.dbsnp_val_status")
-  samp.maf$variation.dbsnp <- gsub(";", "&", samp.maf$variation.dbsnp)
-  samp.maf$variation.dbsnp_val_status <- gsub(";", "&", samp.maf$variation.dbsnp_val_status)
-  
-  #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
-  
-  load.neo4j(.data=samp.maf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-})
-
-#' @describeIn CCLEMaf_class Loads the variant to gene data into Neo4j.  The mapping is produced using the 'Genome_Change' and 'Entrez_Gene_Id' columns.
-#' Additionally, the following columns are also included as attributes:
-#' \itemize{
-#'      \item Variant_Classification
-#'      \item Annotation_Transcript
-#'      \item Transcript_Strand
-#'      \item cDNA_Change
-#'      \item Codon_Change
-#'      \item Protein_Change
-#' }
-#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
-setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.model="entrez"){
-  #then add in the Variation->EntrezID relationships
-  
-  if (gene.model != "entrez")
-  {
-    stop("ERROR: Only gene.model = 'entrez' is supported for MAF files")
-  }
-  
-  cur.maf <- maf(obj)
-  
-  #only keep one row for each gene/variant
-  var.gene.dta <- cur.maf[!duplicated(cur.maf[,c("Entrez_Gene_Id", "Genome_Change")]),]
-  
-  var.gene.dta <- var.gene.dta[,c("Genome_Change", "Entrez_Gene_Id", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change")]
-  
-  names(var.gene.dta) <- c(nodeName(obj), "entrezID","variant_classification", "transcript", "transcript_strand", "cdna", "codon", "protein")
-  
-  load.neo4j(.data=var.gene.dta, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
-  
-})
+# #' @describeIn CCLEMaf_class Loads the sample to variant data into Neo4j.  The sample annotation is taken from the 'Tumor_Sample_Barcode' column and the variant annotation is taken from the 'Genome_Change' column.
+# #' The following additional columns are added as attributes as well:
+# #' \itemize{
+# #'   \item Center
+# #'   \item Sequencer
+# #'   \item Alternative_allele_reads_count
+# #'   \item Reference_allele_reads_count
+# #'   \item dbSNP_RS
+# #'   \item dbSNP_Val_Status
+# #' }
+# #' @param obj The optional path to a Neo4j database.
+# #' @param neo.path The optional path to a Neo4j database.
+# setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path=NULL){
+#   #first sample -> variant
+#   #the name here will be derived from the Genome_Change column as that provides potentially enough information to uniquely id a variant (indels might still be tricky...)
+#   #will keep missing values as "" for now
+#   
+#   sample.maf <- maf(obj)
+#   
+#   samp.maf <- sample.maf[,c("Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
+#   names(samp.maf) <- c("sample", nodeName(obj), "center", "sequencer", "alt_counts", "ref_counts", "variation.dbsnp", "variation.dbsnp_val_status")
+#   samp.maf$variation.dbsnp <- gsub(";", "&", samp.maf$variation.dbsnp)
+#   samp.maf$variation.dbsnp_val_status <- gsub(";", "&", samp.maf$variation.dbsnp_val_status)
+#   
+#   #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
+#   
+#   load.neo4j(.data=samp.maf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+# })
+# 
+# #' @describeIn CCLEMaf_class Loads the variant to gene data into Neo4j.  The mapping is produced using the 'Genome_Change' and 'Entrez_Gene_Id' columns.
+# #' Additionally, the following columns are also included as attributes:
+# #' \itemize{
+# #'      \item Variant_Classification
+# #'      \item Annotation_Transcript
+# #'      \item Transcript_Strand
+# #'      \item cDNA_Change
+# #'      \item Codon_Change
+# #'      \item Protein_Change
+# #' }
+# #' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
+# setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.model="entrez"){
+#   #then add in the Variation->EntrezID relationships
+#   
+#   if (gene.model != "entrez")
+#   {
+#     stop("ERROR: Only gene.model = 'entrez' is supported for MAF files")
+#   }
+#   
+#   cur.maf <- maf(obj)
+#   
+#   #only keep one row for each gene/variant
+#   var.gene.dta <- cur.maf[!duplicated(cur.maf[,c("Entrez_Gene_Id", "Genome_Change")]),]
+#   
+#   var.gene.dta <- var.gene.dta[,c("Genome_Change", "Entrez_Gene_Id", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change")]
+#   
+#   names(var.gene.dta) <- c(nodeName(obj), "entrezID","variant_classification", "transcript", "transcript_strand", "cdna", "codon", "protein")
+#   
+#   load.neo4j(.data=var.gene.dta, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
+#   
+# })
 

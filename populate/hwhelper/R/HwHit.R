@@ -109,18 +109,79 @@ fill.query.slots <- function(obj){
 #' A basic class for representing Affymetrix expression array data.
 #'
 #' @slot exprs, an \code{ExpressionSet} containing expression data.
-HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains=c("NeoData", "HwHit"),
-                             prototype=list(sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet",
-                                            default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold", is.dense=TRUE))
+HW2exprSet_class <- setClass(Class="HW2exprSet", contains=c("DenseNeoData", "HwHit"))
 
 #' @rdname class_helpers
-#' @param exprs An ExpressionSet
+#' @param exprs An ExpressionSet (for now)
 #' @param sample.edge.name The name of the relationship between the samples and the assay identifier e.g. probeset, drug or variant.
 #' @param gene.edge.name The name of the relationship between the assay identifiers and genes
 #' @param node.name The name that should be given to the assay units in the Neo4j database.
-HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet"){
+HW2exprSet <- function(exprs, sample.edge.name="Expression", node.name="Affy_Exprs", gene.model="entrez",default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold")){
   
-  return(fill.query.slots(new("HW2exprSet", exprs=exprs, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name)))
+  if (class(exprs) != "ExpressionSet"){
+    stop("ERROR: 'exprs' should be an ExpressionSet")
+  }
+  
+  if (length(annotation(exprs)) > 0){
+    
+    if (grepl("\\.db$", annotation(obj@exprs), perl=T)){
+      
+      annotation.package <- annotation(obj@exprs)
+      
+    }else{
+      
+      annotation.package <- paste0(annotation(obj@exprs), ".db")
+    }
+  }else{
+    stop("ERROR: Need to specify an annotation package as part of the ExpressionSet")
+  }
+  
+  require(annotation.package, character.only=T)
+  
+  gene.model <- match.arg(gene.model)
+  
+  scale.exprs <- t(scale(t(exprs)))
+  
+  melt.use.exprs <- melt(scale.exprs)
+  names(melt.use.exprs) <- c("probeset", "sample", "score")
+  
+  melt.use.exprs$sample <- as.character(melt.use.exprs$sample)
+  melt.use.exprs$probeset <- as.character(melt.use.exprs$probeset)
+  
+  use.expr <- paste("melt.use.exprs$score", direction, min(range))
+  
+  exprs.hits <- eval(parse(text=use.expr))
+  
+  melt.use.exprs <- melt.use.exprs[exprs.hits,]
+  
+  melt.use.exprs <-  melt.use.exprs[,c("sample", "probeset", "score")]
+  names(melt.use.exprs)[2] <- nodeName(obj)
+  
+  
+  #Then create a mapping file from probeset to gene
+  
+  gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
+  
+  probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj@exprs), column=gene.type, keytypes="PROBEID"))
+  
+  #Discard for now those that do not map to either type of genes.
+  
+  probe.to.gene <- probe.to.gene[is.na(probe.to.gene[,gene.type]) == F,]
+  
+  #probesets that map to multiple genes are perhaps not that reliable either, so discard them as well for now...
+  
+  dup.probes <- probe.to.gene$PROBEID[duplicated(probe.to.gene$PROBEID)]
+  
+  probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
+  names(probe.to.gene) <- c(node.name, switch(gene.model, entrez="entrezID", ensembl="ensembl"))
+  
+  probe.to.gene$weight <- 1
+  
+  #now merge melt.use.exprs and probe.to.gene to create the data object
+  
+  data <- merge(melt.use.exprs, probe.to.gene, by=node.name, all=F, incomparables=NA, sort=F)
+  
+  return(new("HW2exprSet", data=data, sample.edge.name=sample.edge.name, node.name=node.name, default=default, direction=direction, range=range, display_name=display_name))
 }
 
 #' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the

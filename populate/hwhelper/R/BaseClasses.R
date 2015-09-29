@@ -71,7 +71,7 @@ NULL
 #' @slot node.name The name of the node representation of the assay unit
 #' @slot base.query A cypher template which provides the basic information about the assay at the gene level (see provided classes for examples).
 #' @slot template.query A cypher template which forms the basis of aggregation-based queries (see provided classes for examples)
-NeoData <- setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character", base.query="character", template.query="character", is.dense="logical"), prototype = list(is.dense=FALSE))
+NeoData <- setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character", base.query="character", template.query="character"))
 
 setMethod("nodeName", signature("NeoData"), function(obj){
     return(obj@node.name)
@@ -92,6 +92,15 @@ setMethod("typeName", signature("NeoData"), function(obj){
   capwords(tolower(sub("HAS_", "", sampleEdge(obj))))
 })
 
+DenseNeoData <- setClass(Class="DenseNeoData", representation=list(data="data.frame"), contains="NeoData")
+
+setMethod("data", signature("DenseNeoData"), function(obj){
+  return(obj@data)
+})
+
+setMethod("sampleNames", signature("DenseNeoData"), function(object){
+  return(unique(data(object)$sample))
+})
 
 #' Subject-level information
 #'
@@ -216,7 +225,7 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
     {
         message(paste("Starting:", i))
         
-        if (obj.list[[i]]@is.dense == F){
+        if (class(obj.list[[i]]) != "DenseNeoData"){
           fromSample(obj.list[[i]], neo.path=neo.path)
           toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
         }else{
