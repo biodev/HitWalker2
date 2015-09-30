@@ -477,6 +477,29 @@ class RelationshipSet:
             self.rel_key_pos = 0
             raise StopIteration
 
+def handle_dense_gene_hits(res_list, nodes, request):
+
+    for i in res_list:
+        samp_list = collections.defaultdict(list)
+        #use_vars as in variables, which should be type in this case...
+        use_vars = set()
+        samp_genes = set()
+        for j in i:
+                obj_name = type(j).__name__.lower()
+                if request.session.has_key(obj_name):
+                        comp = request.session['inp_params']['General_Parameters']['fields'][obj_name]['comparison']
+                        is_hit = eval(str(j.score) + comp + str(request.session[obj_name]))
+                else:
+                        is_hit = True
+                use_vars.add(j.type)
+                samp_list[j.subject].append([j.score, is_hit])
+                samp_genes.add(j.gene)
+        
+        cur_gene = nodes.getNode(str(samp_genes.pop()))
+        
+        gene_score = BasicGeneChild(cur_gene, samp_list, use_vars.pop())
+        nodes.addChild(cur_gene.id, gene_score)
+
 def handle_gene_hits(res_list, nodes, request):
     for i in BasicResultsIterable(res_list):
        

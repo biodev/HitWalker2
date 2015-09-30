@@ -11,6 +11,7 @@ setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 setGeneric("typeName", def=function(obj,...) standardGeneric("typeName"))
+setGeneric("data", def=function(obj,...) standardGeneric("data"))
 
 
 #' Shared Generics
@@ -181,8 +182,6 @@ setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel
     
 })
 
-setGeneric("data", def=function(obj,...) standardGeneric("data"))
-
 #' @describeIn HW2Config Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
 #' @param neo.path If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.
 #' @param skip If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
@@ -225,10 +224,7 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
     {
         message(paste("Starting:", i))
         
-        if (class(obj.list[[i]]) != "DenseNeoData"){
-          fromSample(obj.list[[i]], neo.path=neo.path)
-          toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
-        }else{
+        if (inherits(obj.list[[i]], "DenseNeoData")){
           
           temp.tab.dta <- data(obj.list[[i]])
           temp.tab.dta$type <- typeName(obj.list[[i]])
@@ -242,6 +238,10 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
           dbWriteTable(conn=con, name=names(obj.list)[i], value=w.tab, row.names=F)
           
           dbDisconnect(con)
+          
+        }else{
+          fromSample(obj.list[[i]], neo.path=neo.path)
+          toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
         }
         
        
@@ -372,7 +372,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
         
         #need to add in db_type:sql
         
-        if (obj@data.list[[i]]@is.dense){
+        if (inherits(obj@data.list[[i]], "DenseNeoData")){
           db.type <- "sql"
           handler <- sub("handle_","handle_dense_",handler)
         }else{
@@ -443,7 +443,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
       
       which.pk <- grep("\\s*id\\s*=", addl.mods)
       for(i in which.pk){
-        addl.mods[which.pk] <- sub("id = .*", "id = models.IntegerField(primary_key=True),", addl.mods[which.pk])
+        addl.mods[which.pk] <- sub("\\Wid = .*", "id = models.IntegerField(primary_key=True),", addl.mods[which.pk], perl=T)
       }
       
       classes <- grep("class", addl.mods)

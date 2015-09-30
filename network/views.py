@@ -793,12 +793,6 @@ def fullfill_node_query(request):
         
         query_info = query_type['options'][int(req_table[1])]
         
-        if query_info['session_params'] != None:
-            for i in query_info['session_params']:
-                use_key = i[-1]
-                if node_queries.has_key(use_key) == False:
-                    node_queries[use_key] = core.iterate_dict(request.session, i)
-        
         #execute the query
         
         temp_node_list = []
@@ -806,6 +800,13 @@ def fullfill_node_query(request):
         use_query = query_info['query']
         
         if (query_info.has_key('db_type') == False) or (query_info.has_key('db_type') and query_info['db_type'] == 'neo4j'):
+        
+            #this can be local to this function as this info can be accessed through the session info in core.handle_dense_gene_hits
+            if query_info['session_params'] != None:
+                for i in query_info['session_params']:
+                    use_key = i[-1]
+                    if node_queries.has_key(use_key) == False:
+                        node_queries[use_key] = core.iterate_dict(request.session, i)
         
             graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
             

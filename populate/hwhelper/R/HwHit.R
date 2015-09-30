@@ -116,21 +116,21 @@ HW2exprSet_class <- setClass(Class="HW2exprSet", contains=c("DenseNeoData", "HwH
 #' @param sample.edge.name The name of the relationship between the samples and the assay identifier e.g. probeset, drug or variant.
 #' @param gene.edge.name The name of the relationship between the assay identifiers and genes
 #' @param node.name The name that should be given to the assay units in the Neo4j database.
-HW2exprSet <- function(exprs, sample.edge.name="Expression", node.name="Affy_Exprs", gene.model="entrez",default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold")){
+HW2exprSet <- function(eset, sample.edge.name="Expression", node.name="Affy_Exprs", gene.model="entrez",default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold"){
   
-  if (class(exprs) != "ExpressionSet"){
-    stop("ERROR: 'exprs' should be an ExpressionSet")
+  if (class(eset) != "ExpressionSet"){
+    stop("ERROR: 'eset' should be an ExpressionSet")
   }
   
-  if (length(annotation(exprs)) > 0){
+  if (length(annotation(eset)) > 0){
     
-    if (grepl("\\.db$", annotation(obj@exprs), perl=T)){
+    if (grepl("\\.db$", annotation(eset), perl=T)){
       
-      annotation.package <- annotation(obj@exprs)
+      annotation.package <- annotation(eset)
       
     }else{
       
-      annotation.package <- paste0(annotation(obj@exprs), ".db")
+      annotation.package <- paste0(annotation(eset), ".db")
     }
   }else{
     stop("ERROR: Need to specify an annotation package as part of the ExpressionSet")
@@ -140,7 +140,7 @@ HW2exprSet <- function(exprs, sample.edge.name="Expression", node.name="Affy_Exp
   
   gene.model <- match.arg(gene.model)
   
-  scale.exprs <- t(scale(t(exprs)))
+  scale.exprs <- t(scale(t(exprs(eset))))
   
   melt.use.exprs <- melt(scale.exprs)
   names(melt.use.exprs) <- c("probeset", "sample", "score")
@@ -155,14 +155,14 @@ HW2exprSet <- function(exprs, sample.edge.name="Expression", node.name="Affy_Exp
   melt.use.exprs <- melt.use.exprs[exprs.hits,]
   
   melt.use.exprs <-  melt.use.exprs[,c("sample", "probeset", "score")]
-  names(melt.use.exprs)[2] <- nodeName(obj)
+  names(melt.use.exprs)[2] <- node.name
   
   
   #Then create a mapping file from probeset to gene
   
   gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
   
-  probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj@exprs), column=gene.type, keytypes="PROBEID"))
+  probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(eset), column=gene.type, keytypes="PROBEID"))
   
   #Discard for now those that do not map to either type of genes.
   
@@ -173,7 +173,7 @@ HW2exprSet <- function(exprs, sample.edge.name="Expression", node.name="Affy_Exp
   dup.probes <- probe.to.gene$PROBEID[duplicated(probe.to.gene$PROBEID)]
   
   probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
-  names(probe.to.gene) <- c(node.name, switch(gene.model, entrez="entrezID", ensembl="ensembl"))
+  names(probe.to.gene) <- c(node.name, "gene")
   
   probe.to.gene$weight <- 1
   
@@ -184,86 +184,86 @@ HW2exprSet <- function(exprs, sample.edge.name="Expression", node.name="Affy_Exp
   return(new("HW2exprSet", data=data, sample.edge.name=sample.edge.name, node.name=node.name, default=default, direction=direction, range=range, display_name=display_name))
 }
 
-#' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the
-#' probeset names are derived from the rownames. The score attribute is derived from the values of the matrix.  The expression values are converted to z scores
-#' prior to loading and only those sample to gene relationships that exceed the specified lower range are kept.
-#' @param obj An object of class \code{HW2exprSet}.
-#' @param neo.path The optional path to a Neo4j database.
-setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path=NULL){
-  
-  use.exprs <- exprs(obj@exprs)
-  
-  #by default we z transform the data
-  
-  scale.exprs <- t(scale(t(use.exprs)))
-  
-  melt.use.exprs <- melt(scale.exprs)
-  names(melt.use.exprs) <- c("probeset", "sample", "score")
-  
-  melt.use.exprs$sample <- as.character(melt.use.exprs$sample)
-  melt.use.exprs$probeset <- as.character(melt.use.exprs$probeset)
-  
-  use.expr <- paste("melt.use.exprs$score", obj@direction, min(obj@range))
-  
-  exprs.hits <- eval(parse(text=use.expr))
-  
-  melt.use.exprs <- melt.use.exprs[exprs.hits,]
-  
-  #now load the sample -> probe mappings
-  
-  melt.use.exprs <-  melt.use.exprs[,c("sample", "probeset", "score")]
-  names(melt.use.exprs)[2] <- nodeName(obj)
-  
-  load.neo4j(.data=melt.use.exprs, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", unique.rels=F)
-  
-})
-
-#' @describeIn HW2exprSet_class Implements the loading of the probeset to gene mapping data into Neo4j.  The mapping data is derived from the annotation
-#' database specified using the \code{annotation} method for the \code{ExpressionSet}.
-#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
-setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.model=c("entrez", "ensembl")){
-  
-  gene.model <- match.arg(gene.model)
-  
-  if (length(annotation(obj@exprs)) > 0){
-    
-    if (grepl("\\.db$", annotation(obj@exprs), perl=T)){
-      
-      annotation.package <- annotation(obj@exprs)
-      
-    }else{
-      
-      annotation.package <- paste0(annotation(obj@exprs), ".db")
-    }
-  }else{
-    stop("ERROR: Need to specify an annotation package as part of the ExpressionSet")
-  }
-  
-  require(annotation.package, character.only=T)
-  
-  #Then create a mapping file from probeset to gene
-  
-  gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
-  
-  probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj@exprs), column=gene.type, keytypes="PROBEID"))
-  
-  #Discard for now those that do not map to either type of genes.
-  
-  probe.to.gene <- probe.to.gene[is.na(probe.to.gene[,gene.type]) == F,]
-  
-  #probesets that map to multiple genes are perhaps not that reliable either, so discard them as well for now...
-  
-  dup.probes <- probe.to.gene$PROBEID[duplicated(probe.to.gene$PROBEID)]
-  
-  probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
-  names(probe.to.gene) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"))
-  
-  probe.to.gene$weight <- 1
-  
-  #load the probe->gene mappings
-  
-  load.neo4j(.data=probe.to.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-})
+# #' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the
+# #' probeset names are derived from the rownames. The score attribute is derived from the values of the matrix.  The expression values are converted to z scores
+# #' prior to loading and only those sample to gene relationships that exceed the specified lower range are kept.
+# #' @param obj An object of class \code{HW2exprSet}.
+# #' @param neo.path The optional path to a Neo4j database.
+# setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path=NULL){
+#   
+#   use.exprs <- exprs(obj@exprs)
+#   
+#   #by default we z transform the data
+#   
+#   scale.exprs <- t(scale(t(use.exprs)))
+#   
+#   melt.use.exprs <- melt(scale.exprs)
+#   names(melt.use.exprs) <- c("probeset", "sample", "score")
+#   
+#   melt.use.exprs$sample <- as.character(melt.use.exprs$sample)
+#   melt.use.exprs$probeset <- as.character(melt.use.exprs$probeset)
+#   
+#   use.expr <- paste("melt.use.exprs$score", obj@direction, min(obj@range))
+#   
+#   exprs.hits <- eval(parse(text=use.expr))
+#   
+#   melt.use.exprs <- melt.use.exprs[exprs.hits,]
+#   
+#   #now load the sample -> probe mappings
+#   
+#   melt.use.exprs <-  melt.use.exprs[,c("sample", "probeset", "score")]
+#   names(melt.use.exprs)[2] <- nodeName(obj)
+#   
+#   load.neo4j(.data=melt.use.exprs, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", unique.rels=F)
+#   
+# })
+# 
+# #' @describeIn HW2exprSet_class Implements the loading of the probeset to gene mapping data into Neo4j.  The mapping data is derived from the annotation
+# #' database specified using the \code{annotation} method for the \code{ExpressionSet}.
+# #' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
+# setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.model=c("entrez", "ensembl")){
+#   
+#   gene.model <- match.arg(gene.model)
+#   
+#   if (length(annotation(obj@exprs)) > 0){
+#     
+#     if (grepl("\\.db$", annotation(obj@exprs), perl=T)){
+#       
+#       annotation.package <- annotation(obj@exprs)
+#       
+#     }else{
+#       
+#       annotation.package <- paste0(annotation(obj@exprs), ".db")
+#     }
+#   }else{
+#     stop("ERROR: Need to specify an annotation package as part of the ExpressionSet")
+#   }
+#   
+#   require(annotation.package, character.only=T)
+#   
+#   #Then create a mapping file from probeset to gene
+#   
+#   gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
+#   
+#   probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj@exprs), column=gene.type, keytypes="PROBEID"))
+#   
+#   #Discard for now those that do not map to either type of genes.
+#   
+#   probe.to.gene <- probe.to.gene[is.na(probe.to.gene[,gene.type]) == F,]
+#   
+#   #probesets that map to multiple genes are perhaps not that reliable either, so discard them as well for now...
+#   
+#   dup.probes <- probe.to.gene$PROBEID[duplicated(probe.to.gene$PROBEID)]
+#   
+#   probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
+#   names(probe.to.gene) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"))
+#   
+#   probe.to.gene$weight <- 1
+#   
+#   #load the probe->gene mappings
+#   
+#   load.neo4j(.data=probe.to.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+# })
 
 GeneSet_class <- setClass(Class="GeneSet", contains=c("AnnotatedMatrix", "HwHit"),
                           prototype = list(

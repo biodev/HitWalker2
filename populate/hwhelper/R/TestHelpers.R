@@ -54,26 +54,26 @@ setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL
   
 })
 
-#' @rdname test_helpers
-setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL, limit.to.hits=T){
-  
-  if (missing(genes) || is.null(genes) || all(is.na(genes))){
-    gene.maf <- obj@maf    
-  }else{
-    gene.maf <- obj@maf[obj@maf$Entrez_Gene_Id %in% genes,]
-  }
-  
-  sub.maf <- gene.maf[gene.maf$Tumor_Sample_Barcode %in% samples,c("Tumor_Sample_Barcode", "Entrez_Gene_Id")]
-  
-  names(sub.maf) <- c("Sample", "Gene")
-  
-  if (limit.to.hits==F){
-    sub.maf$IsHit <- T
-  }
-  
-  return(sub.maf)
-  
-})
+##' @rdname test_helpers
+# setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL, limit.to.hits=T){
+#   
+#   if (missing(genes) || is.null(genes) || all(is.na(genes))){
+#     gene.maf <- obj@maf    
+#   }else{
+#     gene.maf <- obj@maf[obj@maf$Entrez_Gene_Id %in% genes,]
+#   }
+#   
+#   sub.maf <- gene.maf[gene.maf$Tumor_Sample_Barcode %in% samples,c("Tumor_Sample_Barcode", "Entrez_Gene_Id")]
+#   
+#   names(sub.maf) <- c("Sample", "Gene")
+#   
+#   if (limit.to.hits==F){
+#     sub.maf$IsHit <- T
+#   }
+#   
+#   return(sub.maf)
+#   
+# })
 
 #' @rdname test_helpers
 setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL, limit.to.hits=T){

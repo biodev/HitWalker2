@@ -3,10 +3,6 @@
 #' A class for representing general variant data stored in GATK flavored VCF files annotated with Ensembl VEP
 #'
 
-fill.query.slots.vars <- function(){
-  
-}
-
 gatkvcf_class <- setClass(Class="VCFTable", representation=list(vcf.dta="data.frame", ensembl.to.entrez="data.frame"), contains="NeoData",
                           prototype = list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFERRED_TO]-(symb) WHERE d.type = "DNASeq" AND subject.name IN {SAMPLE}
                                           RETURN var.name AS Variant_Position, gene.name AS Gene, symb.name AS Symbol,
@@ -105,7 +101,7 @@ readMAF.ccle <- function(file.name, node.name="variation", sample.edge.name="HAS
   
   names(keep.maf)[c(1:2,9)] <- c("gene", "name", "sample")
   
-  return(new("DenseNeoData", data=keep.maf, node.name=node.name, is.dense=T, sample.edge.name=sample.edge.name))
+  return(new("DenseNeoData", data=keep.maf, node.name=node.name, sample.edge.name=sample.edge.name))
 }
 
 # #' @describeIn CCLEMaf_class Loads the sample to variant data into Neo4j.  The sample annotation is taken from the 'Tumor_Sample_Barcode' column and the variant annotation is taken from the 'Genome_Change' column.
