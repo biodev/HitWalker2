@@ -33,7 +33,9 @@ import csv
 #optionally need tinycss, cssselect, lxml, cairosvg
 
 import tempfile
+import network.models as netmods
 from network.models import user_parameters
+from django.db.models import Q
 
 import cssutils
 import colour
@@ -838,27 +840,52 @@ def fullfill_node_query(request):
             if len(query_keys) == 1:
                 node_type = query_keys[0]
             else:
-                raise Exception("Can't handle multiple keys for node queries for now...s")
-
-            #should subset the basic config struct to just this datatype...
-
-            print copy.deepcopy(config.node_queries[node_type])
-            temp_query = filter(lambda x: ((x.has_key('db_type') == True) and (x['db_type'] == 'sql')) or ((x.has_key('base') == True) and (x['base'] == True)), copy.deepcopy(config.node_queries[node_type]))
-
-            print temp_query
-
-            node_list = core.get_nodes(node_queries[node_type], node_type, request, config_struct={node_type:temp_query})
-            #not sure what to do with param_list=[] etc as should probably add in the session_params from the template...s)
-            node_names = map(lambda x: x.getAttr(['id']), node_list)
-            res_set_list = []
-            for i in node_list:
-                temp_set = set()
-                for j in i.children():
-                        for k in j.getAttr(["attributes", "other_nodes"]):
-                                temp_set.add(k)
-                res_set_list.append(list(temp_set))
-            res_col = collections.Counter(reduce(lambda x,y: x+y,res_set_list))
-
+                raise Exception("Can't handle multiple keys for node queries for now...")
+            
+            #get database
+            cur_mod = getattr(netmods, query_info['text'])
+            
+            comb_q = Q()
+            
+            if query_info['session_params'] != None:
+                #have to also get the directional info from the parameter info
+                #note that query_info['session_params'] and obj_name should be the same value after unlisting of the former...
+                
+                for i in query_info['session_params']:
+                    
+                    obj_name = i[:].pop().lower()
+                    if request.session.has_key(obj_name):
+                            comp = request.session['inp_params']['General_Parameters']['fields'][obj_name]['comparison']
+                            db_comp = 'eq'
+                            if comp == '>':
+                                db_comp = 'gt'
+                            elif comp == '<':
+                                db_comp = 'lt'
+                            
+                            comb_q = comb_q & Q(**{'score__'+db_comp:core.iterate_dict(request.session, i)})
+                            
+            
+            comb_q = comb_q & Q(**{node_type.lower()+"__in":node_queries[node_type]})
+            
+            db_res = cur_mod.objects.using("data").filter(comb_q)
+            
+            res_set_dict = collections.defaultdict(set)
+            
+            key_col = node_type.lower()
+            append_col = query_type['returned_node_type'].lower()
+            
+            for i in db_res:
+                #get the current field as well as the other one based on the returned_node field of query_info (or parent object)
+                res_set_dict[getattr(i, key_col)].add(getattr(i, append_col))
+            
+            if len(res_set_dict.keys()) == 0:
+                res_col = collections.Counter()
+            elif len(res_set_dict.keys()) == 1:
+                res_col = collections.Counter(res_set_dict.items()[0][1])
+            else:
+                res_col = collections.Counter(reduce(lambda x,y: list(x[1])+list(y[1]),res_set_dict.items()))
+            print res_col
+            
             for i in res_col.most_common():
                 if (len(max_vals) == 0) or ((i[1] < max_vals[-1]) and (len(max_vals) < 5)):
                         max_vals.append(i[1])
@@ -893,6 +920,7 @@ def fullfill_node_query(request):
         return HttpResponse(json.dumps({'ret_node_type':query_type['returned_node_type'], 'results':dict(count_coll)}),mimetype="application/json")
     
     except Exception as e:
+        print e
         return HttpResponseServerError()
 
 
