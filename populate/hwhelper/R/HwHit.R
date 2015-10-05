@@ -72,7 +72,7 @@ fill.query.slots <- function(obj){
   
   sum.dir <- ifelse(obj@direction == ">", "MAX", "MIN")
   
-  hit.crit <- ifelse(obj@is.dense, "true", paste0(sum.dir, "(r.score*r2.weight) > $PAR_NAME$"))
+  hit.crit <- paste0(sum.dir, "(r.score*r2.weight) > $PAR_NAME$")
   
   type.name <- typeName(obj)
   
