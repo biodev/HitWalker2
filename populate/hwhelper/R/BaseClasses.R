@@ -443,7 +443,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
       
       which.pk <- grep("\\s*id\\s*=", addl.mods)
       for(i in which.pk){
-        addl.mods[which.pk] <- sub("\\Wid = .*", "id = models.IntegerField(primary_key=True),", addl.mods[which.pk], perl=T)
+        addl.mods[which.pk] <- sub("(\\W)id = .*", "\\1id = models.IntegerField(primary_key=True),", addl.mods[which.pk], perl=T)
       }
       
       classes <- grep("class", addl.mods)
