@@ -12,7 +12,10 @@ setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 setGeneric("typeName", def=function(obj,...) standardGeneric("typeName"))
 setGeneric("data", def=function(obj,...) standardGeneric("data"))
-
+setGeneric("guessFields", def=function(obj,...) standardGeneric("guessFields"))
+setGeneric("removeFields", def=function(obj,...) standardGeneric("removeFields"))
+setGeneric("tweakField", def=function(obj,...) standardGeneric("tweakField"))
+setGeneric("addLogic", def=function(obj,...) standardGeneric("addLogic"))
 
 #' Shared Generics
 #'
@@ -101,6 +104,69 @@ setMethod("data", signature("DenseNeoData"), function(obj){
 
 setMethod("sampleNames", signature("DenseNeoData"), function(object){
   return(unique(data(object)$sample))
+})
+
+GroupedFilter <- setClass(Class="GroupedFilter", representation=list(fields="list", groups="list"))
+
+#factor.size.limit is the maximum number of levels a character/factor column is allowed to have to be considered
+#by default numeric values are set to be hits if they are greater than the mean
+setMethod("guessFields", signature("DenseNeoData"), function(obj, factor.size.limit=5){
+  
+  #needs to look like: 'freq':{'type':'numeric', 'comparison':'<','default':.01, 'range':[0,1], 'name':'Global MAF', 'var_name':'gmaf','trans':core.return_numeric},
+  
+  obj.dta <- data(obj)
+  obj.dta <- obj.dta[,-c(1:3)]
+  
+  field.list <- lapply(names(obj.dta), function(x){
+    
+    disp.name <- capwords(gsub("_", " ", x))
+    #treat 0/1 encoded variables as character...
+    if (is.numeric(obj.dta[,x]) && all(obj.dta[x]) %in% c(0,1) == F){
+      
+      return(list(type="numeric", comparision=">", default=mean(obj.dta[,x]), range=range(obj.dta[,x]), name=disp.name, var_name=tolower(x), trans=NA))
+      
+    }else{
+      x.chr <- as.character(x)
+      
+      if (length(unique(x.chr)) > factor.size.limit){
+        return(NULL)
+      }else{
+        
+        unique.vals <- unique(x.chr)
+        
+        if (all(unique.vals %in% c(0,1))){
+          unique.vals <- c("True", "False")
+        }
+        
+        return(list(type="character", default=unique.vals[1], range=unique.vals, name=disp.name, var_name=tolower(x), trans=NA))
+      }
+      
+    }
+    
+  })
+  
+  names(field.list) <- names(ob.dta)
+  
+  should.keep <- sapply(field.list, function(x) is.null(x)==F)
+  
+  field.list <- field.list[should.keep]
+  
+  return(new("GroupedFilter", fields=field.list))
+  
+})
+
+setMethod("removeFields", signature("GroupedFilter"), function(obj, fieldnames){
+  
+  if(all(fieldnames %in% names(obj@fields)) == F){
+    stop("fieldnames to be removed should have been specified as fields")
+  }
+  
+  ret.obj <- obj@fields[setdiff(names(obj@fields), fieldnames)]
+  
+  #need to also deal with case where obj@groups is non-null
+  
+  return(ret.obj)
+  
 })
 
 #' Subject-level information
