@@ -1,3 +1,46 @@
+#taken from http://dec2014.archive.ensembl.org/info/genome/variation/predicted_data.html#consequences
+ens.cons.tab <- "transcript_ablation 	A feature ablation whereby the deleted region includes a transcript feature 	SO:0001893 	Transcript ablation
+splice_donor_variant 	A splice variant that changes the 2 base region at the 5' end of an intron 	SO:0001575 	Essential splice site
+splice_acceptor_variant 	A splice variant that changes the 2 base region at the 3' end of an intron 	SO:0001574 	Essential splice site
+stop_gained 	A sequence variant whereby at least one base of a codon is changed, resulting in a premature stop codon, leading to a shortened transcript 	SO:0001587 	Stop gained
+frameshift_variant 	A sequence variant which causes a disruption of the translational reading frame, because the number of nucleotides inserted or deleted is not a multiple of three 	SO:0001589 	Frameshift coding
+stop_lost 	A sequence variant where at least one base of the terminator codon (stop) is changed, resulting in an elongated transcript 	SO:0001578 	Stop lost
+initiator_codon_variant 	A codon variant that changes at least one base of the first codon of a transcript 	SO:0001582 	Non synonymous coding
+transcript_amplification 	A feature amplification of a region containing a transcript 	SO:0001889 	Transcript amplification
+inframe_insertion 	An inframe non synonymous variant that inserts bases into in the coding sequence 	SO:0001821 	Non synonymous coding
+inframe_deletion 	An inframe non synonymous variant that deletes bases from the coding sequence 	SO:0001822 	Non synonymous coding
+missense_variant 	A sequence variant, that changes one or more bases, resulting in a different amino acid sequence but where the length is preserved 	SO:0001583 	Non synonymous coding
+splice_region_variant 	A sequence variant in which a change has occurred within the region of the splice site, either within 1-3 bases of the exon or 3-8 bases of the intron 	SO:0001630 	Splice site
+incomplete_terminal_codon_variant 	A sequence variant where at least one base of the final codon of an incompletely annotated transcript is changed 	SO:0001626 	Partial codon
+stop_retained_variant 	A sequence variant where at least one base in the terminator codon is changed, but the terminator remains 	SO:0001567 	Synonymous coding
+synonymous_variant 	A sequence variant where there is no resulting change to the encoded amino acid 	SO:0001819 	Synonymous coding
+coding_sequence_variant 	A sequence variant that changes the coding sequence 	SO:0001580 	Coding unknown
+mature_miRNA_variant 	A transcript variant located with the sequence of the mature miRNA 	SO:0001620 	Within mature miRNA
+5_prime_UTR_variant 	A UTR variant of the 5' UTR 	SO:0001623 	5prime UTR
+3_prime_UTR_variant 	A UTR variant of the 3' UTR 	SO:0001624 	3prime UTR
+non_coding_transcript_exon_variant 	A sequence variant that changes non-coding exon sequence in a non-coding transcript 	SO:0001792 	Within non coding gene
+intron_variant 	A transcript variant occurring within an intron 	SO:0001627 	Intronic
+NMD_transcript_variant 	A variant in a transcript that is the target of NMD 	SO:0001621 	NMD transcript
+non_coding_transcript_variant 	A transcript variant of a non coding RNA gene 	SO:0001619 	Within non coding gene
+upstream_gene_variant 	A sequence variant located 5' of a gene 	SO:0001631 	Upstream
+downstream_gene_variant 	A sequence variant located 3' of a gene 	SO:0001632 	Downstream
+TFBS_ablation 	A feature ablation whereby the deleted region includes a transcription factor binding site 	SO:0001895 	Tfbs ablation
+TFBS_amplification 	A feature amplification of a region containing a transcription factor binding site 	SO:0001892 	Tfbs amplification
+TF_binding_site_variant 	A sequence variant located within a transcription factor binding site 	SO:0001782 	Regulatory region
+regulatory_region_ablation 	A feature ablation whereby the deleted region includes a regulatory region 	SO:0001894 	Regulatory region ablation
+regulatory_region_amplification 	A feature amplification of a region containing a regulatory region 	SO:0001891 	Regulatory region amplification
+regulatory_region_variant 	A sequence variant located within a regulatory region 	SO:0001566 	Regulatory region
+feature_elongation 	A sequence variant that causes the extension of a genomic feature, with regard to the reference sequence 	SO:0001907 	Feature elongation
+feature_truncation 	A sequence variant that causes the reduction of a genomic feature, with regard to the reference sequence 	SO:0001906 	Feature truncation
+intergenic_variant 	A sequence variant located in the intergenic region, between genes 	SO:0001628 	Intergenic"
+
+my.consequence.order <- function(){
+  
+  cons.lines <- strsplit(ens.cons.tab, "\\n")
+  
+  return(sapply(strsplit(cons.lines[[1]], "\\s+"), "[", 1))
+}
+
 #' GATK/Ensembl VEP VCF Representation
 #' 
 #' A class for representing general variant data stored in GATK flavored VCF files annotated with Ensembl VEP
@@ -121,6 +164,8 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   
   return(res.mat)
 }
+
+
 
 
 #' @rdname class_helpers
@@ -253,6 +298,20 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
                         setdiff(info.import, "CSQ"), setdiff(nms, "Allele"))]
   
   fin.csq[is.na(fin.csq) | fin.csq == ""] <- NA
+  
+  use.cons <- my.consequence.order()
+  
+  fin.csq$Variant_Classification <- sapply(strsplit(as.character(fin.csq$Consequence), "&"), function(x){
+    
+    if (length(x) > 1){
+      
+      new.x <- factor(x, levels=use.cons, ordered=T)
+      return(as.character(sort(new.x)[1]))
+    }else{
+      return(x)
+    }
+    
+  })
   
   return(fin.csq)
 }
