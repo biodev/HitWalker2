@@ -38,7 +38,7 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   
 }
 
-.csq.to.df <- function(gds, header){
+.csq.to.df <- function(gds, header, pick.only=T){
   
   csq.dta.list <- seqGetData(gds, "annotation/info/CSQ")
   
@@ -55,6 +55,10 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   variant.id <- read.gdsn(var.ind,simplify="none")
   
   csq <- data.frame(variant_id=variant.id[exp.inds],csq, stringsAsFactors = F)
+  
+  if (pick.only){
+    csq <- csq[is.na(csq$PICK) == F & csq$PICK == 1,]
+  }
   
   csq <- csq[order(csq$variant_id, decreasing=F),]
   
