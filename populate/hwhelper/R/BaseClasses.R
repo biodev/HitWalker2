@@ -13,11 +13,11 @@ setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
 setGeneric("typeName", def=function(obj,...) standardGeneric("typeName"))
 setGeneric("data", def=function(obj,...) standardGeneric("data"))
 setGeneric("guessFields", def=function(obj,...) standardGeneric("guessFields"))
-setGeneric("removeFields", def=function(obj,...) standardGeneric("removeFields"))
+setGeneric("removeFields<-", def=function(obj,...) standardGeneric("removeFields<-"))
 setGeneric("listFields", def=function(obj,...) standardGeneric("listFields"))
 setGeneric("listFieldAttributes", def=function(obj,...) standardGeneric("listFieldAttributes"))
 setGeneric("tweakField", def=function(obj,...) standardGeneric("tweakField"))
-setGeneric("addLogic", def=function(obj,...) standardGeneric("addLogic"))
+setGeneric("addLogic<-", def=function(obj,...) standardGeneric("addLogic<-"))
 
 #' Shared Generics
 #'
@@ -168,18 +168,18 @@ setMethod("listFieldAttributes", signature("GroupedFilter"), function(obj, field
   
 })
 
-setMethod("removeFields", signature("GroupedFilter"), function(obj, fieldnames){
+setReplaceMethod("removeFields", signature("GroupedFilter"), function(obj, value){
   
-  if(all(fieldnames %in% names(obj@fields)) == F){
+  if(all(value %in% names(obj@fields)) == F){
     stop("fieldnames to be removed should have been specified as fields")
   }
   
-  new.fields <- obj@fields[setdiff(names(obj@fields), fieldnames)]
+  obj@fields <- obj@fields[setdiff(names(obj@fields), value)]
   
   #need to also deal with case where obj@groups is non-null
-  groups <- list()
   
-  return(new("GroupedFilter", fields=new.fields, groups=groups))
+  validObject(obj)
+  return(obj)
   
 })
 #... indicates the attributes of the fields to be changed in the form: key="value"
@@ -201,7 +201,7 @@ setMethod("tweakField", signature("GroupedFilter"), function(obj, fieldname, ...
 
 #use this jsonlist::toJSON(res.list, pretty=T, auto_unbox=T)
 #fields <- addLogic(fields, "(QD & MQ0 & cohort_freq < .5) & ((in_dbsnp == FALSE & in_esp == FALSE) | (in_cosmic == TRUE))")
-setMethod("addLogic", signature("GroupedFilter"), function(obj, logic.str){
+setReplaceMethod("addLogic", signature("GroupedFilter"), function(obj, value){
   
   .process.exprs <- function(x){
     logics <- regmatches(x, gregexpr("([&\\|])", x))[[1]]
@@ -229,7 +229,7 @@ setMethod("addLogic", signature("GroupedFilter"), function(obj, logic.str){
   }
   
   
-  new.str <- gsub("\\(\\(|\\)\\)", "%", logic.str)
+  new.str <- gsub("\\(\\(|\\)\\)", "%", value)
   
   split.expr <- strsplit(new.str, "%")[[1]]
   
@@ -262,6 +262,8 @@ setMethod("addLogic", signature("GroupedFilter"), function(obj, logic.str){
   
   obj@groups <- res.list
   
+  validObject(obj)
+  
   return(obj)
   
 })
@@ -285,7 +287,7 @@ setClass(Class="Subject", representation=list(subject.info="data.frame", subject
 #' @slot data.list Named list containing the experiemntal data
 #' @slot data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names in data.list
 #' @slot gene.model String naming the type of gene model to be used, currently only entrez is supported.
-HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", gene.model="character"))
+HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", filters="GroupedFilters", gene.model="character"))
 
 #' @rdname class_helpers
 #' @param subject An object of class \code{Subject}

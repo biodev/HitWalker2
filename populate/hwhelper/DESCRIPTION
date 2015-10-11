@@ -5,7 +5,7 @@ Title: R package to facilitate working with the HitWalker2 framework
 Authors@R: c(person("Daniel", "Bottomly", role=c("aut", "cre"), email="bottomly@ohsu.edu"),
         person("Beth", "Wilmot", role="aut"),
         person("Shannon", "McWeeney", role="aut"))
-Depends: R (>= 3.1.2), methods, SeqVarTools, Biobase, reshape2, igraph, rjson, RSQLite, S4Vectors
+Depends: R (>= 3.1.2), methods, SeqVarTools, Biobase, reshape2, igraph, jsonlite, RSQLite, S4Vectors
 Suggests: affy, genefilter, sva, hgu133plus2.db, RNeo4j, Matrix, testthat, VariantAnnotation, ensemblVEP
 Description: This package provides functionality to facilitate setting up a HitWalker2 instance including
 	data import and querying in Neo4j. 

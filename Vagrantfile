@@ -77,7 +77,7 @@ end
   sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
   sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
 
-  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("VariantAnnotation", "SeqVarTools", "GenomicRanges"))' 
+  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("VariantAnnotation", "SeqVarTools", "GenomicRanges", "jsonlite"))' 
  
   cp -r /vagrant/HitWalker2 /home/vagrant/
   
