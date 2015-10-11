@@ -14,6 +14,8 @@ setGeneric("typeName", def=function(obj,...) standardGeneric("typeName"))
 setGeneric("data", def=function(obj,...) standardGeneric("data"))
 setGeneric("guessFields", def=function(obj,...) standardGeneric("guessFields"))
 setGeneric("removeFields", def=function(obj,...) standardGeneric("removeFields"))
+setGeneric("listFields", def=function(obj,...) standardGeneric("listFields"))
+setGeneric("listFieldAttributes", def=function(obj,...) standardGeneric("listFieldAttributes"))
 setGeneric("tweakField", def=function(obj,...) standardGeneric("tweakField"))
 setGeneric("addLogic", def=function(obj,...) standardGeneric("addLogic"))
 
@@ -121,12 +123,12 @@ setMethod("guessFields", signature("DenseNeoData"), function(obj, factor.size.li
     
     disp.name <- capwords(gsub("_", " ", x))
     #treat 0/1 encoded variables as character...
-    if (is.numeric(obj.dta[,x]) && all(obj.dta[x]) %in% c(0,1) == F){
+    if (is.numeric(obj.dta[,x]) && all(obj.dta[,x] %in% c(0,1)) == F){
       
       return(list(type="numeric", comparision=">", default=mean(obj.dta[,x]), range=range(obj.dta[,x]), name=disp.name, var_name=tolower(x), trans=NA))
       
     }else{
-      x.chr <- as.character(x)
+      x.chr <- as.character(obj.dta[,x])
       
       if (length(unique(x.chr)) > factor.size.limit){
         return(NULL)
@@ -145,13 +147,24 @@ setMethod("guessFields", signature("DenseNeoData"), function(obj, factor.size.li
     
   })
   
-  names(field.list) <- names(ob.dta)
+  names(field.list) <- names(obj.dta)
   
   should.keep <- sapply(field.list, function(x) is.null(x)==F)
   
   field.list <- field.list[should.keep]
+  groups <- list()
   
-  return(new("GroupedFilter", fields=field.list))
+  return(new("GroupedFilter", fields=field.list, groups=groups))
+  
+})
+
+setMethod("listFields", signature("GroupedFilter"), function(obj){
+  return(names(obj@fields))
+})
+
+setMethod("listFieldAttributes", signature("GroupedFilter"), function(obj, fieldnames){
+  
+  return(obj@fields[fieldnames])
   
 })
 
@@ -161,11 +174,95 @@ setMethod("removeFields", signature("GroupedFilter"), function(obj, fieldnames){
     stop("fieldnames to be removed should have been specified as fields")
   }
   
-  ret.obj <- obj@fields[setdiff(names(obj@fields), fieldnames)]
+  new.fields <- obj@fields[setdiff(names(obj@fields), fieldnames)]
   
   #need to also deal with case where obj@groups is non-null
+  groups <- list()
   
-  return(ret.obj)
+  return(new("GroupedFilter", fields=new.fields, groups=groups))
+  
+})
+#... indicates the attributes of the fields to be changed in the form: key="value"
+setMethod("tweakField", signature("GroupedFilter"), function(obj, fieldname, ...){
+  
+  tweaks <- list(...)
+  
+  if (is.null(names(tweaks))){
+    stop("ERROR: supplied attributes need to be named")
+  }
+  
+  for(i in names(tweaks)){
+    obj@fields[[fieldname]][[i]] <- tweaks[i]
+  }
+  
+  return(obj)
+  
+})
+
+#use this jsonlist::toJSON(res.list, pretty=T, auto_unbox=T)
+#fields <- addLogic(fields, "(QD & MQ0 & cohort_freq < .5) & ((in_dbsnp == FALSE & in_esp == FALSE) | (in_cosmic == TRUE))")
+setMethod("addLogic", signature("GroupedFilter"), function(obj, logic.str){
+  
+  .process.exprs <- function(x){
+    logics <- regmatches(x, gregexpr("([&\\|])", x))[[1]]
+    expr.str <- gsub("\\s+", "", strsplit(x, "[&\\|]")[[1]])
+    exprs <- parse(text=expr.str[expr.str != ""])
+    
+    temp.list <- lapply(seq_along(exprs), function(y){
+      if (is.name(exprs[[y]])){
+        return(list(field=as.character(exprs[[y]])))
+      }else{
+        return(list(comparison=ifelse(as.character(exprs[[y]][[1]]) == "==", "=", as.character(exprs[[y]][[1]])), 
+                    field=as.character(exprs[[y]][[2]]), 
+                    default=exprs[[y]][[3]]))
+      }
+    })
+    
+    for(y in seq_along(temp.list)){
+      
+      if (y > 1){
+        temp.list[[y]][["logical"]] <- ifelse(logics[y-1] == "|", "OR", "AND")
+      }
+    }
+    
+    return(temp.list)
+  }
+  
+  
+  new.str <- gsub("\\(\\(|\\)\\)", "%", logic.str)
+  
+  split.expr <- strsplit(new.str, "%")[[1]]
+  
+  lo.logical <- ""
+  
+  res.list <- lapply(split.expr, function(x){
+    
+    temp.split <- strsplit(x, "[\\(\\)]")[[1]]
+    temp.split <- temp.split[temp.split != ""]
+    
+    is.logical <- gsub("\\s+", "", temp.split) %in% c("&", "|")
+    
+    fin.list <- lapply(temp.split[!is.logical], .process.exprs)
+    
+    if (lo.logical != ""){
+      fin.list[[1]][[1]]$logical <- ifelse(gsub("\\s+", "", lo.logical) == "|", "OR", "AND")
+    }
+    
+    if(is.logical[length(is.logical)]){
+      lo.logical <<- temp.split[is.logical]
+    }else if (any(is.logical)){
+      for (i in which(is.logical)){
+        fin.list[[i]][[1]]$logical <- ifelse(gsub("\\s+", "", temp.split[i]) == "|", "OR", "AND")
+      }
+    }
+    
+    return(fin.list)
+    
+  })
+  
+  obj@groups <- res.list
+  
+  return(obj)
   
 })
 
