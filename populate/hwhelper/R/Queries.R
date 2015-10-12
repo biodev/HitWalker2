@@ -71,8 +71,10 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   names(vcf.dta)[names(vcf.dta)=="Gene"] <- "gene"
   names(vcf.dta)[names(vcf.dta) == "HGVSc"] <- "name"
   
+  vcf.dta$Cons_Summary <- ifelse(vcf.dta$Variant_Classification %in% my.consequence.order()[1:12], "nonsynonymous", "synonymous")
+  
   vcf.dta <- vcf.dta[,c("sample", "gene", "name", "seqnames", "start", "end", "REF", "ALT", "Protein_position", "Amino_acids", "allele_count", "allele_reads", 
-                        "total_reads", "MQ0", "FS", "MQ", "QD", "SB" ,"Existing_variation", "Consequence","HGVSp", "GMAF", "Feature", "SIFT", "PolyPhen", 
+                        "total_reads", "MQ0", "FS", "MQ", "QD", "SB","Existing_variation", "Variant_Classification", "Cons_Summary" ,"HGVSp", "GMAF", "Feature", "SIFT", "PolyPhen", 
                         "cohort_count", "cohort_freq", "in_dbsnp", "in_esp", "in_cosmic")]
   
   vcf.dta <- factors.to.chars(vcf.dta)

@@ -2,6 +2,7 @@ import core
 import custom_functions
 import string
 import subprocess
+import json
 
 ##globals
 
@@ -57,10 +58,14 @@ adjust_fields = {
                                 'path_conf':{'type':'numeric', 'default':.95, 'range':[0, 1], 'comparison':'>', 'name':'Pathway STRING Confidence'},
                                 'res_prob':{'type':'numeric', 'default':.3, 'range':[0,1], 'comparison':'=', 'name':'Restart Probability'},
                                 'max_iter':{'type':'numeric', 'default':100, 'range':[0, 10000], 'comparison':'=', 'name':'Max Iterations'},
-                                'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}@HIT_PARAMS@
+                                'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}
                                 }, 
                         }
 }
+
+group_param_str = """@HIT_PARAMS@"""
+
+adjust_fields.update(json.loads(group_param_str))
 
 #Basic info for genes:
 #Needs the query to return info in the following form:

@@ -109,6 +109,8 @@ setMethod("sampleNames", signature("DenseNeoData"), function(object){
 })
 
 GroupedFilter <- setClass(Class="GroupedFilter", representation=list(fields="list", groups="list"))
+setClassUnion("GroupedFilterOrNULL", members=c("GroupedFilter", "NULL"))
+
 
 #factor.size.limit is the maximum number of levels a character/factor column is allowed to have to be considered
 #by default numeric values are set to be hits if they are greater than the mean
@@ -125,9 +127,10 @@ setMethod("guessFields", signature("DenseNeoData"), function(obj, factor.size.li
     #treat 0/1 encoded variables as character...
     if (is.numeric(obj.dta[,x]) && all(obj.dta[,x] %in% c(0,1)) == F){
       
-      return(list(type="numeric", comparision=">", default=mean(obj.dta[,x]), range=range(obj.dta[,x]), name=disp.name, var_name=tolower(x), trans=NA))
+      return(list(type="numeric", comparision=">", default=mean(obj.dta[,x]), range=range(obj.dta[,x]), name=disp.name, var_name=tolower(x), trans="core.return_numeric"))
       
     }else{
+      
       x.chr <- as.character(obj.dta[,x])
       
       if (length(unique(x.chr)) > factor.size.limit){
@@ -140,7 +143,7 @@ setMethod("guessFields", signature("DenseNeoData"), function(obj, factor.size.li
           unique.vals <- c("True", "False")
         }
         
-        return(list(type="character", default=unique.vals[1], range=unique.vals, name=disp.name, var_name=tolower(x), trans=NA))
+        return(list(type="character", default=unique.vals[1], range=unique.vals, name=disp.name, var_name=tolower(x), trans=ifelse(all(unique.vals %in% c("True", "False")), "core.return_binary", "core.return_character")))
       }
       
     }
@@ -192,7 +195,7 @@ setMethod("tweakField", signature("GroupedFilter"), function(obj, fieldname, ...
   }
   
   for(i in names(tweaks)){
-    obj@fields[[fieldname]][[i]] <- tweaks[i]
+    obj@fields[[fieldname]][[i]] <- tweaks[[i]]
   }
   
   return(obj)
@@ -214,7 +217,7 @@ setReplaceMethod("addLogic", signature("GroupedFilter"), function(obj, value){
       }else{
         return(list(comparison=ifelse(as.character(exprs[[y]][[1]]) == "==", "=", as.character(exprs[[y]][[1]])), 
                     field=as.character(exprs[[y]][[2]]), 
-                    default=exprs[[y]][[3]]))
+                    default=ifelse(is.logical(exprs[[y]][[3]]), capwords(tolower(as.character(exprs[[y]][[3]]))), exprs[[y]][[3]])))
       }
     })
     
@@ -287,7 +290,7 @@ setClass(Class="Subject", representation=list(subject.info="data.frame", subject
 #' @slot data.list Named list containing the experiemntal data
 #' @slot data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names in data.list
 #' @slot gene.model String naming the type of gene model to be used, currently only entrez is supported.
-HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", filters="GroupedFilters", gene.model="character"))
+HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", filters="GroupedFilterOrNULL", gene.model="character"))
 
 #' @rdname class_helpers
 #' @param subject An object of class \code{Subject}
@@ -295,7 +298,7 @@ HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", 
 #' @param data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names specified to the function.
 #' @param ... A series of name=value pairs which are to be loaded into the Neo4j database. All of the values in \code{data.types} should correspond to these names though
 #' it is not required that all the datatypes specified here correspond to those needed for prioritization.
-makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL,...)
+makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL, filters=NULL,...)
 {
     gene.model <- match.arg(gene.model)
     
@@ -318,7 +321,7 @@ makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types
         stop("ERROR: All of the strings specified in data.types need to correspond to names supplied here")
     }
     
-    return(new("HW2Config", subject=subject, data.list=data.list, data.types=data.types, gene.model=gene.model))
+    return(new("HW2Config", subject=subject, data.list=data.list, data.types=data.types, gene.model=gene.model, filters=filters))
 }
 
 setGeneric("subjectName", def=function(obj,...) standardGeneric("subjectName"))
@@ -518,7 +521,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     base.queries <- character()
     templ.queries <- character()
-    hit.params <- ""
+    hit.params <- list()
     #'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}
     for(i in dataTypes(obj))
     {
@@ -527,8 +530,9 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
             handler <- 'core.handle_gene_hits'
             use.params <- paste0("[['",tolower(i),"']]")
             cur.obj <- obj@data.list[[i]]
-            hit.params <- append(hit.params, paste0("'",tolower(i),"':{'type':'numeric', 'default':",cur.obj@default, " , 'range':[",paste(cur.obj@range, collapse=","),"], 'comparison':'",cur.obj@direction,
-                                                    "' , 'name':'",cur.obj@display_name,"'}"))
+            temp.param.list <- list(list(type="numeric", default=cur.obj@default, range=cur.obj@range, comparision=cur.obj@direction, name=cur.obj@display_name))
+            names(temp.param.list)[length(temp.param.list)] <- tolower(i)
+            hit.params <- append(hit.params, temp.param.list)
             
         }else{
             handler <- 'core.handle_gene_targets'
@@ -574,8 +578,20 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     subj_atts <- paste(subj_atts, "}")
     
-    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
-                     SUBJECT_ATTRIBUTES=subj_atts,TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=paste(hit.params, collapse=",\n"), USE_DATA=paste0("[", paste(paste0("'", dataTypes(obj) ,"'"), collapse=",") ,"]"))
+    #make HIT_PARAMS a JSON object
+    param.shell <- list(list(type="standard", fields=hit.params))
+    names(param.shell) <- "Seed_Parameters"
+    #also add in any grouped filters specified in the HW2Config object
+    
+    if (is.null(obj@filters) == F){
+      
+      param.shell <- append(param.shell, list(list(type="grouped", fields=obj@filters@fields, default_groups=obj@filters@groups)))
+      names(param.shell)[length(param.shell)] <- paste(sub("s$", "", obj@data.types["target"]) , "Filters" ,sep="_")
+      
+    }
+    
+    sub.list <- list(DATA_TYPES=toJSON(obj@data.types,auto_unbox=T), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
+                     SUBJECT_ATTRIBUTES=subj_atts,TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=toJSON(param.shell, pretty=T, auto_unbox=T), USE_DATA=paste0("[", paste(paste0("'", dataTypes(obj) ,"'"), collapse=",") ,"]"))
     
     message("Staging config files")
     

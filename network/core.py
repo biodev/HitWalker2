@@ -1409,6 +1409,9 @@ def type_of_value(var):
     except Exception:
         return str
 
+def return_character(value):
+    return str(value)
+
 def return_numeric(value):
     return float(value)
 
