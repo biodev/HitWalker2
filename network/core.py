@@ -1326,8 +1326,9 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                             
                         use_query = i['query']
                         
-                        for var_elem in request.session['where_vars']:
-                            use_query = add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+                        #This functionality is now depricated for Neo4j
+                        #for var_elem in request.session['where_vars']:
+                        #    use_query = add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
                         
                         missing_params = get_necessary_params(use_query).difference(set(use_param.keys()))
                         
@@ -1367,7 +1368,12 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                                         comb_q = comb_q & Q(**{"sample__in":k[1]})
                                 if k[0] == 'SAMPLE':
                                         comb_q = comb_q & Q(**{"subject__in":k[1]})
-                    db_res = cur_mod.objects.using("data").filter(comb_q)
+                    
+                    if request.session.has_key('where_vars'):
+                            db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[re.sub("\$.+\$\.", "", request.session['where_vars'][0]['where_statement'])])
+                    else:
+                            db_res = cur_mod.objects.using("data").filter(comb_q)
+                    
                     if len(db_res) > 0:
                         res_list.append(db_res)  
                 

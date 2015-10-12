@@ -65,7 +65,17 @@ adjust_fields = {
 
 group_param_str = """@HIT_PARAMS@"""
 
-adjust_fields.update(json.loads(group_param_str))
+group_param_json=json.loads(group_param_str)
+
+for i in group_param_json.keys():
+        for j in group_param_json[i]['fields'].keys():
+                if group_param_json[i]['fields'][j].has_key('trans'):
+                        print i, j, str(group_param_json[i]['fields'][j].items())
+                        group_param_json[i]['fields'][j]['trans'] = eval(group_param_json[i]['fields'][j]['trans'])     
+                if group_param_json[i]['fields'][j].has_key('var_name'):        
+                        group_param_json[i]['fields'][j]['required'] = {'from': data_types["target"]}
+
+adjust_fields.update(group_param_json)
 
 #Basic info for genes:
 #Needs the query to return info in the following form:

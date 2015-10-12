@@ -127,7 +127,7 @@ setMethod("guessFields", signature("DenseNeoData"), function(obj, factor.size.li
     #treat 0/1 encoded variables as character...
     if (is.numeric(obj.dta[,x]) && all(obj.dta[,x] %in% c(0,1)) == F){
       
-      return(list(type="numeric", comparision=">", default=mean(obj.dta[,x]), range=range(obj.dta[,x]), name=disp.name, var_name=tolower(x), trans="core.return_numeric"))
+      return(list(type="numeric", comparison=">", default=mean(obj.dta[,x]), range=range(obj.dta[,x]), name=disp.name, var_name=tolower(x), trans="core.return_numeric"))
       
     }else{
       
