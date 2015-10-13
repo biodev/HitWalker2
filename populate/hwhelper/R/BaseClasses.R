@@ -530,7 +530,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
             handler <- 'core.handle_gene_hits'
             use.params <- paste0("[['",tolower(i),"']]")
             cur.obj <- obj@data.list[[i]]
-            temp.param.list <- list(list(type="numeric", default=cur.obj@default, range=cur.obj@range, comparision=cur.obj@direction, name=cur.obj@display_name))
+            temp.param.list <- list(list(type="numeric", default=cur.obj@default, range=cur.obj@range, comparison=cur.obj@direction, name=cur.obj@display_name))
             names(temp.param.list)[length(temp.param.list)] <- tolower(i)
             hit.params <- append(hit.params, temp.param.list)
             

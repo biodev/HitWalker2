@@ -777,7 +777,7 @@ def merge_attributes(dict1, dict2):
     new_dict.update(dict2)
     return new_dict
 
-def make_results_table(query_nl, seed_nl, ranking_sl):
+def make_results_table(query_nl, seed_nl, ranking_sl, symbol_list):
     
     #need to add both the seed info and the ranking info to the table and return a sorted version (by ranking)
     
@@ -787,14 +787,24 @@ def make_results_table(query_nl, seed_nl, ranking_sl):
     
     seed_types = set(reduce(lambda x,y: x+y, map(lambda x: x.children().types(), seed_nl)))
     
-    table_header.extend(reduce(lambda x,y: x+y, [sorted(list(seed_types)), ['HitWalkerScore', 'HitWalkerRank']]))
+    table_header.extend(reduce(lambda x,y: x+y, [['Symbol'],sorted(list(seed_types)), ['HitWalkerScore', 'HitWalkerRank']]))
+    
+    symbol_map = collections.defaultdict(list)
+    
+    for i in symbol_list:
+        symbol_map[i['gene']].append(i['symbol'])
     
     rows = []
     
     for i in query_nl:
         
-        temp_i = i.getAttr(['attributes', 'row']) + [None]*(len(seed_types) + 2)
+        temp_i = i.getAttr(['attributes', 'row']) + [None]*(len(seed_types) + 3)
         temp_gene = i.getAttr(['attributes', 'gene'])
+        
+        #add in any symbol info
+        
+        if symbol_map.has_key(temp_gene):
+            temp_i[table_header.index('Symbol')] = string.joinfields(symbol_map[temp_gene], ',')
         
         #add in any seed info to the query table
         if seed_nl.hasNode(temp_gene):
@@ -919,7 +929,7 @@ def get_nodes_from_config(request, session_dict):
     return nl
 
 def handle_dense_query(res_list, nodes, request):
-    table_header = filter(lambda x: x.startswith("_")==False, res_list[0][0].__dict__.keys())
+    table_header = res_list[0]['header']
     
     nodes.attributes['header'] = table_header[:]
     
@@ -928,12 +938,11 @@ def handle_dense_query(res_list, nodes, request):
     for i in res_list:
         for j in i:
             
-            j_m = map(lambda x: x[1], filter(lambda y: y[0].startswith("_")==False, j.__dict__.items()))
+            j_m = list(j)
             
             table_header.extend(["gene_ind", "query_ind", "row_id"])
             j_m.extend(ext_head)
             j_m.append(str(j_m[ext_head[0]])+str(j_m[ext_head[1]]))
-            print j_m
             nodes.add(RowNode(j_m, copy.copy(table_header)))
     
 
@@ -1369,12 +1378,18 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                                 if k[0] == 'SAMPLE':
                                         comb_q = comb_q & Q(**{"subject__in":k[1]})
                     
-                    if request.session.has_key('where_vars'):
-                            db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[re.sub("\$.+\$\.", "", request.session['where_vars'][0]['where_statement'])])
+                    #how to get column names for the value list
+                    header = map(lambda x: x.name, cur_mod._meta.fields)
+                    
+                    if request.session.has_key('where_vars') and len(request.session['where_vars']) > 0:
+                            
+                            db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[request.session['where_vars'][0]['where_statement'].replace("$$$$.", "")]).values_list()
                     else:
-                            db_res = cur_mod.objects.using("data").filter(comb_q)
+                            db_res = cur_mod.objects.using("data").filter(comb_q).values_list()
                     
                     if len(db_res) > 0:
+                        #needs to be:
+                        #res_list.append({'header':header, 'result':db_res})
                         res_list.append(db_res)  
                 
             else:

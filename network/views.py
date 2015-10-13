@@ -425,7 +425,7 @@ def table(request):
             
             #make the results table
             
-            rels, rels_header = core.make_results_table(valid_query_res, valid_hit_genes, query_results)
+            rels, rels_header = core.make_results_table(valid_query_res, valid_hit_genes, query_results, query_list)
             
             
         else:

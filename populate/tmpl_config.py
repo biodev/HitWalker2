@@ -73,7 +73,7 @@ for i in group_param_json.keys():
                         print i, j, str(group_param_json[i]['fields'][j].items())
                         group_param_json[i]['fields'][j]['trans'] = eval(group_param_json[i]['fields'][j]['trans'])     
                 if group_param_json[i]['fields'][j].has_key('var_name'):        
-                        group_param_json[i]['fields'][j]['required'] = {'from': data_types["target"]}
+                        group_param_json[i]['fields'][j]['required'] = {'from':''}
 
 adjust_fields.update(group_param_json)
 
