@@ -812,8 +812,9 @@ def fullfill_node_query(request):
         
             graph_db = neo4j.GraphDatabaseService(config.cypher_session+'/db/data/')
             
-            for var_elem in request.session['where_vars']:
-                use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+            #neo4j grouping filters are now depricated...
+            #for var_elem in request.session['where_vars']:
+            #    use_query = core.add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
             
             #print use_query, node_queries
             
@@ -867,7 +868,11 @@ def fullfill_node_query(request):
             
             comb_q = comb_q & Q(**{node_type.lower()+"__in":node_queries[node_type]})
             
-            db_res = cur_mod.objects.using("data").filter(comb_q)
+            if request.session.has_key('where_vars') and len(request.session['where_vars']) > 0:
+                            
+                db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[request.session['where_vars'][0]['where_statement'].replace("$$$$.", "")])
+            else:
+                db_res = cur_mod.objects.using("data").filter(comb_q)
             
             res_set_dict = collections.defaultdict(set)
             
