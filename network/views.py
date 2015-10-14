@@ -881,7 +881,7 @@ def fullfill_node_query(request):
             
             for i in db_res:
                 #get the current field as well as the other one based on the returned_node field of query_info (or parent object)
-                res_set_dict[getattr(i, key_col)].add(getattr(i, append_col))
+                res_set_dict[str(getattr(i, key_col))].add(str(getattr(i, append_col)))
             
             if len(res_set_dict.keys()) == 0:
                 res_col = collections.Counter()
@@ -889,7 +889,6 @@ def fullfill_node_query(request):
                 res_col = collections.Counter(res_set_dict.items()[0][1])
             else:
                 res_col = collections.Counter(reduce(lambda x,y: list(x[1])+list(y[1]),res_set_dict.items()))
-            print res_col
             
             for i in res_col.most_common():
                 if (len(max_vals) == 0) or ((i[1] < max_vals[-1]) and (len(max_vals) < 5)):
