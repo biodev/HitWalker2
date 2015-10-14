@@ -779,15 +779,16 @@ def merge_attributes(dict1, dict2):
 
 def make_results_table(query_nl, seed_nl, ranking_sl, symbol_list):
     
-    #need to add both the seed info and the ranking info to the table and return a sorted version (by ranking)
+    #need to add symbol info, seed info and the ranking info to the table and return a sorted version (by ranking)
     
-    table_header = copy.copy(query_nl.attributes['header'])
+    table_header = ['Symbol']
+    table_header.extend(copy.copy(query_nl.attributes['header']))
     
     #expand table_header by the seed types in seed_nl as well as another column for ranking_sl
     
     seed_types = set(reduce(lambda x,y: x+y, map(lambda x: x.children().types(), seed_nl)))
     
-    table_header.extend(reduce(lambda x,y: x+y, [['Symbol'],sorted(list(seed_types)), ['HitWalkerScore', 'HitWalkerRank']]))
+    table_header.extend(reduce(lambda x,y: x+y, [sorted(list(seed_types)), ['HitWalkerScore', 'HitWalkerRank']]))
     
     symbol_map = collections.defaultdict(list)
     
@@ -936,7 +937,7 @@ def handle_dense_query(res_list, nodes, request):
     ext_head = map(lambda x: table_header.index(x),['gene', 'name'])
     
     for i in res_list:
-        for j in i:
+        for j in i['result']:
             
             j_m = list(j)
             
@@ -1388,9 +1389,7 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                             db_res = cur_mod.objects.using("data").filter(comb_q).values_list()
                     
                     if len(db_res) > 0:
-                        #needs to be:
-                        #res_list.append({'header':header, 'result':db_res})
-                        res_list.append(db_res)  
+                        res_list.append({'header':header, 'result':db_res})
                 
             else:
                 raise Exception("specified db_type is not defined")
