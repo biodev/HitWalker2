@@ -484,17 +484,19 @@ def handle_dense_gene_hits(res_list, nodes, request):
         #use_vars as in variables, which should be type in this case...
         use_vars = set()
         samp_genes = set()
-        for j in i:
-                obj_name = type(j).__name__.lower()
+        obj_name = i['obj']
+        table_header = i['header']
+        for j in i['result']:
+                j_res = j[:]
                 if request.session.has_key(obj_name):
                         comp = request.session['inp_params']['General_Parameters']['fields'][obj_name]['comparison']
-                        is_hit = eval(str(j.score) + comp + str(request.session[obj_name]))
+                        is_hit = eval(str(j_res[table_header.index('score')]) + comp + str(request.session[obj_name]))
                 else:
                         is_hit = True
-                use_vars.add(j.type)
-                samp_list[j.subject].append([j.score, is_hit])
-                samp_genes.add(j.gene)
-        
+                use_vars.add(j_res[table_header.index('type')])
+                samp_list[j_res[table_header.index('subject')]].append([j_res[table_header.index('score')], is_hit])
+                samp_genes.add(j_res[table_header.index('gene')])
+               
         cur_gene = nodes.getNode(str(samp_genes.pop()))
         
         gene_score = BasicGeneChild(cur_gene, samp_list, use_vars.pop())
@@ -536,22 +538,22 @@ class TargetChildNode(Node):
 
 def handle_dense_gene_targets(res_list, nodes, request):
 
-    from config import data_types
     for i in res_list:
         var_list = collections.defaultdict(list)
         gene_set = set()
-        for j in i:
-                gene_set.add(j.gene)
-                var_list[j.name].append(j.subject)
-        #print var_list
+        table_header = i['header']
+        specified_type = i['obj'][:]
+        for j in i['result']:
+            j_res = j[:]
+            gene_set.add(j_res[table_header.index('gene')])
+            var_list[j_res[table_header.index('name')]].append(j_res[table_header.index('subject')])
         if len(gene_set) != 1:
-                print 'fail'
-                print gene_set
-                raise Exception("Only expected a single gene in 'handle_dense_gene_targets'")
+            raise Exception("Only expected a single gene in 'handle_dense_gene_targets'")
+        
         cur_gene = nodes.getNode(str(gene_set.pop()))
         for j in var_list.items():
-                variant = TargetChildNode(cur_gene, j[0], j[1], data_types['target'])
-                nodes.addChild(cur_gene.id, variant)
+            variant = TargetChildNode(cur_gene, j[0], map(str, j[1]), specified_type)
+            nodes.addChild(cur_gene.id, variant)
                 
 def handle_gene_targets(res_list, nodes, request):
     
@@ -1389,13 +1391,13 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                             db_res = cur_mod.objects.using("data").filter(comb_q).values_list()
                     
                     if len(db_res) > 0:
-                        res_list.append({'header':header, 'result':db_res})
+                        res_list.append({'header':header, 'result':db_res, 'obj':i['datatype']})
                 
             else:
                 raise Exception("specified db_type is not defined")
             
             if len(res_list) > 0:
-            
+                print i['handler']
                 i['handler'](res_list, nodes, request)
     else:
         raise Exception("config_struct does not have specified node_type")
