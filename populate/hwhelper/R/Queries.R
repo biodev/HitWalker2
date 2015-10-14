@@ -214,10 +214,12 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
   csq.res$ALT <- NA
   
   csq.res$ALT[which.biallelic] <- unlist(alt.list[which.biallelic])
-  csq.res$ALT[which.biallelic == F] <- mapply(function(alt, num){
-    return(alt[num])
-  }, alt.list[which.biallelic == F], as.integer(csq.res$ALLELE_NUM)[which.biallelic == F])
   
+  if (sum(which.biallelic==F) > 0){
+    csq.res$ALT[which.biallelic == F] <- mapply(function(alt, num){
+      return(alt[num])
+    }, alt.list[which.biallelic == F], as.integer(csq.res$ALLELE_NUM)[which.biallelic == F])
+  }
   
   #add in the ref data
   csq.res$REF <- as.character(ref(gds)[csq.res$variant_id])
