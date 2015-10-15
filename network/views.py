@@ -36,6 +36,7 @@ import tempfile
 import network.models as netmods
 from network.models import user_parameters
 from django.db.models import Q
+from django.db.models.query import QuerySet
 
 import cssutils
 import colour
@@ -660,9 +661,7 @@ def multi_node_query(request):
         return HttpResponseServerError()
 
 
-def download(request, title, var_type, base_query, base_params, use_nodes, expected_count):
-    
-    #this entire thing is a little too hard-coded for comfort...
+def download(request, title, var_type, query_set, query_info):
     
     resp_file_name = 'query_result.csv'
     
@@ -684,7 +683,7 @@ def download(request, title, var_type, base_query, base_params, use_nodes, expec
     
     for i in where_vars:
         writer.writerow([i['name']])
-        write.writerow([i['pretty_where']])
+        writer.writerow([i['pretty_where']])
     
     writer.writerow([])
     writer.writerow([])
@@ -696,75 +695,62 @@ def download(request, title, var_type, base_query, base_params, use_nodes, expec
     
     #start writing the results
     
-    base_query = base_query.replace("RETURN ret_type", "")
+    #make this all only for dense datatypes
     
-    if base_query.find("gene.name") == -1:
-        raise Exception("Unexpected type of download...")
+    #can sidestep get_nodes as we will already have the use_query QuerySet, can execute direcly and run the handler
+    import network.models
+    cur_mod = getattr(network.models, var_type)
+    header = map(lambda x: x.name, cur_mod._meta.fields)
     
-    base_query = base_query.replace("gene.name AS ret_type", "gene")
+    table_header = ['Symbol']
+    table_header.extend(header)
+    print table_header
+    writer.writerow(table_header)
     
-    #get the basic type of query for the given data type
+    #get the gene symbols
     
-    end_query_str = getattr(config, var_type)
+    #further filter the QuerySet by the actual specified genes/subject (just in case)
     
-    gene_re = re.compile(r"(\w+):EntrezID[\w\{\}:]+")
+    all_qs = Q()
     
-    gene_var = re.findall(gene_re, end_query_str['query'])
+    for i in query_info.items():
+        all_qs = all_qs & Q(**{i[0].lower()+"__in":i[1]})
     
-    if len(gene_var) > 1:
-        raise Exception("Currently don't support more than 1 gene variables")
+    query_res = query_set.filter(all_qs).values_list()
     
-    end_query = re.sub(gene_re, lambda x: 'gene', end_query_str['query'])
+    gene_list = set()
+    fin_table = []
+    print query_res
+    for i in query_res:
+        fin_table.append(list(i))
+        gene_list.add(i[header.index('gene')])
+    print gene_list
+    temp_nl = core.NodeList()
     
-    end_query = end_query.replace(gene_var[0]+'.', 'gene.')
+    for i in gene_list:
+        temp_nl.add(core.BasicNode([i]))
     
-    end_query = end_query.replace('SAMPLE', 'Subject')
+    temp_sl = core.SeedList(temp_nl)
     
-    new_end_query = core.check_input_query_with(end_query, set(['gene']))
+    symb_list = config.get_query_list(temp_sl)
     
-    run_query = base_query + ' ' + new_end_query
+    print symb_list[:5]
     
-    #then merge the base params with those needed by end_query
+    symb_dict = collections.defaultdict(list)
     
-    for i in end_query_str['session_params']:
-        for j in i:
-            if base_params.has_key(j) == False:
-                base_params[j] = core.iterate_dict(request.session, i)
+    for i in symb_list:
+        symb_dict[i['gene']].append(i['symbol'])
     
-    session = cypher.Session(config.cypher_session)
-    tx = session.create_transaction()
-    
-    tx.append(run_query, base_params)
-    res_list = tx.commit()
-    
-    print len(res_list[0]), expected_count
-    
-    if expected_count != len(res_list[0]):
-        raise Exception("Was not able to retrieve the expected number of results")
-    
-    end_query_str['handler'](map(lambda x: [x], res_list[0]), use_nodes, request)
-    
-    header = ['id', 'display_name'] + base_params['Subject']
-    
-    writer.writerow(header)
-    
-    for i in use_nodes.tolist():
-        temp_ln = []
-        if i['attributes']['node_type'] == 'Gene':
-            temp_ln.extend([i['id'], i['display_name']] + [None]*(len(header)-2))
-            #print i['children']
-            for j in i['children']:
-                if j['attributes']['node_type'].replace('_Hit', '') == var_type:
-                    for k_ind, k in enumerate(j['attributes']['other_nodes']):
-                        val_loc = header.index(k)
-                        if val_loc == -1:
-                            raise Exception("Unexpected node found")
-                        else:
-                            if j['attributes']['meta'].has_key('score'):
-                                temp_ln[val_loc] = j['attributes']['meta']['score'][k_ind]
-                            else:
-                                temp_ln[val_loc] = 1
-            writer.writerow(temp_ln)
+    for i in fin_table:
+        
+        if symb_dict.has_key(i[header.index('gene')]):
+            i_tab = [string.joinfields(symb_dict[i[header.index('gene')]], ',')]
+        else:
+            i_tab = [i[header.index('gene')]]
+        
+        i_tab.extend(i)
+        
+        writer.writerow(i_tab)
     
     return response
 
@@ -879,6 +865,8 @@ def fullfill_node_query(request):
             key_col = node_type.lower()
             append_col = query_type['returned_node_type'].lower()
             
+            use_query=db_res
+            
             for i in db_res:
                 #get the current field as well as the other one based on the returned_node field of query_info (or parent object)
                 res_set_dict[str(getattr(i, key_col))].add(str(getattr(i, append_col)))
@@ -907,6 +895,13 @@ def fullfill_node_query(request):
         for k,v in temp_node_list:
             ret_dict[k].append(v)
         
+        count_coll = map(lambda x: (x[0], len(x[1])), ret_dict.items())
+        
+        #ret_dict is unneccessary if the query result is derived from an sql backed as use_query will have the necessary info
+        
+        if isinstance(use_query, QuerySet):
+            ret_dict = collections.defaultdict(list)
+        
         if request.session.has_key('tmp_query_results') == False:
         
             request.session['tmp_query_results'] = {str(req_table[1]):{'ret_dict':ret_dict, 'ret_node_queries':ret_node_queries,
@@ -915,8 +910,6 @@ def fullfill_node_query(request):
         else:
             request.session['tmp_query_results'][str(req_table[1])] = {'ret_dict':ret_dict, 'ret_node_queries':ret_node_queries,
                                                                        'query_info':query_info, 'use_query':use_query, 'node_queries':node_queries}
-        
-        count_coll = map(lambda x: (x[0], len(x[1])), ret_dict.items())
         
         #this is necessary as the keys to the session were not modified
         request.session.modified = True
@@ -963,21 +956,34 @@ def provide_data_for_request(request):
         else:
             use_title = 'ERROR: Unknown title...'
         
-        #convert the IDs to nodes
-        
-        ret_nodes = core.get_nodes(temp_node_list, returned_node_type, request,  missing_param="skip")
-        
         #too many nodes to render efficiently, will allow user to download csv file...
         if display_type == "Download":
             
-            return download(request, use_title, query_info['text'], use_query, node_queries, ret_nodes, len(temp_node_list))
+            print query_info
+            print use_query#.values_list()
+            print node_queries
+            print temp_node_list
             
-            #ret_dict = {'is_graph':False, 'graph':{}, 'title':'Sorry, your query is too large to display.  However, you may download a text version.'}
+            return download(request, use_title, query_info['text'], use_query, node_queries)
             
         else:
-        
-            ret_nodes = core.apply_grouping2({'nodes':ret_nodes, 'links':[]}, [])['nodes']
             
+            if (query_info.has_key('db_type') == False) or (query_info.has_key('db_type') and query_info['db_type'] == 'neo4j'):
+            
+                #convert the IDs to nodes
+                use_nodes = core.get_nodes(temp_node_list, returned_node_type, request,  only_base=True)
+                
+            else:
+                
+                value_list = set()
+                
+                for i in use_query:
+                    value_list.add(str(i.gene))
+                
+                use_nodes =  core.get_nodes(list(value_list), returned_node_type, request,only_base=True)
+            
+            ret_nodes = core.apply_grouping2({'nodes':use_nodes, 'links':[]}, [])['nodes']
+                
             ret_dict = {'is_graph':True, 'graph':{'nodes':ret_nodes.tolist(), 'links':[]}, 'title':use_title}
         
             return HttpResponse(json.dumps(ret_dict),mimetype="application/json")

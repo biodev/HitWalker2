@@ -82,7 +82,7 @@ adjust_fields.update(group_param_json)
     #gene ID, gene symbol, and the collection of pathways (or [] if that info is not available).
 #gene_names = {'query':'MATCH (n:Gene{name:{GENE}})-[r:KNOWN_AS]-(m) WHERE r.status="symbol" WITH n,m OPTIONAL MATCH (n)<-[:EXTERNAL_ID]-()<-[:GENESET_CONTAINS]-(p) RETURN n.name,m.name, COLLECT(DISTINCT p.name)', 'handler':custom_functions.get_gene_names, 'session_params':None}
 
-gene_names = {'query':'MATCH (n:EntrezID{name:{GENE}})-[r:REFERRED_TO]-(m) RETURN n.name,m.name, []', 'handler':custom_functions.get_gene_names, 'session_params':None}
+gene_names = {'query':'OPTIONAL MATCH (n:EntrezID{name:{GENE}})-[r:REFERRED_TO]-(m) RETURN {GENE},m.name, []', 'handler':custom_functions.get_gene_names, 'session_params':None}
 
 #used for the network view
 gene_rels = {'query':'MATCH (gene:EntrezID{name:{FROM_GENE}})-[:MAPPED_TO]-(string_from)-[r:ASSOC]-(string_to)-[:MAPPED_TO]-(gene_to) WHERE gene_to.name IN {TO_GENES} AND HAS(r.score) AND r.score > ({string_conf}*1000) RETURN gene.name,gene_to.name, MAX(r.score)', 'handler':None, 'session_params':[['string_conf']]}

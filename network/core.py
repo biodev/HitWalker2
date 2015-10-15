@@ -265,16 +265,21 @@ class RowNode(Node):
         
 
 class GeneNode(Node):
-    
+
     def __init__(self,cypher_res):
-        
+
         add_meta = {'node_cat':'Pathway_member', 'pathways':[]}
-        
+
         for i in cypher_res[2]:
             add_meta['pathways'].append(i)
-        
-        self.node_dict = {'id':cypher_res[0], 'display_name':cypher_res[1], 'attributes':{'node_type':'Gene', 'indexed_name':'name', 'meta':add_meta}, 'children':NodeList()}
-        self.display_name = cypher_res[1]
+
+        if cypher_res[1] == None:
+                disp_name = cypher_res[0]
+        else:
+                disp_name = cypher_res[1]
+
+        self.node_dict = {'id':cypher_res[0], 'display_name':disp_name, 'attributes':{'node_type':'Gene', 'indexed_name':'name', 'meta':add_meta}, 'children':NodeList()}
+        self.display_name = disp_name
         self.id = cypher_res[0]
     def todict (self):
         return super(GeneNode, self).todict()
@@ -1550,7 +1555,7 @@ def parse_parameters (param_dict, trans_funcs, request):
             
             #make a pretty version for output
             
-            pretty_where = re.sub("\$\$[\w_\d]+\$\$", "", temp_where)
+            pretty_where = re.sub("\$\$[\w_\d]*\$\$", "", temp_where)
             
             for temp_field in val['fields'].values():
                 pretty_where = re.sub("\."+temp_field['var_name'], temp_field['name'], pretty_where)
