@@ -1008,7 +1008,8 @@ def copy_nodes(request):
         ret_dict = {'nodes':cur_graph['nodes'].tolist(), 'links':cur_graph['links']}
         
         return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
-    except:
+    except Exception as e:
+        print e
         return HttpResponseServerError()
 
 def get_graph(request):
@@ -1188,6 +1189,8 @@ def panel(request):
             #also add in the sample info
             request.session["query_samples"] = core.proper_type(request.POST["query_samples"])
             request.session["inp_params"] = inp_params
+            
+            request.session.modified = True
             
             input_vals = {'query_samples':request.session['query_samples']}
         else:
