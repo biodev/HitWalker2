@@ -13,6 +13,9 @@ Vagrant.configure(2) do |config|
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
   config.vm.box = "bottomly/HitWalker2_base"
+   config.vm.define :hw2default do |t|
+        end
+
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
@@ -47,7 +50,7 @@ Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |vb|
   #   # Display the VirtualBox GUI when booting the machine
   #vb.gui = true
-  vb.name="ccle_real"
+  vb.name="hw2default"
   #   # Customize the amount of memory on the VM:
   vb.memory = "10240"
   vb.cpus = 2   
@@ -73,7 +76,9 @@ end
   #this is only for a non-ssl version
   sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
   sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
-  
+
+  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("VariantAnnotation", "SeqVarTools", "GenomicRanges", "jsonlite"))' 
+ 
   cp -r /vagrant/HitWalker2 /home/vagrant/
   
   sudo chown -R vagrant:vagrant /home/vagrant/HitWalker2
@@ -161,9 +166,13 @@ exec gunicorn -k eventlet HitWalker2.wsgi:application
   cd ..
   
   python manage.py collectstatic --noinput
-  
-  Rscript -e 'library(hwhelper)' -e 'load("/vagrant/hw2_config.RData")' -e 'configure(hw2.conf)'
-  
+
+  if [ -f /vagrant/hw2_config.RData ]
+  then 
+ 
+  	Rscript -e 'library(hwhelper)' -e 'load("/vagrant/hw2_config.RData")' -e 'configure(hw2.conf)'
+  fi
+
   cd /vagrant
   
   sudo restart HitWalker2

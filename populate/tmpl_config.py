@@ -2,6 +2,7 @@ import core
 import custom_functions
 import string
 import subprocess
+import json
 
 ##globals
 
@@ -57,24 +58,43 @@ adjust_fields = {
                                 'path_conf':{'type':'numeric', 'default':.95, 'range':[0, 1], 'comparison':'>', 'name':'Pathway STRING Confidence'},
                                 'res_prob':{'type':'numeric', 'default':.3, 'range':[0,1], 'comparison':'=', 'name':'Restart Probability'},
                                 'max_iter':{'type':'numeric', 'default':100, 'range':[0, 10000], 'comparison':'=', 'name':'Max Iterations'},
-                                'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}@HIT_PARAMS@
+                                'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}
                                 }, 
                         }
 }
+
+group_param_str = """@HIT_PARAMS@"""
+
+group_param_json=json.loads(group_param_str)
+
+for i in group_param_json.keys():
+        for j in group_param_json[i]['fields'].keys():
+                if group_param_json[i]['fields'][j].has_key('trans'):
+                        print i, j, str(group_param_json[i]['fields'][j].items())
+                        group_param_json[i]['fields'][j]['trans'] = eval(group_param_json[i]['fields'][j]['trans'])     
+                if group_param_json[i]['fields'][j].has_key('var_name'):        
+                        group_param_json[i]['fields'][j]['required'] = {'from':''}
+
+adjust_fields.update(group_param_json)
 
 #Basic info for genes:
 #Needs the query to return info in the following form:
     #gene ID, gene symbol, and the collection of pathways (or [] if that info is not available).
 #gene_names = {'query':'MATCH (n:Gene{name:{GENE}})-[r:KNOWN_AS]-(m) WHERE r.status="symbol" WITH n,m OPTIONAL MATCH (n)<-[:EXTERNAL_ID]-()<-[:GENESET_CONTAINS]-(p) RETURN n.name,m.name, COLLECT(DISTINCT p.name)', 'handler':custom_functions.get_gene_names, 'session_params':None}
 
-gene_names = {'query':'MATCH (n:EntrezID{name:{GENE}})-[r:REFERRED_TO]-(m) RETURN n.name,m.name, []', 'handler':custom_functions.get_gene_names, 'session_params':None}
+gene_names = {'query':'OPTIONAL MATCH (n:EntrezID{name:{GENE}})-[r:REFERRED_TO]-(m) RETURN {GENE},m.name, []', 'handler':custom_functions.get_gene_names, 'session_params':None}
 
 #used for the network view
 gene_rels = {'query':'MATCH (gene:EntrezID{name:{FROM_GENE}})-[:MAPPED_TO]-(string_from)-[r:ASSOC]-(string_to)-[:MAPPED_TO]-(gene_to) WHERE gene_to.name IN {TO_GENES} AND HAS(r.score) AND r.score > ({string_conf}*1000) RETURN gene.name,gene_to.name, MAX(r.score)', 'handler':None, 'session_params':[['string_conf']]}
 
 subject = {'query':'MATCH (n:@SUBJECT@{name:{SUBJECTID}}) RETURN n', 'handler':custom_functions.get_subject, 'session_params':None}
 #The initial call after the user chooses a sample can be made in terms of sample names not necessarily subject names
+#old:
 sample={'query': 'MATCH (subject:@SUBJECT@)-[:DERIVED]->(sample) WITH subject, sample, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias END AS query_names WHERE ANY(x IN query_names WHERE x = {SUBJECTID}) RETURN DISTINCT subject','handler':custom_functions.get_subject, 'session_params':None}
+
+#alternative, but is not robust:
+#sample={'query': 'MATCH (subject:@SUBJECT@)-[:DERIVED]->(sample) WHERE ANY(x IN [subject.name, sample.name] WHERE x IN {SUBJECTID}) RETURN DISTINCT subject','handler':custom_functions.get_subject, 'session_params':None}
+
 
 pathway = {'query':'MATCH (path:Pathway{name:{PATHNAME}})-[:PATHWAY_CONTAINS]->(gene) RETURN path.name, COLLECT(DISTINCT gene.name)', 'handler':custom_functions.get_pathway, 'session_params':None}
 
@@ -119,7 +139,7 @@ for i in data_types['seeds']:
     hit_session_dict[i] = [core.customize_query(eval(i), query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_hits)]
 
 #Here we also need to have 'query_ind', 'gene_ind' and a unique 'row_id'
-query_prior_dict = dict([(data_types['target'], [core.customize_query(eval(data_types['target']), query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_query_prior)])])
+query_prior_dict = dict([(data_types['target'], [core.customize_query(eval(data_types['target']), query=lambda x:x.replace("{name:{GENE}}", "").replace("{SAMPLE}", "{name}") , handler=lambda x: core.handle_dense_query)])])
 
 score_hits=core.no_combining
 convert_ids_to=custom_functions.gene_seed_list_to_protein
@@ -142,9 +162,9 @@ prioritization_func={'function':custom_functions.netprop_rwr, "args":{"initial_g
 #lambda x: [['query_samples', 'LabID', 'Variants']]
 
 node_queries={
-    'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
-    'Sample':[core.customize_query(sample, query=lambda x: x.replace("{SUBJECTID}", "{name}"))],
-    'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))]
+    'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"), base=True)],
+    'Sample':[core.customize_query(sample, query=lambda x: x.replace("{SUBJECTID}", "{name}"), base=True)],
+    'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"), base=True)]
 }
 
 #by default the user has no control over these parameters, if this was desired then these queries would need to be specified in 'adjust_fields' above and the unique id would need to be specified in session_params (e.g. core.customize_query(etc, etc, session_params=lambda x: [['gene_score']])
@@ -158,9 +178,9 @@ for i in data_list:
 #Whereas the node_queries are only involved in the get_shortest_paths functionality
 edge_queries = {
     'nodes':{
-        'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"))],
-        'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"))],
-        'Pathway':[core.customize_query(pathway, query=lambda x: x.replace("{PATHNAME}", "{name}"))]
+        'Gene':[core.customize_query(gene_names, query=lambda x: x.replace("{GENE}", "{name}"),base=True)],
+        'Subject':[core.customize_query(subject, query=lambda x: x.replace("{SUBJECTID}", "{name}"), base=True)],
+        'Pathway':[core.customize_query(pathway, query=lambda x: x.replace("{PATHNAME}", "{name}"), base=True)]
         },
     
     'edges':{

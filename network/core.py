@@ -248,7 +248,7 @@ class RowNode(Node):
         
         row_name = row[row_header.index('row_id')]
         
-        self.node_dict = {'id':row_name, 'display_name':row_name, 'attributes':{'gene':row[row[row_header.index('gene_ind')]], 'query':row[row[row_header.index('query_ind')]], 'node_type':'row'}, 'children':NodeList()}
+        self.node_dict = {'id':row_name, 'display_name':row_name, 'attributes':{'gene':str(row[row[row_header.index('gene_ind')]]), 'query':str(row[row[row_header.index('query_ind')]]), 'node_type':'row'}, 'children':NodeList()}
         
         row.pop(row_header.index('query_ind'))
         row_header.pop(row_header.index('query_ind'))
@@ -265,16 +265,21 @@ class RowNode(Node):
         
 
 class GeneNode(Node):
-    
+
     def __init__(self,cypher_res):
-        
+
         add_meta = {'node_cat':'Pathway_member', 'pathways':[]}
-        
+
         for i in cypher_res[2]:
             add_meta['pathways'].append(i)
-        
-        self.node_dict = {'id':cypher_res[0], 'display_name':cypher_res[1], 'attributes':{'node_type':'Gene', 'indexed_name':'name', 'meta':add_meta}, 'children':NodeList()}
-        self.display_name = cypher_res[1]
+
+        if cypher_res[1] == None:
+                disp_name = cypher_res[0]
+        else:
+                disp_name = cypher_res[1]
+
+        self.node_dict = {'id':cypher_res[0], 'display_name':disp_name, 'attributes':{'node_type':'Gene', 'indexed_name':'name', 'meta':add_meta}, 'children':NodeList()}
+        self.display_name = disp_name
         self.id = cypher_res[0]
     def todict (self):
         return super(GeneNode, self).todict()
@@ -477,6 +482,31 @@ class RelationshipSet:
             self.rel_key_pos = 0
             raise StopIteration
 
+def handle_dense_gene_hits(res_list, nodes, request):
+
+    for i in res_list:
+        samp_list = collections.defaultdict(list)
+        #use_vars as in variables, which should be type in this case...
+        use_vars = set()
+        samp_genes = set()
+        obj_name = i['obj']
+        table_header = i['header']
+        for j in i['result']:
+                j_res = j[:]
+                if request.session.has_key(obj_name):
+                        comp = request.session['inp_params']['General_Parameters']['fields'][obj_name]['comparison']
+                        is_hit = eval(str(j_res[table_header.index('score')]) + comp + str(request.session[obj_name]))
+                else:
+                        is_hit = True
+                use_vars.add(j_res[table_header.index('type')])
+                samp_list[j_res[table_header.index('subject')]].append([j_res[table_header.index('score')], is_hit])
+                samp_genes.add(j_res[table_header.index('gene')])
+               
+        cur_gene = nodes.getNode(str(samp_genes.pop()))
+        
+        gene_score = BasicGeneChild(cur_gene, samp_list, use_vars.pop())
+        nodes.addChild(cur_gene.id, gene_score)
+
 def handle_gene_hits(res_list, nodes, request):
     for i in BasicResultsIterable(res_list):
        
@@ -511,6 +541,25 @@ class TargetChildNode(Node):
     def todict(self):
         return super(TargetChildNode, self).todict()
 
+def handle_dense_gene_targets(res_list, nodes, request):
+
+    for i in res_list:
+        var_list = collections.defaultdict(list)
+        gene_set = set()
+        table_header = i['header']
+        specified_type = i['obj'][:]
+        for j in i['result']:
+            j_res = j[:]
+            gene_set.add(j_res[table_header.index('gene')])
+            var_list[j_res[table_header.index('name')]].append(j_res[table_header.index('subject')])
+        if len(gene_set) != 1:
+            raise Exception("Only expected a single gene in 'handle_dense_gene_targets'")
+        
+        cur_gene = nodes.getNode(str(gene_set.pop()))
+        for j in var_list.items():
+            variant = TargetChildNode(cur_gene, j[0], map(str, j[1]), specified_type)
+            nodes.addChild(cur_gene.id, variant)
+                
 def handle_gene_targets(res_list, nodes, request):
     
     if len(res_list) > 0:
@@ -735,11 +784,12 @@ def merge_attributes(dict1, dict2):
     new_dict.update(dict2)
     return new_dict
 
-def make_results_table(query_nl, seed_nl, ranking_sl):
+def make_results_table(query_nl, seed_nl, ranking_sl, symbol_list):
     
-    #need to add both the seed info and the ranking info to the table and return a sorted version (by ranking)
+    #need to add symbol info, seed info and the ranking info to the table and return a sorted version (by ranking)
     
-    table_header = copy.copy(query_nl.attributes['header'])
+    table_header = ['Symbol']
+    table_header.extend(copy.copy(query_nl.attributes['header']))
     
     #expand table_header by the seed types in seed_nl as well as another column for ranking_sl
     
@@ -747,12 +797,22 @@ def make_results_table(query_nl, seed_nl, ranking_sl):
     
     table_header.extend(reduce(lambda x,y: x+y, [sorted(list(seed_types)), ['HitWalkerScore', 'HitWalkerRank']]))
     
+    symbol_map = collections.defaultdict(list)
+    
+    for i in symbol_list:
+        symbol_map[i['gene']].append(i['symbol'])
+    
     rows = []
     
     for i in query_nl:
         
-        temp_i = i.getAttr(['attributes', 'row']) + [None]*(len(seed_types) + 2)
+        temp_i = i.getAttr(['attributes', 'row']) + [None]*(len(seed_types) + 3)
         temp_gene = i.getAttr(['attributes', 'gene'])
+        
+        #add in any symbol info
+        
+        if symbol_map.has_key(temp_gene):
+            temp_i[table_header.index('Symbol')] = string.joinfields(symbol_map[temp_gene], ',')
         
         #add in any seed info to the query table
         if seed_nl.hasNode(temp_gene):
@@ -876,6 +936,24 @@ def get_nodes_from_config(request, session_dict):
     
     return nl
 
+def handle_dense_query(res_list, nodes, request):
+    table_header = res_list[0]['header']
+    
+    nodes.attributes['header'] = table_header[:]
+    
+    ext_head = map(lambda x: table_header.index(x),['gene', 'name'])
+    
+    for i in res_list:
+        for j in i['result']:
+            
+            j_m = list(j)
+            
+            table_header.extend(["gene_ind", "query_ind", "row_id"])
+            j_m.extend(ext_head)
+            j_m.append(str(j_m[ext_head[0]])+str(j_m[ext_head[1]]))
+            nodes.add(RowNode(j_m, copy.copy(table_header)))
+    
+
 def handle_query_prior(res_list, nodes, request):
     
     table_header = list(cypherHeader(res_list))
@@ -912,6 +990,12 @@ def customize_query(inp_query, **kwargs):
             
         else:
             new_query[i] = inp_query[i]
+    
+    diff_keys = set(kwargs.keys()).difference(set(inp_query.keys()))
+    
+    for i in diff_keys:
+        new_query[i] = kwargs[i]
+    
     return new_query
 
 def iterate_dict(cur_dict, name_list):
@@ -994,7 +1078,7 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     all_nodes = NodeList()
     
     for key,val in all_node_dict.items():
-        all_nodes.extendIfNew(get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip"))
+        all_nodes.extendIfNew(get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip", only_base=True))
     
     #whereas query nodes can change type (e.g Pathway -> Gene)
     
@@ -1010,7 +1094,7 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     #just want to create a base set of nodes here, will add the specific children and such below when iterating through the different rel types
     
     for key,val in query_types.items():
-        temp_nl = get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip")
+        temp_nl = get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip", only_base=True)
         
         if len(temp_nl) > 0:
         
@@ -1211,7 +1295,7 @@ def apply_grouping2(cur_graph, query_nodes, never_group=False, exclude_type=""):
     else:
         return cur_graph
 
-def get_nodes(names, node_type, request, indexed_name="name",  config_struct = None, param_list=[], missing_param="fail", cypher_session=None):
+def get_nodes(names, node_type, request, indexed_name="name",  config_struct = None, param_list=[], missing_param="fail", cypher_session=None, only_base=False):
     
     if missing_param != "fail" and missing_param != "skip":
         raise Exception("missing_param needs to be either fail or skip")
@@ -1227,49 +1311,98 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
     
     if cypher_session == None:
         from config import cypher_session
-        
-    session = cypher.Session(cypher_session)
-    tx = session.create_transaction()
     
     nodes = NodeList()
     
     if config_struct.has_key(node_type):
         for i_ind, i in enumerate(config_struct[node_type]):
-            for j_ind, j in enumerate(names):
-                if j != None:
-                    if i.has_key('session_params') and i['session_params'] != None:
-                       use_param = {indexed_name:j}
-                       for par in i['session_params']:
-                            use_key = par[-1]
-                            use_elem = iterate_dict(request.session, par)
-                            if use_elem != None:
-                                use_param[use_key] = use_elem
-                    else:
-                        use_param = {indexed_name:j}
-                        
-                    if len(param_list) > 0:
-                        for p_key in param_list[j_ind].keys():
-                            use_param[p_key] = param_list[j_ind][p_key]
-                    
-                    use_query = i['query']
-                    
-                    for var_elem in request.session['where_vars']:
-                        use_query = add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
-                    
-                    missing_params = get_necessary_params(use_query).difference(set(use_param.keys()))
-                    
-                    if len(missing_params) == 0:
-                        tx.append(use_query, use_param)
-                    elif len(missing_params) > 0 and missing_param=="fail":
-                        raise Exception("Cannot find parameter(s) " + str(list(missing_params)) + " and missing_param is set to 'fail'")
-                    #otherwise this implies skip
             
-            if len(names) > 0:
-                if i_ind == (len(config_struct[node_type])-1):
+            if (only_base == True) and ((i.has_key('base') == False) or (i['base'] == False)):
+                continue
+            res_list = []
+            if (i.has_key('db_type') == False) or (i.has_key('db_type') and i['db_type'] == 'neo4j'):
+                
+                session = cypher.Session(cypher_session)
+                tx = session.create_transaction()
+                
+                for j_ind, j in enumerate(names):
+                    if j != None:
+                        if i.has_key('session_params') and i['session_params'] != None:
+                           use_param = {indexed_name:j}
+                           for par in i['session_params']:
+                                use_key = par[-1]
+                                use_elem = iterate_dict(request.session, par)
+                                if use_elem != None:
+                                    use_param[use_key] = use_elem
+                        else:
+                            use_param = {indexed_name:j}
+                            
+                        if len(param_list) > 0:
+                            for p_key in param_list[j_ind].keys():
+                                use_param[p_key] = param_list[j_ind][p_key]
+                            
+                        use_query = i['query']
+                        
+                        #This functionality is now depricated for Neo4j
+                        #for var_elem in request.session['where_vars']:
+                        #    use_query = add_where_input_query(use_query, var_elem['where_statement'], var_elem['necessary_vars'], request.session['graph_struct'])
+                        
+                        missing_params = get_necessary_params(use_query).difference(set(use_param.keys()))
+                        
+                        if len(missing_params) == 0:
+                            tx.append(use_query, use_param)
+                            
+                        elif len(missing_params) > 0 and missing_param=="fail":
+                            raise Exception("Cannot find parameter(s) " + str(list(missing_params)) + " and missing_param is set to 'fail'")
+                        #otherwise this implies skip
+                
+                if len(tx._statements) > 0:
                     res_list = tx.commit()
-                else:
-                    res_list = tx.execute()
+                        
+            elif i.has_key('db_type') and i['db_type'] == 'sql':
+                import network.models
+                from django.db.models import Q
+                print 'db'
+                print names
+                print node_type
+                print i['datatype']
+                print param_list
+                #also need to getattr Variation etc, sub something else for gene__in
+                cur_mod = getattr(network.models, i['datatype'])
+                res_list = []
+                for j_ind, j in enumerate(names):
+                    if isinstance(j, list) == False:
+                        j = [j]
+                    if node_type == i['datatype']:
+                        use_nt = 'sample'
+                    else:
+                        use_nt = node_type[:]
+                    comb_q = Q(**{use_nt.lower()+"__in":j})
+                    if len(param_list) > 0:
+                        for k in param_list[j_ind].items():
+                                #this is kind of confusing, ... sample-specific data will be specified as the given datatype while subject specific will be called SAMPLE
+                                if k[0] == i['datatype']:
+                                        comb_q = comb_q & Q(**{"sample__in":k[1]})
+                                if k[0] == 'SAMPLE':
+                                        comb_q = comb_q & Q(**{"subject__in":k[1]})
                     
+                    #how to get column names for the value list
+                    header = map(lambda x: x.name, cur_mod._meta.fields)
+                    
+                    if request.session.has_key('where_vars') and len(request.session['where_vars']) > 0:
+                            
+                            db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[request.session['where_vars'][0]['where_statement'].replace("$$$$.", "")]).values_list()
+                    else:
+                            db_res = cur_mod.objects.using("data").filter(comb_q).values_list()
+                    
+                    if len(db_res) > 0:
+                        res_list.append({'header':header, 'result':db_res, 'obj':i['datatype']})
+                
+            else:
+                raise Exception("specified db_type is not defined")
+            
+            if len(res_list) > 0:
+                print i['handler']
                 i['handler'](res_list, nodes, request)
     else:
         raise Exception("config_struct does not have specified node_type")
@@ -1302,6 +1435,9 @@ def type_of_value(var):
         return type(ast.literal_eval(var))
     except Exception:
         return str
+
+def return_character(value):
+    return str(value)
 
 def return_numeric(value):
     return float(value)
@@ -1419,7 +1555,7 @@ def parse_parameters (param_dict, trans_funcs, request):
             
             #make a pretty version for output
             
-            pretty_where = re.sub("\$\$[\w_\d]+\$\$", "", temp_where)
+            pretty_where = re.sub("\$\$[\w_\d]*\$\$", "", temp_where)
             
             for temp_field in val['fields'].values():
                 pretty_where = re.sub("\."+temp_field['var_name'], temp_field['name'], pretty_where)

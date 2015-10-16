@@ -71,7 +71,7 @@
         <div class="button-group col-md-3">
            <!-- <button type="submit" class="btn btn-default" disabled=true>Submit</button>
             <button type="button", onclick="uncheck_checkboxes()" class="btn btn-default">Clear</button>-->
-            <button type="button" onclick="populate_display_selects()" data-toggle="modal" data-target="#select_modal" class="btn btn-default">Display</button>
+            <button type="button" data-toggle="modal" data-target="#select_modal" class="btn btn-default">Display</button>
             <button type="button" onclick="html_to_csv_d3()" class="btn btn-default">Export as CSV</button>
         </div>
     </div>
@@ -91,7 +91,7 @@
                 <div class="modal-body">
                     
                     {% for cur_it in sample_display_name.items %}
-                        <input type="hidden" name="{{cur_it.0}}" value="{{cur_it.1}}")></input>
+                        <input type="hidden" name="{{cur_it.0}}" value="{{cur_it.1}}"></input>
                     {% endfor %}
                     <div class="container">
                         <div class="row">
@@ -191,6 +191,10 @@
         $("div.container").append('<div><p class="text-danger">Sorry no hits were found</p></div>');
     }
     
+    
+    window.onload = function(){
+     populate_display_selects();
+    };
     
     function check_selections()
     {

@@ -10,6 +10,7 @@ try:
     from core import get_nodes
     import custom_functions
 except:
+    print 'Cannot load modules...'
     sys.exit(0)
 
 class TestRequest():
@@ -35,7 +36,7 @@ if __name__ == '__main__':
         
         whole_query = re.sub("\{name:.+\}", "", cur_query['query'])
         
-        whole_query = re.sub("WITH.+RETURN", "RETURN", whole_query)
+        whole_query = re.sub("WHERE.+RETURN", "RETURN", whole_query)
         
         if i == 'gene_names':
             use_query = whole_query + " LIMIT 10"
@@ -73,13 +74,23 @@ if __name__ == '__main__':
     for i in config.data_list:
         param_key[i].append(samp_vals['subject'][0])
     
+    #remove sql queries from the default config_struct before below
+    #this modifies config.node_queries indirectly but works for the remaning calls as opposed to making direct calls
+    tmp_node_queries = config.node_queries
+
+    for i in tmp_node_queries.keys():
+        for j_ind, j in enumerate(tmp_node_queries[i]):
+                if j['query'] == '':
+                        tmp_node_queries[i].pop(j_ind)
+    
     for i in ['Gene', 'Sample', 'Subject']:
         
         cur_val = samp_vals[i.lower()][0]
         
         if isinstance(cur_val, list):
             cur_val = cur_val[0]
-        
+        print cur_val
+        print param_key
         print get_nodes([cur_val], i, request, param_list=[param_key]).display_names()
     
     #gene, subject and pathway searches
@@ -109,7 +120,8 @@ if __name__ == '__main__':
     
     for i in config.node_group_content.items():
         for j in i[1]['options']:
-            print list(neo4j.CypherQuery(graph_db, j['query']).execute(**param_dict))
+            if j['query'] != '':
+                print list(neo4j.CypherQuery(graph_db, j['query']).execute(**param_dict))
     
     #carry out the shortest path query
     

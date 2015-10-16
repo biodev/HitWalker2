@@ -1144,7 +1144,7 @@ function post_to_fullfill (obj)
             
             var display_type = "View"
             
-            if (parseInt(x.count) > 2000){
+            if (parseInt(x.count) > 500){
                
                display_type = "Download";
                

@@ -18,7 +18,11 @@ DATABASES = {
         'PASSWORD': '',
         'HOST': '',                      # Empty for localhost through domain sockets or '127.0.0.1' for localhost through TCP.
         'PORT': '',                      # Set to empty string for default.
-    }
+    },
+'data':{
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/var/www/hitwalker2_inst/data.db'
+}
 }
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False

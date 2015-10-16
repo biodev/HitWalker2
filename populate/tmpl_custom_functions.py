@@ -268,7 +268,7 @@ def get_pathway(res_list, nodes, request):
     #as pathways are currently only produced from the copy_nodes interface
     import config
     
-    gene_nl = core.get_nodes(gene_names, 'Gene', request, config_struct=config.edge_queries['nodes'], missing_param="skip")
+    gene_nl = core.get_nodes(gene_names, 'Gene', request, config_struct=config.edge_queries['nodes'], missing_param="skip", only_base=True)
     
     #a pathway in this context is a special metanode
     nodes.extend(gene_nl)

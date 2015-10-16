@@ -10,7 +10,14 @@ setGeneric("dataTypes", def=function(obj,...) standardGeneric("dataTypes"))
 setGeneric("relNames", def=function(obj,...) standardGeneric("relNames"))
 setGeneric("sampleEdge", def=function(obj,...) standardGeneric("sampleEdge"))
 setGeneric("geneEdge", def=function(obj,...) standardGeneric("geneEdge"))
-
+setGeneric("typeName", def=function(obj,...) standardGeneric("typeName"))
+setGeneric("data", def=function(obj,...) standardGeneric("data"))
+setGeneric("guessFields", def=function(obj,...) standardGeneric("guessFields"))
+setGeneric("removeFields<-", def=function(obj,...) standardGeneric("removeFields<-"))
+setGeneric("listFields", def=function(obj,...) standardGeneric("listFields"))
+setGeneric("listFieldAttributes", def=function(obj,...) standardGeneric("listFieldAttributes"))
+setGeneric("tweakField", def=function(obj,...) standardGeneric("tweakField"))
+setGeneric("addLogic<-", def=function(obj,...) standardGeneric("addLogic<-"))
 
 #' Shared Generics
 #'
@@ -72,16 +79,6 @@ NULL
 #' @slot template.query A cypher template which forms the basis of aggregation-based queries (see provided classes for examples)
 NeoData <- setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character", base.query="character", template.query="character"))
 
-#' Hit Parameter Data for HitWalker2
-#'
-#' Basic class representing common components for hit parameters that all classes which load data into Neo4j for HitWalker2 should be derived from.
-#'
-#' @slot default The default value used to determine if a datatype should be considered a 'hit' for a given sample
-#' @slot direction Direction of the test
-#' @slot range Valid range (vector) that the user can adjust the values towards
-#' @slot display_name Name to be displayed to the user
-HwHit <- setClass(Class="HwHit", representation=list(default="numeric", direction="character", range="numeric", display_name="character"))
-
 setMethod("nodeName", signature("NeoData"), function(obj){
     return(obj@node.name)
 })
@@ -95,6 +92,183 @@ setMethod("sampleEdge", signature("NeoData"), function(obj){
 #' @describeIn NeoData Extracts the name of the  assay unit -> gene edge
 setMethod("geneEdge", signature("NeoData"), function(obj){
     return(obj@gene.edge.name)
+})
+
+setMethod("typeName", signature("NeoData"), function(obj){
+  capwords(tolower(sub("HAS_", "", sampleEdge(obj))))
+})
+
+DenseNeoData <- setClass(Class="DenseNeoData", representation=list(data="data.frame"), contains="NeoData")
+
+setMethod("data", signature("DenseNeoData"), function(obj){
+  return(obj@data)
+})
+
+setMethod("sampleNames", signature("DenseNeoData"), function(object){
+  return(unique(data(object)$sample))
+})
+
+GroupedFilter <- setClass(Class="GroupedFilter", representation=list(fields="list", groups="list"))
+setClassUnion("GroupedFilterOrNULL", members=c("GroupedFilter", "NULL"))
+
+
+#factor.size.limit is the maximum number of levels a character/factor column is allowed to have to be considered
+#by default numeric values are set to be hits if they are greater than the mean
+setMethod("guessFields", signature("DenseNeoData"), function(obj, factor.size.limit=5){
+  
+  #needs to look like: 'freq':{'type':'numeric', 'comparison':'<','default':.01, 'range':[0,1], 'name':'Global MAF', 'var_name':'gmaf','trans':core.return_numeric},
+  
+  obj.dta <- data(obj)
+  obj.dta <- obj.dta[,-c(1:3)]
+  
+  field.list <- lapply(names(obj.dta), function(x){
+    
+    disp.name <- capwords(gsub("_", " ", x))
+    #treat 0/1 encoded variables as character...
+    if (is.numeric(obj.dta[,x]) && all(obj.dta[,x] %in% c(0,1)) == F){
+      
+      return(list(type="numeric", comparison=">", default=mean(obj.dta[,x]), range=range(obj.dta[,x]), name=disp.name, var_name=tolower(x), trans="core.return_numeric"))
+      
+    }else{
+      
+      x.chr <- as.character(obj.dta[,x])
+      
+      if (length(unique(x.chr)) > factor.size.limit){
+        return(NULL)
+      }else{
+        
+        unique.vals <- unique(x.chr)
+        
+        if (all(unique.vals %in% c(0,1))){
+          unique.vals <- c("True", "False")
+        }
+        
+        return(list(type="character", default=unique.vals[1], range=unique.vals, name=disp.name, var_name=tolower(x), trans=ifelse(all(unique.vals %in% c("True", "False")), "core.return_binary", "core.return_character")))
+      }
+      
+    }
+    
+  })
+  
+  names(field.list) <- names(obj.dta)
+  
+  should.keep <- sapply(field.list, function(x) is.null(x)==F)
+  
+  field.list <- field.list[should.keep]
+  groups <- list()
+  
+  return(new("GroupedFilter", fields=field.list, groups=groups))
+  
+})
+
+setMethod("listFields", signature("GroupedFilter"), function(obj){
+  return(names(obj@fields))
+})
+
+setMethod("listFieldAttributes", signature("GroupedFilter"), function(obj, fieldnames){
+  
+  return(obj@fields[fieldnames])
+  
+})
+
+setReplaceMethod("removeFields", signature("GroupedFilter"), function(obj, value){
+  
+  if(all(value %in% names(obj@fields)) == F){
+    stop("fieldnames to be removed should have been specified as fields")
+  }
+  
+  obj@fields <- obj@fields[setdiff(names(obj@fields), value)]
+  
+  #need to also deal with case where obj@groups is non-null
+  
+  validObject(obj)
+  return(obj)
+  
+})
+#... indicates the attributes of the fields to be changed in the form: key="value"
+setMethod("tweakField", signature("GroupedFilter"), function(obj, fieldname, ...){
+  
+  tweaks <- list(...)
+  
+  if (is.null(names(tweaks))){
+    stop("ERROR: supplied attributes need to be named")
+  }
+  
+  for(i in names(tweaks)){
+    obj@fields[[fieldname]][[i]] <- tweaks[[i]]
+  }
+  
+  return(obj)
+  
+})
+
+#use this jsonlist::toJSON(res.list, pretty=T, auto_unbox=T)
+#fields <- addLogic(fields, "(QD & MQ0 & cohort_freq < .5) & ((in_dbsnp == FALSE & in_esp == FALSE) | (in_cosmic == TRUE))")
+setReplaceMethod("addLogic", signature("GroupedFilter"), function(obj, value){
+  
+  .process.exprs <- function(x){
+    logics <- regmatches(x, gregexpr("([&\\|])", x))[[1]]
+    expr.str <- gsub("\\s+", "", strsplit(x, "[&\\|]")[[1]])
+    exprs <- parse(text=expr.str[expr.str != ""])
+    
+    temp.list <- lapply(seq_along(exprs), function(y){
+      if (is.name(exprs[[y]])){
+        return(list(field=as.character(exprs[[y]])))
+      }else{
+        return(list(comparison=ifelse(as.character(exprs[[y]][[1]]) == "==", "=", as.character(exprs[[y]][[1]])), 
+                    field=as.character(exprs[[y]][[2]]), 
+                    default=ifelse(is.logical(exprs[[y]][[3]]), capwords(tolower(as.character(exprs[[y]][[3]]))), exprs[[y]][[3]])))
+      }
+    })
+    
+    for(y in seq_along(temp.list)){
+      
+      if (y > 1){
+        temp.list[[y]][["logical"]] <- ifelse(logics[y-1] == "|", "OR", "AND")
+      }
+    }
+    
+    return(temp.list)
+  }
+  
+  
+  new.str <- gsub("\\(\\(|\\)\\)", "%", value)
+  
+  split.expr <- strsplit(new.str, "%")[[1]]
+  
+  lo.logical <- ""
+  
+  res.list <- lapply(split.expr, function(x){
+    
+    temp.split <- strsplit(x, "[\\(\\)]")[[1]]
+    temp.split <- temp.split[temp.split != ""]
+    
+    is.logical <- gsub("\\s+", "", temp.split) %in% c("&", "|")
+    
+    fin.list <- lapply(temp.split[!is.logical], .process.exprs)
+    
+    if (lo.logical != ""){
+      fin.list[[1]][[1]]$logical <- ifelse(gsub("\\s+", "", lo.logical) == "|", "OR", "AND")
+    }
+    
+    if(is.logical[length(is.logical)]){
+      lo.logical <<- temp.split[is.logical]
+    }else if (any(is.logical)){
+      for (i in which(is.logical)){
+        fin.list[[i]][[1]]$logical <- ifelse(gsub("\\s+", "", temp.split[i]) == "|", "OR", "AND")
+      }
+    }
+    
+    return(fin.list)
+    
+  })
+  
+  obj@groups <- res.list
+  
+  validObject(obj)
+  
+  return(obj)
+  
 })
 
 #' Subject-level information
@@ -116,7 +290,7 @@ setClass(Class="Subject", representation=list(subject.info="data.frame", subject
 #' @slot data.list Named list containing the experiemntal data
 #' @slot data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names in data.list
 #' @slot gene.model String naming the type of gene model to be used, currently only entrez is supported.
-HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", gene.model="character"))
+HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", data.list="list", data.types="list", filters="GroupedFilterOrNULL", gene.model="character"))
 
 #' @rdname class_helpers
 #' @param subject An object of class \code{Subject}
@@ -124,7 +298,7 @@ HW2Config <- setClass(Class="HW2Config", representation=list(subject="Subject", 
 #' @param data.types A list of the form: list(seeds=seed.vec,target='target') where the names in seed and target correspond to the names specified to the function.
 #' @param ... A series of name=value pairs which are to be loaded into the Neo4j database. All of the values in \code{data.types} should correspond to these names though
 #' it is not required that all the datatypes specified here correspond to those needed for prioritization.
-makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL,...)
+makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types=NULL, filters=NULL,...)
 {
     gene.model <- match.arg(gene.model)
     
@@ -147,7 +321,7 @@ makeHW2Config <- function(subject, gene.model=c("entrez", "ensembl"), data.types
         stop("ERROR: All of the strings specified in data.types need to correspond to names supplied here")
     }
     
-    return(new("HW2Config", subject=subject, data.list=data.list, data.types=data.types, gene.model=gene.model))
+    return(new("HW2Config", subject=subject, data.list=data.list, data.types=data.types, gene.model=gene.model, filters=filters))
 }
 
 setGeneric("subjectName", def=function(obj,...) standardGeneric("subjectName"))
@@ -179,7 +353,7 @@ setMethod("relNames", signature("HW2Config"), function(obj, data.type=NULL,  rel
 #' @describeIn HW2Config Populates a neo4j database.  The subject/sample info is populated first followed by the remaining entries.
 #' @param neo.path If \code{neo.path} is specified, the neo4j-shell executable is expected at neo.path/bin/neo4j-shell.  Otherwise it is expected to be part of your path.
 #' @param skip If \code{skip} is specified, it should be an integer vector indicating which of entries in the \code{data.list} slot should be skipped.
-setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL){
+setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=NULL, db.path="/var/www/hitwalker2_inst/data.db"){
     
     if (missing(skip) || is.null(skip) || all(is.na(skip)))
     {
@@ -205,14 +379,40 @@ setMethod("populate", signature("HW2Config"), function(obj, neo.path=NULL, skip=
         names(subject.info)[2:ncol(subject.info)] <- paste(names(subject.info)[1], names(subject.info)[2:ncol(subject.info)], sep=".")
     }
     
+    #should also load the subject info into the sql database in case there is a dense datatype...
+    
     load.neo4j(.data=subject.info, edge.name=NULL,commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
     load.neo4j(.data=obj@subject@subject.to.sample, edge.name="DERIVED", commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", merge.from=F)
+    
+    temp.sub.dta <- obj@subject@subject.to.sample
+    names(temp.sub.dta) <- tolower(names(temp.sub.dta))
+    names(temp.sub.dta)[names(temp.sub.dta) == tolower(subjectName(obj))] <- "subject"
     
     for(i in setdiff(seq_along(obj.list), skip))
     {
         message(paste("Starting:", i))
-        fromSample(obj.list[[i]], neo.path=neo.path)
-        toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
+        
+        if (inherits(obj.list[[i]], "DenseNeoData")){
+          
+          temp.tab.dta <- data(obj.list[[i]])
+          temp.tab.dta$type <- typeName(obj.list[[i]])
+          
+          w.tab <- merge(temp.tab.dta, temp.sub.dta, by=c("sample", "type"), all=F, sort=F)
+          
+          w.tab$id <- 1:nrow(w.tab)
+          
+          con <- dbConnect(SQLite(), db.path)
+          
+          dbWriteTable(conn=con, name=names(obj.list)[i], value=w.tab, row.names=F)
+          
+          dbDisconnect(con)
+          
+        }else{
+          fromSample(obj.list[[i]], neo.path=neo.path)
+          toGene(obj.list[[i]], neo.path=neo.path, gene.model=gene.model)
+        }
+        
+       
     }
     
 })
@@ -288,7 +488,7 @@ multi.gsub <- function(patterns, replacements, use.str)
 #' @param base.dir Directory where the template files are located
 #' @param dest.dir Directory where the complete template files should be placed.
 #' @param make.graph.struct If TRUE, generate and stage a graph_struct file
-setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/", make.graph.struct=T){
+setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vagrant/HitWalker2/populate/",dest.dir="/home/vagrant/HitWalker2/network/", make.graph.struct=T, db.path="/var/www/hitwalker2_inst/data.db"){
     #copySubstitute() --which is part of Biobase
     
     if (file.exists(dest.dir) == F)
@@ -305,12 +505,12 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     subj.name <- capwords(subjectName(obj))
     
-    base.query <- paste0('MATCH (subject:',subj.name,')-[]->(sample) WITH subject, sample, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias END AS query_names WHERE ANY(x IN query_names WHERE x = "$$sample$$") WITH subject, sample ')
+    base.query <- paste0('MATCH (subject:',subj.name,')-[d:DERIVED]->(sample) WITH subject, sample, d, CASE subject.alias WHEN null THEN [subject.name] ELSE [subject.name]+subject.alias END AS query_names WHERE ANY(x IN query_names WHERE x = "$$sample$$") WITH subject, sample ')
     
     prev.types <- character()
-    
+     
     for(i in dataTypes(obj)){
-        base.query <- append(base.query, paste0('OPTIONAL MATCH (sample)-[:',relNames(obj, data.type=i, rel.type="from"),']-(res) WITH subject, sample',paste(c(" ", prev.types), collapse=" , "),', COUNT(res) AS ',i,' '))
+        base.query <- append(base.query, paste0(', SUM(CASE WHEN d.type = "', typeName(obj@data.list[[i]]), '" THEN 1 ELSE 0 END) AS ', i))
         prev.types <- append(prev.types, i)
     }
     
@@ -321,7 +521,7 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     base.queries <- character()
     templ.queries <- character()
-    hit.params <- ""
+    hit.params <- list()
     #'conv_thresh':{'type':'numeric', 'default':1e-10, 'range':[0,1], 'comparison':'<', 'name':'Convergence Threshold'}
     for(i in dataTypes(obj))
     {
@@ -330,18 +530,27 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
             handler <- 'core.handle_gene_hits'
             use.params <- paste0("[['",tolower(i),"']]")
             cur.obj <- obj@data.list[[i]]
-            hit.params <- append(hit.params, paste0("'",tolower(i),"':{'type':'numeric', 'default':",cur.obj@default, " , 'range':[",paste(cur.obj@range, collapse=","),"], 'comparison':'",cur.obj@direction,
-                                                    "' , 'name':'",cur.obj@display_name,"'}"))
+            temp.param.list <- list(list(type="numeric", default=cur.obj@default, range=cur.obj@range, comparison=cur.obj@direction, name=cur.obj@display_name))
+            names(temp.param.list)[length(temp.param.list)] <- tolower(i)
+            hit.params <- append(hit.params, temp.param.list)
             
         }else{
             handler <- 'core.handle_gene_targets'
             use.params <- "None"
         }
         
+        #need to add in db_type:sql
         
-        temp.query <- paste0(i,"= {'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T)), "', 'handler':",handler,", 'session_params':",use.params, "}")
+        if (inherits(obj@data.list[[i]], "DenseNeoData")){
+          db.type <- "sql"
+          handler <- sub("handle_","handle_dense_",handler)
+        }else{
+          db.type <- "neo4j"
+        }
+        
+        temp.query <- paste0(i,"= {'db_type':'",db.type,"', 'datatype':'",i,"','query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@base.query, perl=T)), "', 'handler':",handler,", 'session_params':",use.params, "}")
         base.queries <- append(base.queries, temp.query)
-        templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T)), "', 'handler':None, 'session_params':",use.params, "}"))
+        templ.queries <- append(templ.queries, paste0(i,"_tmpl = {'db_type':'",db.type,"','title':'$$ret_type$$s with ",i," hits for $$result$$','text':'",i,"', 'query':'", multi.gsub(c("$PAR_NAME$", "$DATA_NAME$", "$SUBJECT$"), c(paste0("{", tolower(i), "}"), i, subj.name), gsub("\n\\s+", " ", obj@data.list[[i]]@template.query, perl=T)), "', 'handler':None, 'session_params':",use.params, "}"))
     }
     
     subj.dta <- obj@subject@subject.info
@@ -369,8 +578,20 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
     
     subj_atts <- paste(subj_atts, "}")
     
-    sub.list <- list(DATA_TYPES=toJSON(obj@data.types), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
-                     SUBJECT_ATTRIBUTES=subj_atts,TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=paste(hit.params, collapse=",\n"), USE_DATA=paste0("[", paste(paste0("'", dataTypes(obj) ,"'"), collapse=",") ,"]"))
+    #make HIT_PARAMS a JSON object
+    param.shell <- list(list(type="standard", fields=hit.params))
+    names(param.shell) <- "Seed_Parameters"
+    #also add in any grouped filters specified in the HW2Config object
+    
+    if (is.null(obj@filters) == F){
+      
+      param.shell <- append(param.shell, list(list(type="grouped", fields=obj@filters@fields, default_groups=obj@filters@groups)))
+      names(param.shell)[length(param.shell)] <- paste(sub("s$", "", obj@data.types["target"]) , "Filters" ,sep="_")
+      
+    }
+    
+    sub.list <- list(DATA_TYPES=toJSON(obj@data.types,auto_unbox=T), SUBJECT=subj.name, REL_QUERY_STR=paste(base.query, collapse="\n"), BASE_QUERIES=paste(base.queries, collapse="\n\n"),
+                     SUBJECT_ATTRIBUTES=subj_atts,TEMPLATE_QUERIES=paste(templ.queries, collapse="\n\n"), HIT_PARAMS=toJSON(param.shell, pretty=T, auto_unbox=T), USE_DATA=paste0("[", paste(paste0("'", dataTypes(obj) ,"'"), collapse=",") ,"]"))
     
     message("Staging config files")
     
@@ -382,9 +603,41 @@ setMethod("configure", signature("HW2Config"), function(obj, base.dir="/home/vag
         cur.dir <- getwd()
         setwd(dirname(dest.dir))
         system("./change_hw2_instance.sh tmpl")
+        
         setwd(cur.dir)
     }else{
         message("Cannot find 'change_hw2_instance.sh', skipping config file setup")
+    }
+    
+    if (file.exists(db.path)){
+    
+      cur.dir <- getwd()
+      setwd(dirname(dest.dir))
+      
+      suppressWarnings(cur.mods <- readLines("network/models.py"))
+      
+      p.con <- pipe("python manage.py inspectdb --database=data")
+      
+      addl.mods <- readLines(p.con)
+      
+      close(p.con)
+      
+      which.pk <- grep("\\s*id\\s*=", addl.mods)
+      for(i in which.pk){
+        addl.mods[which.pk] <- sub("(\\W)id = .*", "\\1id = models.IntegerField(primary_key=True),", addl.mods[which.pk], perl=T)
+      }
+      
+      classes <- grep("class", addl.mods)
+      
+      first.class <- which.min(classes)
+      
+      addl.mods <- addl.mods[-c(1:(classes[first.class]-1))]
+      
+      all.mods <- c(cur.mods, addl.mods)
+      
+      writeLines(all.mods, con="network/models.py")
+      
+      setwd(cur.dir)
     }
     
     if (make.graph.struct){
@@ -417,7 +670,13 @@ setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
         
         call.list$stringsAsFactors <- F
         
+        use.type <- typeName(value)
+        
         value <- do.call(data.frame, call.list)
+        
+        if ("type" %in% names(value) == F){
+          value$type <- use.type
+        }
     }
     
     if (('sample' %in% names(value) && names(obj@subject.info)[1] %in% names(value)) == F)
@@ -481,321 +740,20 @@ Subject <- function(subject.info, subject.to.sample=NULL, type.col=NULL)
 }
 
 
-##Note here, that for dense datatypes like expression, don't actually return possible hits
-#' Basic Representation for Expression Array Data
-#'
-#' A basic class for representing Affymetrix expression array data.
-#'
-#' @slot exprs, an \code{ExpressionSet} containing expression data.
-HW2exprSet_class <- setClass(Class="HW2exprSet", representation=list(exprs="ExpressionSet"), contains=c("NeoData", "HwHit"),
-         prototype=list(sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet",
-                        default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold",
-                        base.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(m:EntrezID{name:{GENE}}) WHERE d.type = "Affy_Expression" AND HAS(r.score) AND subject.name IN {SAMPLE}
-                        AND r.score > $PAR_NAME$ RETURN m.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, MAX(r.score) AS score, true AS is_hit',
-                        
-                        template.query='MATCH(subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_EXPRESSION]-()-[:PS_MAPPED_TO]-(gene:EntrezID) WHERE d.type = "Affy_Expression" AND r.score > $PAR_NAME$ AND $$lower_coll_type$$.name IN {$$coll_type$$}
-                        WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll'))
-
-#' @rdname class_helpers
-#' @param exprs An ExpressionSet
-#' @param sample.edge.name The name of the relationship between the samples and the assay identifier e.g. probeset, drug or variant.
-#' @param gene.edge.name The name of the relationship between the assay identifiers and genes
-#' @param node.name The name that should be given to the assay units in the Neo4j database.
-HW2exprSet <- function(exprs, sample.edge.name="HAS_EXPRESSION", gene.edge.name="PS_MAPPED_TO", node.name="probeSet"){
-    
-    return(new("HW2exprSet", exprs=exprs, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
-}
-
-#' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the
-#' probeset names are derived from the rownames. The score attribute is derived from the values of the matrix.  The expression values are converted to z scores
-#' prior to loading and only those sample to gene relationships that exceed the specified lower range are kept.
-#' @param obj An object of class \code{HW2exprSet}.
-#' @param neo.path The optional path to a Neo4j database.
-setMethod("fromSample", signature("HW2exprSet"), function(obj, neo.path=NULL){
-    
-    use.exprs <- exprs(obj@exprs)
-    
-    #by default we z transform the data
-    
-    scale.exprs <- t(scale(t(use.exprs)))
-    
-    melt.use.exprs <- melt(scale.exprs)
-    names(melt.use.exprs) <- c("probeset", "sample", "score")
-    
-    melt.use.exprs$sample <- as.character(melt.use.exprs$sample)
-    melt.use.exprs$probeset <- as.character(melt.use.exprs$probeset)
-    
-    use.expr <- paste("melt.use.exprs$score", obj@direction, min(obj@range))
-    
-    exprs.hits <- eval(parse(text=use.expr))
-    
-    melt.use.exprs <- melt.use.exprs[exprs.hits,]
-    
-    #now load the sample -> probe mappings
-    
-    melt.use.exprs <-  melt.use.exprs[,c("sample", "probeset", "score")]
-    names(melt.use.exprs)[2] <- nodeName(obj)
-    
-    load.neo4j(.data=melt.use.exprs, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&", unique.rels=F)
-    
-})
-
-#' @describeIn HW2exprSet_class Implements the loading of the probeset to gene mapping data into Neo4j.  The mapping data is derived from the annotation
-#' database specified using the \code{annotation} method for the \code{ExpressionSet}.
-#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
-setMethod("toGene", signature("HW2exprSet"), function(obj, neo.path=NULL,gene.model=c("entrez", "ensembl")){
-    
-    gene.model <- match.arg(gene.model)
-    
-    if (length(annotation(obj@exprs)) > 0){
-        
-        if (grepl("\\.db$", annotation(obj@exprs), perl=T)){
-            
-            annotation.package <- annotation(obj@exprs)
-            
-        }else{
-            
-            annotation.package <- paste0(annotation(obj@exprs), ".db")
-        }
-    }else{
-        stop("ERROR: Need to specify an annotation package as part of the ExpressionSet")
-    }
-    
-    require(annotation.package, character.only=T)
-    
-    #Then create a mapping file from probeset to gene
-    
-    gene.type <- switch(gene.model, entrez="ENTREZID", ensembl="ENSEMBL")
-    
-    probe.to.gene <- suppressWarnings(select(eval(parse(text=annotation.package)), keys=featureNames(obj@exprs), column=gene.type, keytypes="PROBEID"))
-    
-    #Discard for now those that do not map to either type of genes.
-    
-    probe.to.gene <- probe.to.gene[is.na(probe.to.gene[,gene.type]) == F,]
-    
-    #probesets that map to multiple genes are perhaps not that reliable either, so discard them as well for now...
-    
-    dup.probes <- probe.to.gene$PROBEID[duplicated(probe.to.gene$PROBEID)]
-    
-    probe.to.gene <- probe.to.gene[probe.to.gene$PROBEID %in% dup.probes == F,]
-    names(probe.to.gene) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"))
-    
-    #load the probe->gene mappings
-    
-    load.neo4j(.data=probe.to.gene, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-})
 
 
-#' CCLE MAF Representation
-#'
-#' A basic class for representing the Cancer Cell Line Encyclopedia style Mutation Annotation Format files.
-#'
-#' @slot maf, a \code{data.frame} representation of the MAF file.
-CCLEMaf_class <- setClass(Class="CCLEMaf", representation=list(maf="data.frame"), contains="NeoData",
-         prototype=list(
-                        base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID{name:{GENE}})-[:REFERRED_TO]-(symb) WHERE d.type = "DNASeq" AND subject.name IN {SAMPLE}
-                            RETURN var.name AS Variant_Position, r2.transcript AS Transcript, gene.name AS Gene, symb.name AS Symbol,
-                            r.ref_counts as Ref_Counts, r.alt_counts AS Alt_Counts, REPLACE(RTRIM(REDUCE(str="",n IN var.dbsnp|str+n+" ")), " ", ";") AS dbSNP,
-                            r2.variant_classification AS Variant_classification, r2.protein AS Protein_Change, 0 AS query_ind, 2 AS gene_ind, var.name + "_" + gene.name AS row_id, subject.name AS Sample ',
-                        
-                        template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DNASEQ]-(var)-[r2:IMPACTS]-(gene:EntrezID) WHERE d.type = "DNASeq" AND $$lower_coll_type$$.name IN {$$coll_type$$}
-                        WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll ORDER BY use_coll DESC RETURN ret_type, use_coll'
-                        ))
-#' @rdname class_helpers
-#' @param file.name The path to the CCLE MAF file.
-readMAF.ccle <- function(file.name, sample.edge.name="HAS_DNASEQ", gene.edge.name="IMPACTS", node.name="variation")
-{
-    use.maf <- read.delim(file.name, sep="\t", stringsAsFactors=F)
-    
-    keep.maf <- use.maf[,c("Entrez_Gene_Id", "Genome_Change", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change",
-                           "Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
-
-    return(new("CCLEMaf", maf=keep.maf, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
-}
-
-setGeneric("maf", def=function(obj,...) standardGeneric("maf"))
-setMethod("maf", signature("CCLEMaf"), function(obj){
-    return(obj@maf)
-})
-
-setMethod("sampleNames", signature("CCLEMaf"), function(object){
-    return(unique(maf(object)$Tumor_Sample_Barcode))
-})
-
-#' @describeIn CCLEMaf_class Loads the sample to variant data into Neo4j.  The sample annotation is taken from the 'Tumor_Sample_Barcode' column and the variant annotation is taken from the 'Genome_Change' column.
-#' The following additional columns are added as attributes as well:
-#' \itemize{
-#'   \item Center
-#'   \item Sequencer
-#'   \item Alternative_allele_reads_count
-#'   \item Reference_allele_reads_count
-#'   \item dbSNP_RS
-#'   \item dbSNP_Val_Status
-#' }
-#' @param obj The optional path to a Neo4j database.
-#' @param neo.path The optional path to a Neo4j database.
-setMethod("fromSample", signature("CCLEMaf"), function(obj, neo.path=NULL){
-    #first sample -> variant
-    #the name here will be derived from the Genome_Change column as that provides potentially enough information to uniquely id a variant (indels might still be tricky...)
-    #will keep missing values as "" for now
-    
-    sample.maf <- maf(obj)
-    
-    samp.maf <- sample.maf[,c("Tumor_Sample_Barcode", "Genome_Change", "Center", "Sequencer", "Alternative_allele_reads_count", "Reference_allele_reads_count", "dbSNP_RS", "dbSNP_Val_Status")]
-    names(samp.maf) <- c("sample", nodeName(obj), "center", "sequencer", "alt_counts", "ref_counts", "variation.dbsnp", "variation.dbsnp_val_status")
-    samp.maf$variation.dbsnp <- gsub(";", "&", samp.maf$variation.dbsnp)
-    samp.maf$variation.dbsnp_val_status <- gsub(";", "&", samp.maf$variation.dbsnp_val_status)
-    
-    #also note there that things like presence in dbSNP or COSMIC etc could be used as a property in the Variation node--should add in Variant_Type here...
-    
-    load.neo4j(.data=samp.maf, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-})
-
-#' @describeIn CCLEMaf_class Loads the variant to gene data into Neo4j.  The mapping is produced using the 'Genome_Change' and 'Entrez_Gene_Id' columns.
-#' Additionally, the following columns are also included as attributes:
-#' \itemize{
-#'      \item Variant_Classification
-#'      \item Annotation_Transcript
-#'      \item Transcript_Strand
-#'      \item cDNA_Change
-#'      \item Codon_Change
-#'      \item Protein_Change
-#' }
-#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
-setMethod("toGene", signature("CCLEMaf"), function(obj, neo.path=NULL, gene.model="entrez"){
-     #then add in the Variation->EntrezID relationships
-    
-    if (gene.model != "entrez")
-    {
-        stop("ERROR: Only gene.model = 'entrez' is supported for MAF files")
-    }
-    
-    cur.maf <- maf(obj)
-    
-    #only keep one row for each gene/variant
-    var.gene.dta <- cur.maf[!duplicated(cur.maf[,c("Entrez_Gene_Id", "Genome_Change")]),]
-    
-    var.gene.dta <- var.gene.dta[,c("Genome_Change", "Entrez_Gene_Id", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change")]
-    
-    names(var.gene.dta) <- c(nodeName(obj), "entrezID","variant_classification", "transcript", "transcript_strand", "cdna", "codon", "protein")
-    
-    load.neo4j(.data=var.gene.dta, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")  
-    
-})
-
-
-#' Drug Data Representation
-#'
-#' A basic class for representing drug panel results for a set of samples
-#'
-#' @aliases getMatrix getAnnotation
-#' @slot matrix, a matrix containing a sinlge summary value for each drug (rows) and each sample (columns).  
-#' @slot mapping A \code{data.frame} containing the mapping from drug to gene.  It should contain a 'drug' column, a 'gene' column and a 'weight' column which indicates the confidence of the mapping.
-DrugMatrix_class <- setClass(Class="DrugMatrix", representation=list(matrix="matrix", mapping="data.frame"), contains=c("NeoData", "HwHit"),
-         prototype=list(base.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-(sample)-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(o:EntrezID{name:{GENE}}) WHERE d.type = "Drug_Assay" AND subject.name IN {SAMPLE}
-                        WITH subject, o, SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score
-                        RETURN o.name AS gene, subject.name AS sample, "$DATA_NAME$" AS var, effect_score AS score, effect_score > $PAR_NAME$ AS is_hit;',
-                        
-                        template.query='MATCH (subject:$SUBJECT$)-[d:DERIVED]-()-[r:HAS_DRUG_ASSAY]-(m)-[r2:ACTS_ON]-(gene:EntrezID) WHERE d.type = "Drug_Assay" WITH subject, gene,
-                        SUM(CASE WHEN r.score <= (m.median_ic50 / 5.0) THEN r2.weight ELSE -r2.weight END) AS effect_score WHERE effect_score > $PAR_NAME$ AND
-                        $$lower_coll_type$$.name IN {$$coll_type$$} WITH $$lower_ret_type$$.name AS ret_type, COUNT(DISTINCT $$lower_coll_type$$.name) AS use_coll
-                        ORDER BY use_coll DESC RETURN ret_type, use_coll',
-                        
-                        sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug",
-                        
-                        default=0, direction=">", range=c(-100, 100), display_name="GeneScore (Hit) Threshold"))
-
-setMethod("getMatrix", signature("DrugMatrix"), function(obj)
-          {
-                return(obj@matrix)
-          })
-
-setMethod("getAnnotation", signature("DrugMatrix"), function(obj){
-        return(obj@mapping)
-})
-
-setMethod("sampleNames", signature("DrugMatrix"), function(object){
-    return(unique(colnames(getMatrix(object))))
-})
-
-#' @rdname class_helpers
-#' @param mat A \code{matrix} of the form drug x sample with named rows and columns.
-#' @param mapping A \code{data.frame} containing the mappings between drug and gene with at least column names 'drug' and 'gene'.
-DrugMatrix <- function(mat, mapping,sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug"){
-    
-    if(missing(mat) || is.null(mat) || all(is.na(mat)) || class(mat) != "matrix")
-    {
-        stop("ERROR: need to supply a matrix for mat")
-    }
-    
-    if (missing(mapping) || is.null(mapping) || all(is.na(mapping)) || class(mapping) != "data.frame")
-    {
-        stop("ERROR: need to supply a mapping data.frame containing the drug->gene mappings")
-    }
-    
-    if (all(c("drug", "gene") %in% names(mapping)) == F)
-    {
-        stop("ERROR: the mapping data.frame needs to have columns for both drug and gene")
-    }
-    
-    if (length(intersect(mapping$drug, rownames(mat))) == 0)
-    {
-        stop("ERROR: There is no overlap between the rownames of mat and mapping$drug.  Is the matrix of the form: drug x sample?")
-    }
-    
-    return(new("DrugMatrix", matrix=mat, mapping=mapping, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
-}
-
-#' @describeIn DrugMatrix_class The mapping from sample to drug taken from the column and rownames of the \code{matrix} slot.
-#' The \code{score} attribute consists of the elements of the matrix.  In addition, a 'median_IC50' attribute is added to the
-#' drug node.
-#' @param obj The optional path to a Neo4j database.
-#' @param neo.path The optional path to a Neo4j database. 
-setMethod("fromSample", signature("DrugMatrix"), function(obj, neo.path=NULL){
-    
-    drug.mat <- getMatrix(obj)
-    
-    drug.dta <- melt(drug.mat)
-    
-    names(drug.dta) <- c("drug", "sample", "score")
-    
-    drug.dta$drug <- as.character(drug.dta[,"drug"])
-    drug.dta$sample <- as.character(drug.dta$sample)
-    
-    #remove any na scores
-    
-    stopifnot(sum(is.na(drug.dta$score)) == sum(is.na(drug.dta)))
-    
-    drug.dta <- drug.dta[complete.cases(drug.dta),]
-    
-    #reorder the edges
-    
-    drug.dta <- drug.dta[,c("sample", "drug", "score")]
-    
-    #compute a median for the drugs
-    drug.medians <- aggregate(score~drug, median, data=drug.dta)
-    names(drug.medians) <- c(nodeName(obj), paste0(nodeName(obj),".median_ic50"))
-    
-    load.neo4j(.data=drug.medians, edge.name=NULL, commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-    
-    names(drug.dta)[2] <- nodeName(obj)
-    
-    load.neo4j(.data=drug.dta, edge.name=sampleEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-    
-})
-
-#' @describeIn DrugMatrix_class The mapping from drug to gene taken from the \code{mapping} slot.
-#' @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
-setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path=NULL, gene.model=c("entrez", "ensembl")){
-    
-    drug.genes <- getAnnotation(obj)
-    
-    drug.genes <- drug.genes[complete.cases(drug.genes),]
-    drug.genes <- drug.genes[,c("drug", "gene", "weight")]
-    names(drug.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
-    
-    load.neo4j(.data=drug.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
-})
+# @describeIn DrugMatrix_class The mapping from drug to gene taken from the \code{mapping} slot.
+# @param gene.model The type of gene model to utilize.  Currently only 'entrez' is supported.
+# setMethod("toGene", signature("DrugMatrix"), function(obj, neo.path=NULL, gene.model=c("entrez", "ensembl")){
+#     
+#     drug.genes <- getAnnotation(obj)
+#     
+#     drug.genes <- drug.genes[complete.cases(drug.genes),]
+#     drug.genes <- drug.genes[,c("drug", "gene", "weight")]
+#     names(drug.genes) <- c(nodeName(obj), switch(gene.model, entrez="entrezID", ensembl="ensembl"), "weight")
+#     
+#     load.neo4j(.data=drug.genes, edge.name=geneEdge(obj), commit.size=10000L, neo.path=neo.path, dry.run=F, array.delim="&")
+# })
 
 
 #' @rdname test_helpers
@@ -924,133 +882,3 @@ freq.by <- function(dta, freq.name, agg.name, subset, type, subset.length){
     return(ret.dta)
 }
 
-#' @rdname test_helpers
-setMethod("findHits", signature("HW2exprSet"), function(obj, samples, genes=NULL, limit.to.hits=T){
-    
-    annot.pack <- annotation(obj@exprs)
-    
-    if (grepl("\\.db$", annot.pack) == F){
-        annot.pack <- paste0(annot.pack, ".db")
-    }
-    
-    require(annot.pack, character.only=T)
-    require(reshape2)
-    
-    mapping <- select(get(annot.pack), columns="ENTREZID", featureNames(obj@exprs))
-        
-    if (missing(genes) || is.null(genes) || all(is.na(genes))){
-      
-      sub.mapping <- mapping
-      
-    }else{
-      
-      sub.mapping <- mapping[mapping$ENTREZID %in% genes,]
-    }
-    
-    if (nrow(sub.mapping) == 0){
-      
-      return(data.frame(Sample=character(0), Gene=character(0), IsHit=logical(0)))
-      
-    }else{
-      common.samples <- intersect(samples, sampleNames(obj@exprs))
-      
-      probeset.dta <- melt(exprs(obj@exprs)[,common.samples,drop=F], as.is=T)
-      
-      probeset.gene <- merge(probeset.dta, sub.mapping, by.x="Var1", by.y="PROBEID", sort=F)
-      
-      sum.gene <- aggregate(value~Var2+ENTREZID, max, data=probeset.gene)
-      
-      names(sum.gene) <- c("Sample", "Gene", "value")
-      
-      if (limit.to.hits){
-        
-        sum.gene <- sum.gene[sum.gene$value > obj@default,]
-        
-        sum.gene <- sum.gene[,c("Sample", "Gene")]
-        
-      }else{
-        
-        sum.gene$IsHit <- sum.gene$value > obj@default
-        sum.gene <- sum.gene[,c("Sample", "Gene", "IsHit")]
-      }
-      
-      return(sum.gene)
-    }
-        
-    
-})
-
-#' @rdname test_helpers
-setMethod("findHits", signature("CCLEMaf"), function(obj, samples, genes=NULL, limit.to.hits=T){
-    
-    if (missing(genes) || is.null(genes) || all(is.na(genes))){
-        gene.maf <- obj@maf    
-    }else{
-        gene.maf <- obj@maf[obj@maf$Entrez_Gene_Id %in% genes,]
-    }
-    
-    sub.maf <- gene.maf[gene.maf$Tumor_Sample_Barcode %in% samples,c("Tumor_Sample_Barcode", "Entrez_Gene_Id")]
-    
-    names(sub.maf) <- c("Sample", "Gene")
-    
-    if (limit.to.hits==F){
-        sub.maf$IsHit <- T
-    }
-    
-    return(sub.maf)
-    
-})
-
-#' @rdname test_helpers
-setMethod("findHits", signature("DrugMatrix"), function(obj, samples, genes=NULL, limit.to.hits=T){
-    
-    require(reshape2)
-    
-    if (missing(genes) || is.null(genes) || all(is.na(genes))){
-        use.mapping <- obj@mapping    
-    }else{
-        use.mapping <- obj@mapping[obj@mapping$gene %in% genes,]
-    }
-    
-    drug.dta <- melt(obj@matrix, as.is=T)
-    
-    median.ic50 <- aggregate(value~Var1, median, data=drug.dta)
-    names(median.ic50)[2] <- "median"
-    
-    drug.dta.merge <- merge(drug.dta, median.ic50, by="Var1")
-    
-    drug.dta.merge$is.hit <- with(drug.dta.merge, value <= (median*.2))
-    
-    drug.dta.genes <- merge(drug.dta.merge, use.mapping, by.x="Var1", by.y="drug")
-    
-    drug.dta.genes <- drug.dta.genes[as.character(drug.dta.genes$Var2) %in% samples,]
-    
-    if (nrow(drug.dta.genes) == 0){
-        
-        if (limit.to.hits){
-            return(data.frame(Sample=character(), Gene=character()))
-        }else{
-            return(data.frame(Sample=character(), Gene=character(), IsHit=logical()))
-        }
-    }
-    
-    drug.dta.genes$score <- with(drug.dta.genes, ifelse(is.hit, weight, -weight))
-    
-    drug.sum <- aggregate(score~Var2+gene, sum, data=drug.dta.genes)
-    
-    names(drug.sum) <- c("Sample", "Gene", "score")
-    
-    if (limit.to.hits){
-        use.hits <- drug.sum[drug.sum$score > obj@default,]
-    
-        use.hits <- use.hits[,c("Sample", "Gene")]
-    }else{
-     
-        drug.sum$IsHit <- drug.sum$score > obj@default
-        
-        use.hits <- drug.sum[,c("Sample", "Gene", "IsHit")]
-        
-    }
-    
-    return(use.hits)
-})
