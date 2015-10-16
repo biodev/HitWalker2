@@ -661,7 +661,7 @@ def multi_node_query(request):
         return HttpResponseServerError()
 
 
-def download(request, title, var_type, query_set, query_info):
+def download(request, title, var_type, query_set, query_info, return_set, returned_node_type):
     
     resp_file_name = 'query_result.csv'
     
@@ -720,11 +720,11 @@ def download(request, title, var_type, query_set, query_info):
     
     gene_list = set()
     fin_table = []
-    print query_res
     for i in query_res:
-        fin_table.append(list(i))
-        gene_list.add(i[header.index('gene')])
-    print gene_list
+        if str(i[header.index(returned_node_type.lower())]) in return_set:
+            fin_table.append(list(i))
+            gene_list.add(i[header.index('gene')])
+        
     temp_nl = core.NodeList()
     
     for i in gene_list:
@@ -897,11 +897,6 @@ def fullfill_node_query(request):
         
         count_coll = map(lambda x: (x[0], len(x[1])), ret_dict.items())
         
-        #ret_dict is unneccessary if the query result is derived from an sql backed as use_query will have the necessary info
-        
-        if isinstance(use_query, QuerySet):
-            ret_dict = collections.defaultdict(list)
-        
         if request.session.has_key('tmp_query_results') == False:
         
             request.session['tmp_query_results'] = {str(req_table[1]):{'ret_dict':ret_dict, 'ret_node_queries':ret_node_queries,
@@ -959,28 +954,12 @@ def provide_data_for_request(request):
         #too many nodes to render efficiently, will allow user to download csv file...
         if display_type == "Download":
             
-            print query_info
-            print use_query#.values_list()
-            print node_queries
-            print temp_node_list
-            
-            return download(request, use_title, query_info['text'], use_query, node_queries)
+            return download(request, use_title, query_info['text'], use_query, node_queries, set(temp_node_list), returned_node_type)
             
         else:
             
-            if (query_info.has_key('db_type') == False) or (query_info.has_key('db_type') and query_info['db_type'] == 'neo4j'):
-            
-                #convert the IDs to nodes
-                use_nodes = core.get_nodes(temp_node_list, returned_node_type, request,  only_base=True)
-                
-            else:
-                
-                value_list = set()
-                
-                for i in use_query:
-                    value_list.add(str(i.gene))
-                
-                use_nodes =  core.get_nodes(list(value_list), returned_node_type, request,only_base=True)
+            #convert the IDs to nodes
+            use_nodes = core.get_nodes(temp_node_list, returned_node_type, request,  only_base=True)
             
             ret_nodes = core.apply_grouping2({'nodes':use_nodes, 'links':[]}, [])['nodes']
                 
