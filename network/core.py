@@ -491,12 +491,12 @@ def handle_dense_gene_hits(res_list, nodes, request):
         #use_vars as in variables, which should be type in this case...
         use_vars = set()
         samp_genes = set()
-        obj_name = i['obj']
+        obj_name = i['obj'].lower()
         table_header = i['header']
         for j in i['result']:
                 j_res = j[:]
                 if request.session.has_key(obj_name):
-                        comp = request.session['inp_params']['General_Parameters']['fields'][obj_name]['comparison']
+                        comp = request.session['inp_params']['Seed_Parameters']['fields'][obj_name]['comparison']
                         is_hit = eval(str(j_res[table_header.index('score')]) + comp + str(request.session[obj_name]))
                 else:
                         is_hit = True
