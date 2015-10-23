@@ -167,7 +167,14 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   return(res.mat)
 }
 
-
+default.protein.filters <- function(dta){
+  
+  cons.order <- my.consequence.order()
+  
+  ret.dta <- dta[(is.na(dta$HGVSp) == F) & (is.na(dta$Variant_Classification) == F) & (dta$Variant_Classification %in% cons.order[1:12] == T),]
+  
+  return(ret.dta)
+}
 
 
 #' @rdname class_helpers
@@ -175,7 +182,19 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
 #' Our typical workflow additionally involves subsetting to protein impacting variants 
 #' and keeping only consequences chosen via the allele-specific 'PICK' column.
 #' @param keep.gds Should the intermediate GDS file be kept after the \code{data.frame} is generated?
-make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), fmt.import="AD", gds.out="variant.gds", keep.gds=F){
+make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), keep.samples=NULL, ignore.genotype=F, readcount.import="AD", gds.out="variant.gds", keep.gds=F, filter.by=default.protein.filters){
+  
+  if (length(readcount.import) %in% c(1, 2) == F){
+    stop("ERROR: Expect readcount.import to be of length 1 or 2")
+  }
+  
+  all.samples <- unique(unlist(lapply(vcfs, seqVCF.SampID)))
+  
+  if (missing(keep.samples) || is.null(keep.samples) || all(is.na(keep.samples))){
+    keep.samples <- all.samples
+  }else if ((is.character(keep.samples) == F) || (all(keep.samples %in% all.samples)) == F){
+    stop("Unexpected input for 'keep.samples'")
+  }
   
   if(file.exists(gds.out)){
     
@@ -185,7 +204,7 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     
   }else{
     
-    seqVCF2GDS(vcfs, gds.out,  info.import=info.import, fmt.import=fmt.import)
+    seqVCF2GDS(vcfs, gds.out,  info.import=info.import, fmt.import=readcount.import)
     
     gds <- seqOpen(gds.out)
     
@@ -234,54 +253,92 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
   
   #add in the info data as well
   
+  if (any(info.import %in% names(csq.res))){
+    message(paste("Removing CSQ column with specified info name", paste(intersect(info.import, names(csq.res)), collapse=",")))
+    csq.res <- csq.res[,-which(names(csq.res) %in% info.import)]
+  }
+  
   csq.res <- cbind(csq.res, .info(gds, info.import=info.import)[csq.res$variant_id,])
   
-  #add in genotypes
+  if (!ignore.genotype){
+    #add in genotypes
+    
+    #actually a matrix...
+    geno.ar <- getGenotype(gds)
+    
+    melt.geno <- melt(t(geno.ar))
+    sub.melt.geno <- melt.geno[is.na(melt.geno$value) == F & melt.geno$value %in% c(".","0/0") == F,]
+    
+    #for each unique genotype allele, assign each sample by variant and ALLELE_NUM 
+    
+    split.genos <- strsplitAsListOfIntegerVectors(as.character(sub.melt.geno$value), sep="/")
+    
+    geno.mat <- t(sapply(split.genos, "["))
+    
+    sub.melt.geno <- cbind(sub.melt.geno, allele=geno.mat)
+    
+    allele.dta <- melt(sub.melt.geno, measure.vars=c("allele.1", "allele.2"), value.name="ALLELE_NUM")
+    allele.dta <- allele.dta[allele.dta$ALLELE_NUM != 0,]
+    allele.dta <- allele.dta[,names(allele.dta) %in% c("variable", "value") == F]
+    allele.dta$sample <- as.character(allele.dta$sample)
+    names(allele.dta)[1] <- "variant_id"
+    
+    al.num <- aggregate(ALLELE_NUM~variant_id+sample, function(x) ifelse(length(unique(x)) == 1 && length(x) == 2, 2, 1), data=allele.dta)
+    names(al.num)[ncol(al.num)] <- "allele_count"
+    
+    allele.dta <- merge(allele.dta, al.num, by=c("variant_id", "sample"), all=F, sort=F)
+    
+    nd.alleles <- allele.dta[!duplicated(allele.dta),]
+    
+    stopifnot(is.integer(csq.res$variant_id) && is.character(csq.res$ALLELE_NUM))
+    stopifnot(is.integer(nd.alleles$variant_id) && is.integer(nd.alleles$ALLELE_NUM))
+    
+    csq.res$ALLELE_NUM <- as.integer(csq.res$ALLELE_NUM)
+    
+    csq.allele <- merge(csq.res, nd.alleles, by=c("variant_id", "ALLELE_NUM"), all=F, sort=F)
+    
+    stopifnot(nrow(csq.allele) == nrow(nd.alleles))
   
-  #actually a matrix...
-  geno.ar <- getGenotype(gds)
-  
-  melt.geno <- melt(t(geno.ar))
-  sub.melt.geno <- melt.geno[is.na(melt.geno$value) == F & melt.geno$value %in% c(".","0/0") == F,]
-  
-  #for each unique genotype allele, assign each sample by variant and ALLELE_NUM 
-  
-  split.genos <- strsplitAsListOfIntegerVectors(as.character(sub.melt.geno$value), sep="/")
-  
-  geno.mat <- t(sapply(split.genos, "["))
-  
-  sub.melt.geno <- cbind(sub.melt.geno, allele=geno.mat)
-  
-  allele.dta <- melt(sub.melt.geno, measure.vars=c("allele.1", "allele.2"), value.name="ALLELE_NUM")
-  allele.dta <- allele.dta[allele.dta$ALLELE_NUM != 0,]
-  allele.dta <- allele.dta[,names(allele.dta) %in% c("variable", "value") == F]
-  allele.dta$sample <- as.character(allele.dta$sample)
-  names(allele.dta)[1] <- "variant_id"
-  
-  al.num <- aggregate(ALLELE_NUM~variant_id+sample, function(x) ifelse(length(unique(x)) == 1 && length(x) == 2, 2, 1), data=allele.dta)
-  names(al.num)[ncol(al.num)] <- "allele_count"
-  
-  allele.dta <- merge(allele.dta, al.num, by=c("variant_id", "sample"), all=F, sort=F)
-  
-  nd.alleles <- allele.dta[!duplicated(allele.dta),]
-  
-  stopifnot(is.integer(csq.res$variant_id) && is.character(csq.res$ALLELE_NUM))
-  stopifnot(is.integer(nd.alleles$variant_id) && is.integer(nd.alleles$ALLELE_NUM))
-  
-  csq.res$ALLELE_NUM <- as.integer(csq.res$ALLELE_NUM)
-  
-  csq.allele <- merge(csq.res, nd.alleles, by=c("variant_id", "ALLELE_NUM"), all=F, sort=F)
-  
-  stopifnot(nrow(csq.allele) == nrow(nd.alleles))
+  }else if ((ignore.genotype == T) && (all(which.biallelic)==F)){
+    
+    stop("ERROR: Cannot use 'ignore.genotypes' when multi-allelic variants are present")
+    
+  }else{
+    
+    #add in the sample information, assume that each sample has each row...
+    
+    csq.allele <- do.call(rbind, lapply(seqGetData(gds, "sample.id"), function(x){
+      csq.res$sample <- x
+      csq.res
+    }))
+    
+    csq.allele$allele_count <- NA
+  }
   
   #get count data
-  count.ar <- .getVariableLengthData(gds, "annotation/format/AD")
   
-  melt.ar <- melt(count.ar, na.rm=T)
-  
-  total.count <- aggregate(value~sample+variant, sum, data=melt.ar)
-  
-  total.count$sample <- as.character(total.count$sample)
+  if (length(readcount.import) == 1){
+    #assume it contains both counts
+    
+    count.ar <- .getVariableLengthData(gds, paste0("annotation/format/", readcount.import))
+    
+    melt.ar <- melt(count.ar, na.rm=T)
+    
+    total.count <- aggregate(value~sample+variant, sum, data=melt.ar)
+    
+    total.count$sample <- as.character(total.count$sample)
+  }else{
+    #assume counts are provided in the form reference,alternative: readcount.import[1:2]
+    #melt.ar:
+#     n        sample variant value
+#     1 0  15-00208_AML       1    91
+#     2 1  15-00208_AML       1    13
+#     3 0 15-00209_Skin       1    98
+    #total.count--same
+    
+    
+    browser()
+  }
   
   csq.allele.t <- merge(csq.allele, total.count, by.x=c("variant_id", "sample"), by.y=c("variant", "sample"), all.x=T, all.y=F, sort=F)
   names(csq.allele.t)[ncol(csq.allele.t)] <- "total_reads"
@@ -298,8 +355,10 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     file.remove(gds.out)
   }
   
+  fin.csq <- fin.csq[fin.csq$sample %in% keep.samples,]
+  
   fin.csq <- fin.csq[,c("variant_id", "seqnames", "start", "end", "width", "REF", "ALT", "sample", "allele_count", "total_reads", "allele_reads", 
-                        setdiff(info.import, "CSQ"), setdiff(nms, "Allele"))]
+                        setdiff(info.import, "CSQ"), setdiff(nms, c("Allele", info.import)))]
   
   fin.csq[is.na(fin.csq) | fin.csq == ""] <- NA
   
@@ -316,6 +375,14 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     }
     
   })
+  
+  message("applying post-summarization filters")
+  
+  fin.csq <- filter.by(fin.csq)
+  
+  message("removing rows with 0's in allele_reads")
+  
+  fin.csq <- fin.csq[fin.csq$allele_reads > 0,]
   
   return(fin.csq)
 }
