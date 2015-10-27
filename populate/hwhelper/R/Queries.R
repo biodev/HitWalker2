@@ -313,6 +313,7 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     }))
     
     csq.allele$allele_count <- NA
+    csq.allele$ALLELE_NUM <- as.integer(csq.allele$ALLELE_NUM)
   }
   
   #get count data
@@ -324,21 +325,26 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     
     melt.ar <- melt(count.ar, na.rm=T)
     
-    total.count <- aggregate(value~sample+variant, sum, data=melt.ar)
-    
-    total.count$sample <- as.character(total.count$sample)
   }else{
     #assume counts are provided in the form reference,alternative: readcount.import[1:2]
-    #melt.ar:
-#     n        sample variant value
-#     1 0  15-00208_AML       1    91
-#     2 1  15-00208_AML       1    13
-#     3 0 15-00209_Skin       1    98
-    #total.count--same
     
+    reference <- .getVariableLengthData(gds, paste0("annotation/format/", readcount.import[1]))
     
-    browser()
+    melt.ref <- melt(reference, na.rm=T)
+    melt.ref <- cbind(n=1, melt.ref)
+    
+    alt <- .getVariableLengthData(gds, paste0("annotation/format/", readcount.import[2]))
+    
+    melt.alt <- melt(alt, na.rm=T)
+    melt.alt <- cbind(n=2, melt.alt)
+    
+    melt.ar <- rbind(melt.ref, melt.alt)
+    
   }
+  
+  total.count <- aggregate(value~sample+variant, sum, data=melt.ar)
+    
+  total.count$sample <- as.character(total.count$sample)
   
   csq.allele.t <- merge(csq.allele, total.count, by.x=c("variant_id", "sample"), by.y=c("variant", "sample"), all.x=T, all.y=F, sort=F)
   names(csq.allele.t)[ncol(csq.allele.t)] <- "total_reads"

@@ -29,21 +29,5 @@ library(ensemblVEP)
 # 
 # system(gsub("\n", " ", filter.runner))
 
-snv.file <- "/Volumes/Macintosh_HD_4/tests/broad_examp_vcf/CEUTrio.HiSeq.WGS.b37.NA12878.refseq.filt.vcf"
-indel.file <- "/Volumes/Macintosh_HD_4/tests/broad_examp_vcf/test_indel.vcf"
-
-if(file.exists(snv.file) && file.exists(indel.file)){
-
-test.list <- lapply(c(snv.file, indel.file), function(x){
-  
-  table <- make.vcf.table(use.file, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"),
-                 fmt.import="AD", gds.out="variant.gds", keep.gds=F)
-  
-  obj <- readVcf(x, genome="test")
-  return(list(table=table, obj=obj))  
-})
-
 test_check("hwhelper")
-
-}
 
