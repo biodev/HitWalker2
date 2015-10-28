@@ -29,7 +29,7 @@ somatic.list <- append(somatic.list, list(list(table=mut.table, obj=mut.obj)))
 
 var.table <-  make.vcf.table(varscan.file, 
                              info.import = c("SS", "SOMATIC", "CSQ"), keep.samples="TUMOR",
-                             ignore.genotype=T, readcount.import= c("RD", "AD"))
+                             ignore.genotype=F, readcount.import= c("RD", "AD"))
   
 var.obj <- readVcf(varscan.file, genome="test")
 

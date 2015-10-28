@@ -312,7 +312,7 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
       csq.res
     }))
     
-    csq.allele$allele_count <- NA
+    csq.allele$allele_count <- 1
     csq.allele$ALLELE_NUM <- as.integer(csq.allele$ALLELE_NUM)
   }
   
