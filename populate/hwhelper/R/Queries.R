@@ -110,51 +110,6 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   return(csq)
 }
 
-#from SeqVarTools:::.applyNames
-.applyNames <- function (gdsobj, var) 
-{
-    if ("sample" %in% names(dimnames(var))) 
-        dimnames(var)$sample <- seqGetData(gdsobj, "sample.id")
-    if ("variant" %in% names(dimnames(var))) 
-        dimnames(var)$variant <- seqGetData(gdsobj, "variant.id")
-    var
-}
-
-
-#A slower modification of the same function from SeqVarTools that can deal with multi-alleleic vars
-.getVariableLengthData <- function(gdsobj, var.name, use.names = TRUE){
-  var.list <- seqApply(gdsobj, var.name, function(x) {
-    x
-  },  margin="by.variant", as.is="list")
-  
-  cols <- max(sapply(var.list, ncol))
-  rows <- unique(sapply(var.list, nrow))
-  stopifnot(length(rows) == 1)
-  
-  ar.shape <- c(rows, cols, length(var.list))
-  
-  new.list <- lapply(var.list, function(x){
-    cbind(x, matrix(NA, nrow=rows, ncol=cols-ncol(x)))
-  })
-  
-  var <- array(unlist(new.list, use.names = FALSE), dim=ar.shape)
-  
-  var <- aperm(var, c(2, 1, 3))
-  if (dim(var)[1] == 1) {
-    var <- var[1, , ]
-  }
-  if (length(dim(var)) == 3) {
-    dimnames(var) <- list(n = NULL, sample = NULL, variant = NULL)
-  }
-  else {
-    dimnames(var) <- list(sample = NULL, variant = NULL)
-  }
-  if (use.names) 
-    .applyNames(gdsobj, var)
-  else var
-  
-}
-
 .info <- function(gds, rm.cols=c("CSQ", "@CSQ"), info.import=NULL){
   
   n <- index.gdsn(gds, "annotation/info", silent = TRUE)
@@ -332,19 +287,19 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
   if (length(readcount.import) == 1){
     #assume it contains both counts
     
-    count.ar <- .getVariableLengthData(gds, paste0("annotation/format/", readcount.import))
+    count.ar <- getVariableLengthData(gds, paste0("annotation/format/", readcount.import))
     
     melt.ar <- melt(count.ar, na.rm=T)
     
   }else{
     #assume counts are provided in the form reference,alternative: readcount.import[1:2]
     
-    reference <- .getVariableLengthData(gds, paste0("annotation/format/", readcount.import[1]))
+    reference <- getVariableLengthData(gds, paste0("annotation/format/", readcount.import[1]))
     
     melt.ref <- melt(reference, na.rm=T)
     melt.ref <- cbind(n=1, melt.ref)
     
-    alt <- .getVariableLengthData(gds, paste0("annotation/format/", readcount.import[2]))
+    alt <- getVariableLengthData(gds, paste0("annotation/format/", readcount.import[2]))
     
     melt.alt <- melt(alt, na.rm=T)
     melt.alt <- cbind(n=2, melt.alt)
