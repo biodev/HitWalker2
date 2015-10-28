@@ -41,6 +41,55 @@ my.consequence.order <- function(){
   return(sapply(strsplit(cons.lines[[1]], "\\s+"), "[", 1))
 }
 
+my.short.prots <- c(Ala="A", Arg="R", Asn="N", Asp="D", Asx ="B", Cys="C", Glu="E", Gln ="Q", Glx="Z", Gly="G", His= "H", Ile ="I", Leu= "L",
+                    Lys ="K", Met= "M", Phe ="F", Pro= "P", Ser= "S", Thr= "T", Trp= "W", Tyr= "Y", Val= "V", Xxx ="X", Ter ="*" )
+
+.fix.protein.ids <- function(csq.df){
+  
+  #approach adapted from vcf2maf
+  
+  proteins <- as.character(csq.df$HGVSp)
+  
+  # Remove transcript ID from HGVS codon/protein changes, to make it easier on the eye
+  proteins <- sub("^.*:", "", proteins, perl=T)
+  
+  # Remove the prefixed HGVSc code in HGVSp, if found
+  proteins <- sapply(regmatches(proteins, regexec("\\(*p\\.\\S+\\)*",proteins)), "[", 1)
+  
+  proteins <- gsub("[\\(\\)]", "", proteins)
+  
+  # Create a shorter HGVS protein format using 1-letter codes
+  
+  for (i in names(my.short.prots)){
+    proteins <- gsub(i, my.short.prots[i], proteins)
+  }
+  
+  # Fix HGVSp_Short,for splice acceptor/donor variants
+  
+  splice.pos <- csq.df$Variant_Classification %in% c("splice_acceptor_variant", "splice_donor_variant")
+  
+  if (sum(splice.pos) > 0){
+    
+    c.pos <- as.numeric(sapply(regmatches(as.character(csq.df$HGVSc), regexec("c\\.(\\d+)", as.character(csq.df$HGVSc))), "[", 2))
+    
+    c.pos <- ifelse(is.na(c.pos) ==F & c.pos < 0, 1, c.pos)
+    
+    proteins <- ifelse((splice.pos == T) & (is.na(c.pos) ==F) , paste0("p.X", sprintf("%.0f", (c.pos + c.pos %% 3)/3), "_splice"), proteins)
+  }
+  
+  # Fix HGVSp_Short for Silent mutations, so it mentions the amino-acid and position
+  
+  p.pos <- as.numeric(sapply(regmatches(as.character(csq.df$Protein_position), regexec("^(\\d+)\\/\\d+$", as.character(csq.df$Protein_position))), "[", 2))
+  
+  fin.prots <- ifelse(csq.df$Variant_Classification == "synonymous_variant", paste0("p.", csq.df$Amino_acids, p.pos,csq.df$Amino_acids) , proteins)
+  
+  csq.df$HGVSp_Short <- fin.prots
+  
+  return(csq.df)
+  
+}
+
+
 #' GATK/Ensembl VEP VCF Representation
 #' 
 #' A class for representing general variant data stored in GATK flavored VCF files annotated with Ensembl VEP
@@ -148,7 +197,7 @@ default.protein.filters <- function(dta){
 #' Our typical workflow additionally involves subsetting to protein impacting variants 
 #' and keeping only consequences chosen via the allele-specific 'PICK' column.
 #' @param keep.gds Should the intermediate GDS file be kept after the \code{data.frame} is generated?
-make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), keep.samples=NULL, ignore.genotype=F, readcount.import="AD", gds.out="variant.gds", keep.gds=F, filter.by=default.protein.filters){
+make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), keep.samples=NULL, ignore.genotype=F, readcount.import="AD", gds.out="variant.gds", rm.zero.na=T, keep.gds=F, filter.by=default.protein.filters){
   
   if (length(readcount.import) %in% c(1, 2) == F){
     stop("ERROR: Expect readcount.import to be of length 1 or 2")
@@ -352,9 +401,14 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
   
   fin.csq <- filter.by(fin.csq)
   
-  message("removing rows with 0's in allele_reads")
+  if (rm.zero.na){
+    
+    message("removing rows with 0's in allele_reads")
   
-  fin.csq <- fin.csq[fin.csq$allele_reads > 0,]
+    fin.csq <- fin.csq[is.na(fin.csq$allele_reads) == F & fin.csq$allele_reads > 0,]
+  }
+  
+  fin.csq <- .fix.protein.ids(fin.csq)
   
   return(fin.csq)
 }
