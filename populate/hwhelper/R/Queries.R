@@ -110,11 +110,22 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   return(csq)
 }
 
+#from SeqVarTools:::.applyNames
+.applyNames <- function (gdsobj, var) 
+{
+    if ("sample" %in% names(dimnames(var))) 
+        dimnames(var)$sample <- seqGetData(gdsobj, "sample.id")
+    if ("variant" %in% names(dimnames(var))) 
+        dimnames(var)$variant <- seqGetData(gdsobj, "variant.id")
+    var
+}
+
+
 #A slower modification of the same function from SeqVarTools that can deal with multi-alleleic vars
 .getVariableLengthData <- function(gdsobj, var.name, use.names = TRUE){
   var.list <- seqApply(gdsobj, var.name, function(x) {
     x
-  })
+  },  margin="by.variant", as.is="list")
   
   cols <- max(sapply(var.list, ncol))
   rows <- unique(sapply(var.list, nrow))
@@ -139,7 +150,7 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
     dimnames(var) <- list(sample = NULL, variant = NULL)
   }
   if (use.names) 
-    SeqVarTools:::.applyNames(gdsobj, var)
+    .applyNames(gdsobj, var)
   else var
   
 }
