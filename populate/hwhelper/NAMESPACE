@@ -11,4 +11,4 @@ exportMethods('addSamples<-', populate, configure, fromSample, toGene, sampleEdg
 findHits, subjectAttrs, subjectSubset, typeName, guessFields, 'removeFields<-', tweakField, listFieldAttributes, listFields, 'addLogic<-')
 export(readMAF.ccle, DrugMatrix, makeHW2Config, HW2exprSet, compute.graph.structure, Subject, load.neo4j,
 process_matrix_graph, get_direct_connections, get_gene_connections, encode_groups, make.vcf.table, GeneSet, VCFTable,
-get.biomart.mapping, HW2dgeList)
+get.biomart.mapping, HW2dgeList, run.rwr)
