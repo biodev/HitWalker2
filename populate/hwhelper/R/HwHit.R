@@ -103,6 +103,68 @@ fill.query.slots <- function(obj){
 #ORDER BY use_coll DESC RETURN ret_type, use_coll',
 #
 
+HW2dgeList_class <- setClass(Class="HW2dgeList", contains=c("DenseNeoData", "HwHit"))
+
+HW2dgeList <- function(dgelist, sample.edge.name="Rnaseq", node.name="Ensembl", default=2, direction=">", range=c(2, 10), display_name="RNASeq Z-Score Hit Threshold"){
+  if (class(dgelist) != "DGEList"){
+    stop("ERROR: dgelist should be a DGEList")
+  }
+  
+  if ("genes" %in% names(dgelist) == F){
+    stop("ERROR: dgelist needs to have a 'genes' component")
+  }
+  
+  scale.exprs <- t(scale(t(cpm(dgelist, log=T))))
+  
+  melt.use.exprs <- melt(scale.exprs)
+  names(melt.use.exprs) <- c("genemodel", "sample", "score")
+  
+  melt.use.exprs$sample <- as.character(melt.use.exprs$sample)
+  melt.use.exprs$genemodel <- as.character(melt.use.exprs$genemodel)
+  
+  use.expr <- paste("melt.use.exprs$score", direction, min(range))
+  
+  exprs.hits <- eval(parse(text=use.expr))
+  
+  melt.use.exprs <- melt.use.exprs[exprs.hits,]
+  
+  melt.use.exprs <-  melt.use.exprs[,c("sample", "genemodel", "score")]
+  names(melt.use.exprs)[2] <- node.name
+  
+  #Then add in the gene mapping data
+  
+  gene.map <- dgelist$genes
+  
+  #Discard for now those that do not map to either type of genes.
+  na.genes <- sum(is.na(gene.map$gene))
+  
+  message(paste("Removing", na.genes, "which do not have a valid mapping"))
+  
+  mapped.genes <- gene.map[is.na(gene.map$gene)==F,]
+  
+  #probesets that map to multiple genes are perhaps not that reliable either, so discard them as well for now...
+  
+  dup.genes <- lengths(mapped.genes$gene) > 1
+  
+  message(paste("Removing", sum(dup.genes), "genes which have multiple mappings"))
+  
+  mapped.genes <- mapped.genes[!dup.genes,]
+  mapped.genes$gene <- unlist(mapped.genes$gene)
+  
+  names(mapped.genes) <- c(node.name, "gene")
+  
+  mapped.genes$weight <- 1
+  
+  #now merge melt.use.exprs and probe.to.gene to create the data object
+  
+  data <- merge(melt.use.exprs, mapped.genes, by=node.name, all=F, incomparables=NA, sort=F)
+  
+  return(new("HW2dgeList", data=data, sample.edge.name=sample.edge.name, 
+             node.name=node.name, default=default, direction=direction, 
+             range=range, display_name=display_name))
+}
+
+
 ##Note here, that for dense datatypes like expression, don't actually return possible hits
 #' Basic Representation for Expression Array Data
 #'

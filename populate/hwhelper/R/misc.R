@@ -14,8 +14,8 @@ NULL
 
 #' @rdname testing_functions
 #' 
-#' @param mm_file_base Path to the matrix files used by HitWalker2, assumes that the matrix will have a '.mtx' suffix and that there
-#' will be an accompanying '.names' file. 
+#' @param mm_file_base Either a path to the matrix files used by HitWalker2, assumes that the matrix will have a '.mtx' suffix and that there
+#' will be an accompanying '.names' file or an \code{igraph} object. 
 #' @param string_conf Confidence threshold for the protein-protein interaction data.
 #' @return For \code{process_matrix_graph}: An \code{igraph} object containing the thresholded graph.
 #'
@@ -23,13 +23,23 @@ process_matrix_graph <- function(mm_file_base, string_conf){
   
   require(Matrix)
   
-  init.mat <- readMM(paste0(mm_file_base, ".mtx"))
-  
-  new.graph.names <- read.delim(paste0(mm_file_base, ".names"), header=FALSE, stringsAsFactors=FALSE)
-  
-  colnames(init.mat) <- new.graph.names[,1]
-  
-  cur.graph <- graph.adjacency(init.mat,mode="directed", weighted="score")
+  if (is.character(mm_file_base)){
+    
+    init.mat <- readMM(paste0(mm_file_base, ".mtx"))
+    
+    new.graph.names <- read.delim(paste0(mm_file_base, ".names"), header=FALSE, stringsAsFactors=FALSE)
+    
+    colnames(init.mat) <- new.graph.names[,1]
+    
+    cur.graph <- graph.adjacency(init.mat,mode="directed", weighted="score")
+    
+  }else if (class(mm_file_base) == "igraph"){
+    
+    cur.graph <- mm_file_base
+    
+  }else{
+    stop("ERROR: mm_file_base needs to be either a string value or an igraph object")
+  }
   
   new.graph <- subgraph.edges(cur.graph, E(cur.graph)[ score > string_conf ], delete.vertices = TRUE)
   
@@ -319,20 +329,19 @@ in.csv.col <- function(vec, search.vals, delim.str=",", match.func=any)
     return(in.vec)
 }
 
-get.biomart.mapping <- function(host="feb2014.archive.ensembl.org"){
-  
+get.biomart.mapping <- function(genes=NULL, host = "feb2014.archive.ensembl.org"){
   require(biomaRt)
+  sel.obj <- useMart(host = host, 
+                     biomart = "ENSEMBL_MART_ENSEMBL", 
+                     dataset = "hsapiens_gene_ensembl")
   
-  sel.obj <- useMart(host='feb2014.archive.ensembl.org', biomart='ENSEMBL_MART_ENSEMBL', dataset='hsapiens_gene_ensembl')
+  if (missing(genes) || is.null(genes) || all(is.na(genes))){
+    genes <- getBM(mart = sel.obj, attributes = "ensembl_gene_id")[,1]
+  }
   
-  #get all the gene IDs
-  
-  temp <- getBM(mart=sel.obj, attributes="ensembl_gene_id")
-  
-  ret.dta <- select(sel.obj, keys=temp[,1], columns=c("ensembl_gene_id", "entrezgene"), keytype="ensembl_gene_id")
-
-  names(ret.dta) <- c("Gene", "entrezID")
-  
+  ret.dta <- select(sel.obj, keys = genes, 
+                    columns = c("ensembl_gene_id", "entrezgene"), keytype = "ensembl_gene_id")
+  names(ret.dta) <- c("gene", "entrezID")
   return(ret.dta)
 }
 
@@ -345,4 +354,114 @@ factors.to.chars <- function(dta){
   
   return(dta)
 }
+
+#need to add to tests/examples
+# test.rwr <- function(){
+#   data(entrez_map)
+#   use.gene.dta <- entrez_map[1:10,]
+#   use.gene.dta$score <- 1
+#   
+#   test <- run.rwr(use.gene.dta)
+# }
+ 
+
+run.rwr <- function(gene.dta, string.conf=.7, c.val =.3, threshold = 1e-10, maxit = 100, verbose = T){
+  
+  if (is.data.frame(gene.dta) == FALSE || all(c("score", "entrezID") %in% names(gene.dta)) == F){
+    stop("ERROR: gene.dta needs to be a data.frame with a column named entrezID specifying the gene IDs")
+  }
+  
+  utils::data("string_graph", "string_map", envir=environment())
+  
+  string.graph <- process_matrix_graph(mm_file_base=string_graph, string_conf=string.conf)
+  
+  string.comps <- groups(components(string.graph))
+  
+  largest.comp <- which.max(sapply(string.comps, length))
+  
+  use.graph <- induced_subgraph(string.graph, V(string.graph)[name %in% string.comps[[largest.comp]]])
+  
+  graph.mat <- as_adjacency_matrix(use.graph, type="both", attr="score", names=T, sparse=T)
+  
+  d.graph.mat <- Diagonal(x=1/sqrt(Matrix::rowSums(graph.mat)))
+  
+  graph.sp.mat <- d.graph.mat %*% graph.mat %*% d.graph.mat
+  
+  #get the hit values
+  
+  #map the symbols to entrez IDs, then to string ids
+  
+  entrez.string <- merge(gene.dta, string_map, by="entrezID", all.x=T, all.y=F, incomparables=NA, sort=F)
+  
+  lo.symbs <- entrez.string$symbol[is.na(entrez.string$stringID)]
+  
+  message(paste("Left out", paste(lo.symbs, collapse=","), "in prioritization"))
+  
+  message(paste("Found", sum(duplicated(entrez.string$stringID)), "duplicate protein ID, collapsing by maximum"))
+  
+  seed.prot.dta <- aggregate(score~stringID, max, data=entrez.string)
+  
+  #run the prioritization
+  
+  seed.prots <- seed.prot.dta$score
+  names(seed.prots) <- seed.prot.dta$stringID
+  
+  residue <- 1
+  iter <- 1
+  
+  #probability of restart...
+  prox.vector <- rep(0, nrow(graph.sp.mat))
+  names(prox.vector) <- rownames(graph.sp.mat)
+  
+  seed.genes.in.graph <- intersect(names(seed.prots), names(prox.vector))
+  
+  if (length(seed.genes.in.graph) == 0)
+  {
+    default.fail("ERROR: None of the seeds were found in the supplied graph")
+  }
+  
+  if (verbose == TRUE) cat (paste("Using", length(seed.genes.in.graph), "seed genes\n"))
+  
+  #make sure the supplied values sum to 1
+  
+  if(sum(seed.prots[seed.genes.in.graph]) != 1)
+  {
+    if (verbose == TRUE) cat("Sum of selected seed.prots not equal to one, renormalizing...\n")
+    seed.prots[seed.genes.in.graph] <- seed.prots[seed.genes.in.graph]/sum(seed.prots[seed.genes.in.graph])
+  }
+  
+  prox.vector[seed.genes.in.graph] <- seed.prots[seed.genes.in.graph] #if the weights are being uniformly applied... 1/length(seed.genes.in.graph)
+  
+  restart.vector <- prox.vector
+  
+  while (residue > threshold && iter < maxit)
+  {
+    if (verbose == TRUE) cat (paste("iter:", iter, "residue:", residue, "\n"))
+    old.prox.vector <-  prox.vector
+    prox.vector <- as.numeric((1-c.val)*graph.sp.mat %*% prox.vector + (c.val*restart.vector))
+    residue <- as.numeric(dist(rbind(prox.vector, old.prox.vector), method="euclidean"))
+    iter <- iter + 1; 
+  }
+  
+  if (iter == maxit)
+  {
+    stop(paste("Seed prots:", paste(seed.prots, collapse=","), "did not converge in 100 iterations..."))
+  }
+  
+  names(prox.vector) <- rownames(graph.sp.mat)
+  
+  ret.dta <- stack(prox.vector)
+  
+  ord.ret.dta <- ret.dta[order(ret.dta$values, decreasing=T),]
+  
+  names(ord.ret.dta) <- c("score", "string")
+  
+  ord.ret.dta$rank <- 1:nrow(ord.ret.dta)
+  
+  ord.ret.dta$string <- as.character(ord.ret.dta$string)
+  
+  return(ord.ret.dta[,c("string", "score", "rank")])
+  
+}
+
 

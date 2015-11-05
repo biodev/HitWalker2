@@ -6,8 +6,9 @@ import(igraph)
 import(jsonlite)
 import(SeqVarTools)
 import(S4Vectors)
-exportClasses(DrugMatrix, DenseNeoData, HW2exprSet, NeoData, HwHit, AnnotatedMatrix, GeneSet, GroupedFilter)
+exportClasses(DrugMatrix, DenseNeoData, HW2exprSet, NeoData, HwHit, AnnotatedMatrix, GeneSet, GroupedFilter, HW2dgeList)
 exportMethods('addSamples<-', populate, configure, fromSample, toGene, sampleEdge, geneEdge, getFrequency, 
 findHits, subjectAttrs, subjectSubset, typeName, guessFields, 'removeFields<-', tweakField, listFieldAttributes, listFields, 'addLogic<-')
 export(readMAF.ccle, DrugMatrix, makeHW2Config, HW2exprSet, compute.graph.structure, Subject, load.neo4j,
-process_matrix_graph, get_direct_connections, get_gene_connections, encode_groups, make.vcf.table, GeneSet, VCFTable)
+process_matrix_graph, get_direct_connections, get_gene_connections, encode_groups, make.vcf.table, GeneSet, VCFTable,
+get.biomart.mapping, HW2dgeList, run.rwr)

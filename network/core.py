@@ -309,8 +309,10 @@ class BasicSubjectChild(Node):
 class SubjectNode(Node):
     
     def __init__(self, cypher_res):
-        print cypher_res
+        
         cypher_props = cypher_res[0].get_properties()
+        
+        print cypher_props
         
         self.node_dict = {'id':cypher_props["name"], 'display_name':cypher_props["name"], 'attributes':{'node_type':'Subject', 'indexed_name':'name', 'meta':{}}, 'children':NodeList()}
         
@@ -489,17 +491,17 @@ def handle_dense_gene_hits(res_list, nodes, request):
         #use_vars as in variables, which should be type in this case...
         use_vars = set()
         samp_genes = set()
-        obj_name = i['obj']
+        obj_name = i['obj'].lower()
         table_header = i['header']
         for j in i['result']:
                 j_res = j[:]
                 if request.session.has_key(obj_name):
-                        comp = request.session['inp_params']['General_Parameters']['fields'][obj_name]['comparison']
+                        comp = request.session['inp_params']['Seed_Parameters']['fields'][obj_name]['comparison']
                         is_hit = eval(str(j_res[table_header.index('score')]) + comp + str(request.session[obj_name]))
                 else:
                         is_hit = True
                 use_vars.add(j_res[table_header.index('type')])
-                samp_list[j_res[table_header.index('subject')]].append([j_res[table_header.index('score')], is_hit])
+                samp_list[str(j_res[table_header.index('subject')])].append([j_res[table_header.index('score')], is_hit])
                 samp_genes.add(j_res[table_header.index('gene')])
                
         cur_gene = nodes.getNode(str(samp_genes.pop()))
@@ -1078,8 +1080,11 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     all_nodes = NodeList()
     
     for key,val in all_node_dict.items():
+        print key,val
         all_nodes.extendIfNew(get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip", only_base=True))
     
+    print len(all_nodes)
+        
     #whereas query nodes can change type (e.g Pathway -> Gene)
     
     query_types = collections.defaultdict(list)
@@ -1094,6 +1099,7 @@ def copy_nodes (subj_nodes, query_nodes, request, query_dict, never_group=False,
     #just want to create a base set of nodes here, will add the specific children and such below when iterating through the different rel types
     
     for key,val in query_types.items():
+        
         temp_nl = get_nodes(val, key, request, config_struct=query_dict['nodes'], missing_param="skip", only_base=True)
         
         if len(temp_nl) > 0:
@@ -1389,11 +1395,15 @@ def get_nodes(names, node_type, request, indexed_name="name",  config_struct = N
                     #how to get column names for the value list
                     header = map(lambda x: x.name, cur_mod._meta.fields)
                     
-                    if request.session.has_key('where_vars') and len(request.session['where_vars']) > 0:
+                    if request.session.has_key('where_vars') and len(request.session['where_vars']) == 1 and len(request.session['where_vars'][0]['necessary_vars'].difference(set(header)))==0:
                             
-                            db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[request.session['where_vars'][0]['where_statement'].replace("$$$$.", "")]).values_list()
+                        db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[request.session['where_vars'][0]['where_statement'].replace("$$$$.", "")]).values_list()
+                    
+                    elif request.session.has_key('where_vars') and len(request.session['where_vars']) > 1:
+                        raise Exception("Not currently expecting multiple grouped filters")
+                    
                     else:
-                            db_res = cur_mod.objects.using("data").filter(comb_q).values_list()
+                        db_res = cur_mod.objects.using("data").filter(comb_q).values_list()
                     
                     if len(db_res) > 0:
                         res_list.append({'header':header, 'result':db_res, 'obj':i['datatype']})
@@ -1545,8 +1555,13 @@ def parse_parameters (param_dict, trans_funcs, request):
                             where_stat_list.append(has_statement + ' AND ' + basic_statement)
                         else:
                             where_stat_list.append(sub_var_name + "." + val_field['var_name'] + " " + use_comp + " " + json.dumps(use_var))
-                            
-                        necessary_vars.add(val_field['required']['from'])
+                        
+                        #adding backwards compatibility in case this needs to be done again with neo4j
+                        if val_field['required']['from'] == "":
+                            necessary_vars.add(val_field['var_name'])
+                        else:
+                            necessary_vars.add(val_field['required']['from'])
+                        
                         subsubgroup_total += 1
                     where_stat_list.append(")")
                 where_stat_list.append(")")

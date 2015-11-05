@@ -53,7 +53,8 @@ Vagrant.configure(2) do |config|
   vb.name="hw2default"
   #   # Customize the amount of memory on the VM:
   vb.memory = "10240"
-  vb.cpus = 2   
+  vb.cpus = 2
+  vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]   
 end
   #
   # View the documentation for the provider you are using for more
@@ -77,7 +78,7 @@ end
   sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
   sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
 
-  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("VariantAnnotation", "SeqVarTools", "GenomicRanges", "jsonlite"))' 
+  sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite(c("VariantAnnotation", "SeqVarTools", "GenomicRanges", "jsonlite", "edgeR"))' 
  
   cp -r /vagrant/HitWalker2 /home/vagrant/
   

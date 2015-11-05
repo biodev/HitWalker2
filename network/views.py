@@ -832,6 +832,8 @@ def fullfill_node_query(request):
             #get database
             cur_mod = getattr(netmods, query_info['text'])
             
+            header = map(lambda x: x.name, cur_mod._meta.fields)
+            
             comb_q = Q()
             
             if query_info['session_params'] != None:
@@ -842,7 +844,7 @@ def fullfill_node_query(request):
                     
                     obj_name = i[:].pop().lower()
                     if request.session.has_key(obj_name):
-                            comp = request.session['inp_params']['General_Parameters']['fields'][obj_name]['comparison']
+                            comp = request.session['inp_params']['Seed_Parameters']['fields'][obj_name]['comparison']
                             db_comp = 'eq'
                             if comp == '>':
                                 db_comp = 'gt'
@@ -854,9 +856,12 @@ def fullfill_node_query(request):
             
             comb_q = comb_q & Q(**{node_type.lower()+"__in":node_queries[node_type]})
             
-            if request.session.has_key('where_vars') and len(request.session['where_vars']) > 0:
+            if request.session.has_key('where_vars') and len(request.session['where_vars']) > 0 and len(request.session['where_vars'][0]['necessary_vars'].difference(set(header)))==0:
                             
                 db_res = cur_mod.objects.using("data").filter(comb_q).extra(where=[request.session['where_vars'][0]['where_statement'].replace("$$$$.", "")])
+            
+            elif request.session.has_key('where_vars') and len(request.session['where_vars']) > 1:
+                raise Exception("Not currently expecting multiple grouped filters")
             else:
                 db_res = cur_mod.objects.using("data").filter(comb_q)
             
@@ -1008,7 +1013,8 @@ def copy_nodes(request):
         ret_dict = {'nodes':cur_graph['nodes'].tolist(), 'links':cur_graph['links']}
         
         return HttpResponse(json.dumps(ret_dict),mimetype="application/json")
-    except:
+    except Exception as e:
+        print e
         return HttpResponseServerError()
 
 def get_graph(request):
@@ -1188,6 +1194,8 @@ def panel(request):
             #also add in the sample info
             request.session["query_samples"] = core.proper_type(request.POST["query_samples"])
             request.session["inp_params"] = inp_params
+            
+            request.session.modified = True
             
             input_vals = {'query_samples':request.session['query_samples']}
         else:

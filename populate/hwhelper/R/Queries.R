@@ -41,6 +41,55 @@ my.consequence.order <- function(){
   return(sapply(strsplit(cons.lines[[1]], "\\s+"), "[", 1))
 }
 
+my.short.prots <- c(Ala="A", Arg="R", Asn="N", Asp="D", Asx ="B", Cys="C", Glu="E", Gln ="Q", Glx="Z", Gly="G", His= "H", Ile ="I", Leu= "L",
+                    Lys ="K", Met= "M", Phe ="F", Pro= "P", Ser= "S", Thr= "T", Trp= "W", Tyr= "Y", Val= "V", Xxx ="X", Ter ="*" )
+
+.fix.protein.ids <- function(csq.df){
+  
+  #approach adapted from vcf2maf
+  
+  proteins <- as.character(csq.df$HGVSp)
+  
+  # Remove transcript ID from HGVS codon/protein changes, to make it easier on the eye
+  proteins <- sub("^.*:", "", proteins, perl=T)
+  
+  # Remove the prefixed HGVSc code in HGVSp, if found
+  proteins <- sapply(regmatches(proteins, regexec("\\(*p\\.\\S+\\)*",proteins)), "[", 1)
+  
+  proteins <- gsub("[\\(\\)]", "", proteins)
+  
+  # Create a shorter HGVS protein format using 1-letter codes
+  
+  for (i in names(my.short.prots)){
+    proteins <- gsub(i, my.short.prots[i], proteins)
+  }
+  
+  # Fix HGVSp_Short,for splice acceptor/donor variants
+  
+  splice.pos <- csq.df$Variant_Classification %in% c("splice_acceptor_variant", "splice_donor_variant")
+  
+  if (sum(splice.pos) > 0){
+    
+    c.pos <- as.numeric(sapply(regmatches(as.character(csq.df$HGVSc), regexec("c\\.(\\d+)", as.character(csq.df$HGVSc))), "[", 2))
+    
+    c.pos <- ifelse(is.na(c.pos) ==F & c.pos < 0, 1, c.pos)
+    
+    proteins <- ifelse((splice.pos == T) & (is.na(c.pos) ==F) , paste0("p.X", sprintf("%.0f", (c.pos + c.pos %% 3)/3), "_splice"), proteins)
+  }
+  
+  # Fix HGVSp_Short for Silent mutations, so it mentions the amino-acid and position
+  
+  p.pos <- as.numeric(sapply(regmatches(as.character(csq.df$Protein_position), regexec("^(\\d+)\\/\\d+$", as.character(csq.df$Protein_position))), "[", 2))
+  
+  fin.prots <- ifelse(csq.df$Variant_Classification == "synonymous_variant", paste0("p.", csq.df$Amino_acids, p.pos,csq.df$Amino_acids) , proteins)
+  
+  csq.df$HGVSp_Short <- fin.prots
+  
+  return(csq.df)
+  
+}
+
+
 #' GATK/Ensembl VEP VCF Representation
 #' 
 #' A class for representing general variant data stored in GATK flavored VCF files annotated with Ensembl VEP
@@ -110,40 +159,6 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   return(csq)
 }
 
-#A slower modification of the same function from SeqVarTools that can deal with multi-alleleic vars
-.getVariableLengthData <- function(gdsobj, var.name, use.names = TRUE){
-  var.list <- seqApply(gdsobj, var.name, function(x) {
-    x
-  })
-  
-  cols <- max(sapply(var.list, ncol))
-  rows <- unique(sapply(var.list, nrow))
-  stopifnot(length(rows) == 1)
-  
-  ar.shape <- c(rows, cols, length(var.list))
-  
-  new.list <- lapply(var.list, function(x){
-    cbind(x, matrix(NA, nrow=rows, ncol=cols-ncol(x)))
-  })
-  
-  var <- array(unlist(new.list, use.names = FALSE), dim=ar.shape)
-  
-  var <- aperm(var, c(2, 1, 3))
-  if (dim(var)[1] == 1) {
-    var <- var[1, , ]
-  }
-  if (length(dim(var)) == 3) {
-    dimnames(var) <- list(n = NULL, sample = NULL, variant = NULL)
-  }
-  else {
-    dimnames(var) <- list(sample = NULL, variant = NULL)
-  }
-  if (use.names) 
-    SeqVarTools:::.applyNames(gdsobj, var)
-  else var
-  
-}
-
 .info <- function(gds, rm.cols=c("CSQ", "@CSQ"), info.import=NULL){
   
   n <- index.gdsn(gds, "annotation/info", silent = TRUE)
@@ -167,7 +182,14 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   return(res.mat)
 }
 
-
+default.protein.filters <- function(dta){
+  
+  cons.order <- my.consequence.order()
+  
+  ret.dta <- dta[(is.na(dta$HGVSp) == F) & (is.na(dta$Variant_Classification) == F) & (dta$Variant_Classification %in% cons.order[1:12] == T),]
+  
+  return(ret.dta)
+}
 
 
 #' @rdname class_helpers
@@ -175,7 +197,19 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
 #' Our typical workflow additionally involves subsetting to protein impacting variants 
 #' and keeping only consequences chosen via the allele-specific 'PICK' column.
 #' @param keep.gds Should the intermediate GDS file be kept after the \code{data.frame} is generated?
-make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), fmt.import="AD", gds.out="variant.gds", keep.gds=F){
+make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), keep.samples=NULL, ignore.genotype=F, readcount.import="AD", gds.out="variant.gds", rm.zero.na=T, keep.gds=F, filter.by=default.protein.filters){
+  
+  if (length(readcount.import) %in% c(1, 2) == F){
+    stop("ERROR: Expect readcount.import to be of length 1 or 2")
+  }
+  
+  all.samples <- unique(unlist(lapply(vcfs, seqVCF.SampID)))
+  
+  if (missing(keep.samples) || is.null(keep.samples) || all(is.na(keep.samples))){
+    keep.samples <- all.samples
+  }else if ((is.character(keep.samples) == F) || (all(keep.samples %in% all.samples)) == F){
+    stop("Unexpected input for 'keep.samples'")
+  }
   
   if(file.exists(gds.out)){
     
@@ -185,7 +219,7 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     
   }else{
     
-    seqVCF2GDS(vcfs, gds.out,  info.import=info.import, fmt.import=fmt.import)
+    seqVCF2GDS(vcfs, gds.out,  info.import=info.import, fmt.import=readcount.import)
     
     gds <- seqOpen(gds.out)
     
@@ -234,53 +268,97 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
   
   #add in the info data as well
   
+  if (any(info.import %in% names(csq.res))){
+    message(paste("Removing CSQ column with specified info name", paste(intersect(info.import, names(csq.res)), collapse=",")))
+    csq.res <- csq.res[,-which(names(csq.res) %in% info.import)]
+  }
+  
   csq.res <- cbind(csq.res, .info(gds, info.import=info.import)[csq.res$variant_id,])
   
-  #add in genotypes
+  if (!ignore.genotype){
+    #add in genotypes
+    
+    #actually a matrix...
+    geno.ar <- getGenotype(gds)
+    
+    melt.geno <- melt(t(geno.ar))
+    sub.melt.geno <- melt.geno[is.na(melt.geno$value) == F & melt.geno$value %in% c(".","0/0") == F,]
+    
+    #for each unique genotype allele, assign each sample by variant and ALLELE_NUM 
+    
+    split.genos <- strsplitAsListOfIntegerVectors(as.character(sub.melt.geno$value), sep="/")
+    
+    geno.mat <- t(sapply(split.genos, "["))
+    
+    sub.melt.geno <- cbind(sub.melt.geno, allele=geno.mat)
+    
+    allele.dta <- melt(sub.melt.geno, measure.vars=c("allele.1", "allele.2"), value.name="ALLELE_NUM")
+    allele.dta <- allele.dta[allele.dta$ALLELE_NUM != 0,]
+    allele.dta <- allele.dta[,names(allele.dta) %in% c("variable", "value") == F]
+    allele.dta$sample <- as.character(allele.dta$sample)
+    names(allele.dta)[1] <- "variant_id"
+    
+    al.num <- aggregate(ALLELE_NUM~variant_id+sample, function(x) ifelse(length(unique(x)) == 1 && length(x) == 2, 2, 1), data=allele.dta)
+    names(al.num)[ncol(al.num)] <- "allele_count"
+    
+    allele.dta <- merge(allele.dta, al.num, by=c("variant_id", "sample"), all=F, sort=F)
+    
+    nd.alleles <- allele.dta[!duplicated(allele.dta),]
+    
+    stopifnot(is.integer(csq.res$variant_id) && is.character(csq.res$ALLELE_NUM))
+    stopifnot(is.integer(nd.alleles$variant_id) && is.integer(nd.alleles$ALLELE_NUM))
+    
+    csq.res$ALLELE_NUM <- as.integer(csq.res$ALLELE_NUM)
+    
+    csq.allele <- merge(csq.res, nd.alleles, by=c("variant_id", "ALLELE_NUM"), all=F, sort=F)
+    
+    stopifnot(nrow(csq.allele) == nrow(nd.alleles))
   
-  #actually a matrix...
-  geno.ar <- getGenotype(gds)
-  
-  melt.geno <- melt(t(geno.ar))
-  sub.melt.geno <- melt.geno[is.na(melt.geno$value) == F & melt.geno$value %in% c(".","0/0") == F,]
-  
-  #for each unique genotype allele, assign each sample by variant and ALLELE_NUM 
-  
-  split.genos <- strsplitAsListOfIntegerVectors(as.character(sub.melt.geno$value), sep="/")
-  
-  geno.mat <- t(sapply(split.genos, "["))
-  
-  sub.melt.geno <- cbind(sub.melt.geno, allele=geno.mat)
-  
-  allele.dta <- melt(sub.melt.geno, measure.vars=c("allele.1", "allele.2"), value.name="ALLELE_NUM")
-  allele.dta <- allele.dta[allele.dta$ALLELE_NUM != 0,]
-  allele.dta <- allele.dta[,names(allele.dta) %in% c("variable", "value") == F]
-  allele.dta$sample <- as.character(allele.dta$sample)
-  names(allele.dta)[1] <- "variant_id"
-  
-  al.num <- aggregate(ALLELE_NUM~variant_id+sample, function(x) ifelse(length(unique(x)) == 1 && length(x) == 2, 2, 1), data=allele.dta)
-  names(al.num)[ncol(al.num)] <- "allele_count"
-  
-  allele.dta <- merge(allele.dta, al.num, by=c("variant_id", "sample"), all=F, sort=F)
-  
-  nd.alleles <- allele.dta[!duplicated(allele.dta),]
-  
-  stopifnot(is.integer(csq.res$variant_id) && is.character(csq.res$ALLELE_NUM))
-  stopifnot(is.integer(nd.alleles$variant_id) && is.integer(nd.alleles$ALLELE_NUM))
-  
-  csq.res$ALLELE_NUM <- as.integer(csq.res$ALLELE_NUM)
-  
-  csq.allele <- merge(csq.res, nd.alleles, by=c("variant_id", "ALLELE_NUM"), all=F, sort=F)
-  
-  stopifnot(nrow(csq.allele) == nrow(nd.alleles))
+  }else if ((ignore.genotype == T) && (all(which.biallelic)==F)){
+    
+    stop("ERROR: Cannot use 'ignore.genotypes' when multi-allelic variants are present")
+    
+  }else{
+    
+    #add in the sample information, assume that each sample has each row...
+    
+    csq.allele <- do.call(rbind, lapply(seqGetData(gds, "sample.id"), function(x){
+      csq.res$sample <- x
+      csq.res
+    }))
+    
+    csq.allele$allele_count <- 1
+    csq.allele$ALLELE_NUM <- as.integer(csq.allele$ALLELE_NUM)
+  }
   
   #get count data
-  count.ar <- .getVariableLengthData(gds, "annotation/format/AD")
   
-  melt.ar <- melt(count.ar, na.rm=T)
+  if (length(readcount.import) == 1){
+    #assume it contains both counts
+    
+    count.ar <- getVariableLengthData(gds, paste0("annotation/format/", readcount.import))
+    
+    melt.ar <- melt(count.ar, na.rm=T)
+    
+  }else{
+    #assume counts are provided in the form reference,alternative: readcount.import[1:2]
+    
+    reference <- getVariableLengthData(gds, paste0("annotation/format/", readcount.import[1]))
+    
+    melt.ref <- melt(reference, na.rm=T)
+    melt.ref <- cbind(n=1, melt.ref)
+    
+    alt <- getVariableLengthData(gds, paste0("annotation/format/", readcount.import[2]))
+    
+    melt.alt <- melt(alt, na.rm=T)
+    melt.alt <- cbind(n=2, melt.alt)
+    
+    melt.ar <- rbind(melt.ref, melt.alt)
+    
+  }
   
   total.count <- aggregate(value~sample+variant, sum, data=melt.ar)
-  
+    
   total.count$sample <- as.character(total.count$sample)
   
   csq.allele.t <- merge(csq.allele, total.count, by.x=c("variant_id", "sample"), by.y=c("variant", "sample"), all.x=T, all.y=F, sort=F)
@@ -298,8 +376,10 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     file.remove(gds.out)
   }
   
+  fin.csq <- fin.csq[fin.csq$sample %in% keep.samples,]
+  
   fin.csq <- fin.csq[,c("variant_id", "seqnames", "start", "end", "width", "REF", "ALT", "sample", "allele_count", "total_reads", "allele_reads", 
-                        setdiff(info.import, "CSQ"), setdiff(nms, "Allele"))]
+                        setdiff(info.import, "CSQ"), setdiff(nms, c("Allele", info.import)))]
   
   fin.csq[is.na(fin.csq) | fin.csq == ""] <- NA
   
@@ -316,6 +396,19 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     }
     
   })
+  
+  message("applying post-summarization filters")
+  
+  fin.csq <- filter.by(fin.csq)
+  
+  if (rm.zero.na){
+    
+    message("removing rows with 0's in allele_reads")
+  
+    fin.csq <- fin.csq[is.na(fin.csq$allele_reads) == F & fin.csq$allele_reads > 0,]
+  }
+  
+  fin.csq <- .fix.protein.ids(fin.csq)
   
   return(fin.csq)
 }
