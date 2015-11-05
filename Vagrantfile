@@ -73,7 +73,18 @@ end
   
 
   config.vm.provision "HitWalker2", type:"shell", inline: <<-SHELL
+
+  #if not available, update to R-3.2.2 
   
+  r_version=`R --version | perl -ne 'print $1 if $_ =~ /R version ([\d\.]+)/'`
+  if [ "$r_version" != "3.2.2" ]
+  then
+	sudo apt-get update
+	sudo sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
+	sudo apt-get install r-core-dev
+	sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("BiocUpgrade")'
+  fi
+   
   #this is only for a non-ssl version
   sudo cp /vagrant/HitWalker2/hw2-nginx /etc/nginx/sites-available/
   sudo ln -sf /etc/nginx/sites-available/hw2-nginx /etc/nginx/sites-enabled/default
