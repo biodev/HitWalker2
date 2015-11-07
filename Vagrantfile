@@ -79,10 +79,10 @@ end
   r_version=`R --version | perl -ne 'print $1 if $_ =~ /R version ([\d\.]+)/'`
   if [ "$r_version" != "3.2.2" ]
   then
-	sudo apt-get update
 	sudo sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
-	sudo apt-get install r-core-dev
-	sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("BiocUpgrade")'
+	sudo apt-get update
+	sudo apt-get install -y r-base-dev
+	sudo Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'BiocInstaller:::.update("3.2", TRUE)'
   fi
    
   #this is only for a non-ssl version
