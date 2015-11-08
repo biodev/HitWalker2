@@ -881,7 +881,14 @@ def fullfill_node_query(request):
             elif len(res_set_dict.keys()) == 1:
                 res_col = collections.Counter(res_set_dict.items()[0][1])
             else:
-                res_col = collections.Counter(reduce(lambda x,y: list(x[1])+list(y[1]),res_set_dict.items()))
+                
+                temp_dict = []
+                
+                for i in res_set_dict.values():
+                    for j in i:
+                        temp_dict.append(j)
+                    
+                res_col = collections.Counter(temp_dict)
             
             for i in res_col.most_common():
                 if (len(max_vals) == 0) or ((i[1] < max_vals[-1]) and (len(max_vals) < 5)):
