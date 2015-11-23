@@ -147,7 +147,7 @@ subject.dta$NRAS_mutant <- ifelse(subject.dta$cellLine %in% nras.var$Sample, "NR
 
 subj <- Subject(subject.info=subject.dta, type="primary_site")
 
-addSamples(subj, type="DNASeq") <- maf.obj
+addSamples(subj) <- maf.obj
 
 ```
 
@@ -268,7 +268,7 @@ setdiff(sampleNames(drug), cell.annots$CCLE.name)
 The `addSamples` method will deal with the discordant samples by creating sample nodes but not assigning relationships between them and the subjects.  Which means that:
 
 ```{r}
-addSamples(subj, type="Drug_Assay") <- drug
+addSamples(subj) <- drug
 ```
 
 Implies this:
@@ -276,7 +276,7 @@ Implies this:
 ```{r eval=FALSE}
 addSamples(subj) <- data.frame(cellLine=intersect(sampleNames(drug), subject.sample.names),
                                 sample=intersect(sampleNames(drug), subject.sample.names),
-                                type="Drug_Assay", stringsAsFactors=F)
+                                type=typeName(drug), stringsAsFactors=F)
 ```
 
 ##### Processing expression data
@@ -340,6 +340,8 @@ As before we still need to supply the mapping between the CEL file names and the
 
 ```{r}
 
+hw2.expr <- HW2exprSet(ccle.eset)
+
 sif.dta$ID <- paste0(sif.dta$ID, ".CEL")
 
 all(sif.dta$ID %in% sampleNames(ccle.eset))
@@ -347,7 +349,7 @@ all(sif.dta$CCLE.name %in% subj@subject.info$cellLine)
 
 expr.annot <- sif.dta[,c("CCLE.name", "ID")]
 names(expr.annot) <- c("cellLine","sample")
-expr.annot$type <- "Affy_Expression"
+expr.annot$type <- typeName(hw2.expr)
 
 addSamples(subj) <- expr.annot
 
@@ -365,7 +367,7 @@ We can then populate the database and create the configuration files.
 
 hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez",
         data.types=list(seeds="GeneScore", target="Variants"),
-        Expression=HW2exprSet(ccle.eset), GeneScore=drug, Variants=maf.obj)
+        Expression=hw2.expr, GeneScore=drug, Variants=maf.obj)
 
 save(hw2.conf, file="hw2_config.RData")
 
