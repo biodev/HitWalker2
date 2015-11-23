@@ -197,7 +197,8 @@ default.protein.filters <- function(dta){
 #' Our typical workflow additionally involves subsetting to protein impacting variants 
 #' and keeping only consequences chosen via the allele-specific 'PICK' column.
 #' @param keep.gds Should the intermediate GDS file be kept after the \code{data.frame} is generated?
-make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), keep.samples=NULL, ignore.genotype=F, readcount.import="AD", gds.out="variant.gds", rm.zero.na=T, keep.gds=F, filter.by=default.protein.filters){
+#' @param annotate.counts, name of sample whose counts to add to output.  Output \code{data.frame} will have additional '_total_counts' and '_allele_counts' columns added.
+make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "CSQ"), keep.samples=NULL, annotate.counts=NULL, ignore.genotype=F, readcount.import="AD", gds.out="variant.gds", rm.zero.na=T, keep.gds=F, filter.by=default.protein.filters){
   
   if (length(readcount.import) %in% c(1, 2) == F){
     stop("ERROR: Expect readcount.import to be of length 1 or 2")
@@ -209,6 +210,14 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
     keep.samples <- all.samples
   }else if ((is.character(keep.samples) == F) || (all(keep.samples %in% all.samples)) == F){
     stop("Unexpected input for 'keep.samples'")
+  }
+  
+  if (missing(annotate.counts) || is.null(annotate.counts) || all(is.na(annotate.counts))){
+    
+    annotate.counts <- keep.samples
+    
+  }else if ((is.character(annotate.counts) == F) || (all(annotate.counts %in% all.samples)) == F){
+    stop("Unexpected input for 'annotate.counts'")
   }
   
   if(file.exists(gds.out)){
@@ -378,8 +387,29 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
   
   fin.csq <- fin.csq[fin.csq$sample %in% keep.samples,]
   
-  fin.csq <- fin.csq[,c("variant_id", "seqnames", "start", "end", "width", "REF", "ALT", "sample", "allele_count", "total_reads", "allele_reads", 
-                        setdiff(info.import, "CSQ"), setdiff(nms, c("Allele", info.import)))]
+  if (all(annotate.counts %in% keep.samples)){
+    
+    fin.csq <- fin.csq[,c("variant_id", "seqnames", "start", "end", "width", "REF", "ALT", "sample", "allele_count", "total_reads", "allele_reads", 
+                          setdiff(info.import, "CSQ"), setdiff(nms, c("Allele", info.import)))]
+    
+  }else{
+    
+    addl.count.cols <- character()
+    
+    for(i in setdiff(annotate.counts, keep.samples)){
+      fin.csq <- merge(fin.csq, total.count[total.count$sample == i,], by.x=c("variant_id"), by.y=c("variant"), all.x=T, all.y=F, sort=F)
+      names(fin.csq)[ncol(fin.csq)] <- paste(i, "total_reads", sep="_")
+      
+      fin.csq <- merge(fin.csq, melt.ar[melt.ar$sample == i,], by.x=c("variant_id", "ALLELE_NUM"), by.y=c("variant", "n"), all.x=T, all.y=F, sort=F)
+      names(fin.csq)[ncol(fin.csq)] <- paste(i, "allele_reads", sep="_")
+      
+      addl.count.cols <- append(addl.count.cols, paste(i, c("total", "allele"),"reads",  sep="_"))
+    }
+    
+    fin.csq <- fin.csq[,c("variant_id", "seqnames", "start", "end", "width", "REF", "ALT", "sample", "allele_count", "total_reads", "allele_reads", addl.count.cols,
+                          setdiff(info.import, "CSQ"), setdiff(nms, c("Allele", info.import)))] 
+  }
+  
   
   fin.csq[is.na(fin.csq) | fin.csq == ""] <- NA
   
