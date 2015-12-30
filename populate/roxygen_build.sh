@@ -6,7 +6,7 @@ then
     exit
 fi
 
-Rscript -e 'library(roxygen2)' -e 'roxygenize("hwhelper")'
+Rscript -e 'library(roxygen2)' -e 'roxygenize("hwhelper", roclets="rd")'
 R CMD build hwhelper
 
 use_file=(`ls hwhelper_*`)
