@@ -105,13 +105,20 @@ fill.query.slots <- function(obj){
 
 HW2dgeList_class <- setClass(Class="HW2dgeList", contains=c("DenseNeoData", "HwHit"))
 
-HW2dgeList <- function(dgelist, sample.edge.name="Rnaseq", node.name="Ensembl", default=2, direction=">", range=c(2, 10), display_name="RNASeq Z-Score Hit Threshold"){
+HW2dgeList <- function(dgelist, sample.mapping=NULL, sample.edge.name="Rnaseq", node.name="Ensembl", 
+                       default=2, direction=">", range=c(2, 10), display_name="RNASeq Z-Score Hit Threshold"){
   if (class(dgelist) != "DGEList"){
     stop("ERROR: dgelist should be a DGEList")
   }
   
   if ("genes" %in% names(dgelist) == F){
     stop("ERROR: dgelist needs to have a 'genes' component")
+  }
+  
+  if(missing(sample.mapping) || is.null(sample.mapping) || all(is.na(sample.mapping))){
+    sample.mapping <- data.frame(subject=character(), sample=character(), stringsAsFactors = F)
+  }else if (is.data.frame(sample.mapping) == F || is.null(names(sample.mapping)) == T || all(c("subject", "sample") %in% names(sample.mapping)) == F){
+    stop("ERROR: sample.mapping needs to be a data.frame containing 'subject' and 'sample' columns")
   }
   
   scale.exprs <- t(scale(t(cpm(dgelist, log=T))))
@@ -161,7 +168,7 @@ HW2dgeList <- function(dgelist, sample.edge.name="Rnaseq", node.name="Ensembl", 
   
   return(new("HW2dgeList", data=data, sample.edge.name=sample.edge.name, 
              node.name=node.name, default=default, direction=direction, 
-             range=range, display_name=display_name))
+             range=range, display_name=display_name, sample.mapping=sample.mapping))
 }
 
 
@@ -178,10 +185,16 @@ HW2exprSet_class <- setClass(Class="HW2exprSet", contains=c("DenseNeoData", "HwH
 #' @param sample.edge.name The name of the relationship between the samples and the assay identifier e.g. probeset, drug or variant.
 #' @param gene.edge.name The name of the relationship between the assay identifiers and genes
 #' @param node.name The name that should be given to the assay units in the Neo4j database.
-HW2exprSet <- function(eset, sample.edge.name="Expression", node.name="Affy_Exprs", gene.model="entrez",default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold"){
+HW2exprSet <- function(eset, sample.mapping=NULL, sample.edge.name="Expression", node.name="Affy_Exprs", gene.model="entrez",default=2, direction=">", range=c(2, 10), display_name="Expression Z-Score Hit Threshold"){
   
   if (class(eset) != "ExpressionSet"){
     stop("ERROR: 'eset' should be an ExpressionSet")
+  }
+  
+  if(missing(sample.mapping) || is.null(sample.mapping) || all(is.na(sample.mapping))){
+    sample.mapping <- data.frame(subject=character(), sample=character(), stringsAsFactors = F)
+  }else if (is.data.frame(sample.mapping) == F || is.null(names(sample.mapping)) == T || all(c("subject", "sample") %in% names(sample.mapping)) == F){
+    stop("ERROR: sample.mapping needs to be a data.frame containing 'subject' and 'sample' columns")
   }
   
   if (length(annotation(eset)) > 0){
@@ -243,7 +256,9 @@ HW2exprSet <- function(eset, sample.edge.name="Expression", node.name="Affy_Expr
   
   data <- merge(melt.use.exprs, probe.to.gene, by=node.name, all=F, incomparables=NA, sort=F)
   
-  return(new("HW2exprSet", data=data, sample.edge.name=sample.edge.name, node.name=node.name, default=default, direction=direction, range=range, display_name=display_name))
+  return(new("HW2exprSet", data=data, sample.edge.name=sample.edge.name, node.name=node.name, 
+             default=default, direction=direction, range=range, display_name=display_name,
+             sample.mapping=sample.mapping))
 }
 
 # #' @describeIn HW2exprSet_class Implements the loading of sample to probeset data into Neo4j.  The sample names are derived from the column names and the
@@ -332,7 +347,7 @@ GeneSet_class <- setClass(Class="GeneSet", contains=c("AnnotatedMatrix", "HwHit"
                                            sample.edge.name="HAS_GENE_SET", gene.edge.name="ASSIGNED_TO", node.name="suppliedSymbol",
                                            default=0, direction=">", range=c(0, 100), display_name="GeneSet (Hit) Threshold"))
 
-GeneSet <- function(mat, mapping){
+GeneSet <- function(mat, mapping, sample.mapping=NULL){
   
   if(missing(mat) || is.null(mat) || all(is.na(mat)) || class(mat) != "matrix")
   {
@@ -342,6 +357,12 @@ GeneSet <- function(mat, mapping){
   if (missing(mapping) || is.null(mapping) || all(is.na(mapping)) || class(mapping) != "data.frame")
   {
     stop("ERROR: need to supply a mapping data.frame containing the suppliedSymbol->gene mappings")
+  }
+  
+  if(missing(sample.mapping) || is.null(sample.mapping) || all(is.na(sample.mapping))){
+    sample.mapping <- data.frame(subject=character(), sample=character(), stringsAsFactors = F)
+  }else if (is.data.frame(sample.mapping) == F || is.null(names(sample.mapping)) == T || all(c("subject", "sample") %in% names(sample.mapping)) == F){
+    stop("ERROR: sample.mapping needs to be a data.frame containing 'subject' and 'sample' columns")
   }
   
   if (all(c("suppliedSymbol", "gene") %in% names(mapping)) == F)
@@ -354,7 +375,7 @@ GeneSet <- function(mat, mapping){
     stop("ERROR: There is no overlap between the rownames of mat and mapping$drug.  Is the matrix of the form: suppliedSymbol x sample?")
   }
   
-  return(fill.query.slots(new("GeneSet", matrix=mat, mapping=mapping)))
+  return(fill.query.slots(new("GeneSet", matrix=mat, mapping=mapping, sample.mapping=sample.mapping)))
 }
 
 
@@ -385,7 +406,7 @@ DrugMatrix_class <- setClass(Class="DrugMatrix", contains=c("HwHit", "AnnotatedM
 #' @rdname class_helpers
 #' @param mat A \code{matrix} of the form drug x sample with named rows and columns.
 #' @param mapping A \code{data.frame} containing the mappings between drug and gene with at least column names 'drug' and 'gene'.
-DrugMatrix <- function(mat, mapping,sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug"){
+DrugMatrix <- function(mat, mapping, sample.mapping=NULL, sample.edge.name="HAS_DRUG_ASSAY", gene.edge.name="ACTS_ON", node.name="drug"){
   
   if(missing(mat) || is.null(mat) || all(is.na(mat)) || class(mat) != "matrix")
   {
@@ -407,7 +428,13 @@ DrugMatrix <- function(mat, mapping,sample.edge.name="HAS_DRUG_ASSAY", gene.edge
     stop("ERROR: There is no overlap between the rownames of mat and mapping$drug.  Is the matrix of the form: drug x sample?")
   }
   
-  return(new("DrugMatrix", matrix=mat, mapping=mapping, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
+  if(missing(sample.mapping) || is.null(sample.mapping) || all(is.na(sample.mapping))){
+    sample.mapping <- data.frame(subject=character(), sample=character(), stringsAsFactors = F)
+  }else if (is.data.frame(sample.mapping) == F || is.null(names(sample.mapping)) == T || all(c("subject", "sample") %in% names(sample.mapping)) == F){
+    stop("ERROR: sample.mapping needs to be a data.frame containing 'subject' and 'sample' columns")
+  }
+  
+  return(new("DrugMatrix", matrix=mat, sample.mapping=sample.mapping, mapping=mapping, sample.edge.name=sample.edge.name, gene.edge.name=gene.edge.name, node.name=node.name))
 }
 
 #' @describeIn DrugMatrix_class The mapping from sample to drug taken from the column and rownames of the \code{matrix} slot.

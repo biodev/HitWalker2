@@ -95,7 +95,13 @@ my.short.prots <- c(Ala="A", Arg="R", Asn="N", Asp="D", Asx ="B", Cys="C", Glu="
 #' A class for representing general variant data stored in GATK flavored VCF files annotated with Ensembl VEP
 #'
 
-VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ"){
+VCFTable <- function(vcf.dta,sample.mapping=NULL, node.name="variation", sample.edge.name="HAS_DNASEQ"){
+  
+  if(missing(sample.mapping) || is.null(sample.mapping) || all(is.na(sample.mapping))){
+    sample.mapping <- data.frame(subject=character(), sample=character(), stringsAsFactors = F)
+  }else if (is.data.frame(sample.mapping) == F || is.null(names(sample.mapping)) == T || all(c("subject", "sample") %in% names(sample.mapping)) == F){
+    stop("ERROR: sample.mapping needs to be a data.frame containing 'subject' and 'sample' columns")
+  }
   
   #add in some ancillary data:
   
@@ -128,7 +134,7 @@ VCFTable <- function(vcf.dta,node.name="variation", sample.edge.name="HAS_DNASEQ
   
   vcf.dta <- factors.to.chars(vcf.dta)
   
-  return(new("DenseNeoData", data=vcf.dta, node.name=node.name, sample.edge.name=sample.edge.name))
+  return(new("DenseNeoData", data=vcf.dta, node.name=node.name, sample.edge.name=sample.edge.name, sample.mapping=sample.mapping))
   
 }
 
@@ -445,8 +451,14 @@ make.vcf.table <- function(vcfs, info.import=c("FS", "MQ0", "MQ", "QD", "SB", "C
 
 #' @rdname class_helpers
 #' @param file.name The path to the CCLE MAF file.
-readMAF.ccle <- function(file.name, node.name="variation", sample.edge.name="HAS_DNASEQ")
+readMAF.ccle <- function(file.name, sample.mapping=NULL, node.name="variation", sample.edge.name="HAS_DNASEQ")
 {
+  if(missing(sample.mapping) || is.null(sample.mapping) || all(is.na(sample.mapping))){
+    sample.mapping <- data.frame(subject=character(), sample=character(), stringsAsFactors = F)
+  }else if (is.data.frame(sample.mapping) == F || is.null(names(sample.mapping)) == T || all(c("subject", "sample") %in% names(sample.mapping)) == F){
+    stop("ERROR: sample.mapping needs to be a data.frame containing 'subject' and 'sample' columns")
+  }
+  
   use.maf <- read.delim(file.name, sep="\t", stringsAsFactors=F)
   
   keep.maf <- use.maf[,c("Entrez_Gene_Id", "Genome_Change", "Variant_Classification", "Annotation_Transcript", "Transcript_Strand", "cDNA_Change", "Codon_Change", "Protein_Change",
@@ -454,7 +466,7 @@ readMAF.ccle <- function(file.name, node.name="variation", sample.edge.name="HAS
   
   names(keep.maf)[c(1:2,9)] <- c("gene", "name", "sample")
   
-  return(new("DenseNeoData", data=keep.maf, node.name=node.name, sample.edge.name=sample.edge.name))
+  return(new("DenseNeoData", data=keep.maf, node.name=node.name, sample.edge.name=sample.edge.name, sample.mapping=sample.mapping))
 }
 
 #older stuff to be incorporated into docs etc

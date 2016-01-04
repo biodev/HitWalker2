@@ -128,7 +128,7 @@ maf.file <- "CCLE_hybrid_capture1650_hg19_NoCommonSNPs_NoNeutralVariants_CDS_201
 
 maf.obj <- readMAF.ccle(maf.file)
 
-#add in these sample annotations to the Subject object
+#without specifying a subject to sample mapping in readMaf.ccle, the below check should be true
 
 all(sampleNames(maf.obj) %in% cell.annots$CCLE.name)
 
@@ -276,7 +276,7 @@ Implies this:
 ```{r eval=FALSE}
 addSamples(subj) <- data.frame(cellLine=intersect(sampleNames(drug), subject.sample.names),
                                 sample=intersect(sampleNames(drug), subject.sample.names),
-                                type=typeName(drug), stringsAsFactors=F)
+                                type="Drug_Assay", stringsAsFactors=F)
 ```
 
 ##### Processing expression data
@@ -336,11 +336,9 @@ if (file.exists("ccle_eset.RData")){
 
 For expression, *probeset->gene* mapping info doesn't need to be supplied by an `ExpressionSet` as it can be populated using Bioconductor's annotation mechanism.
 
-As before we still need to supply the mapping between the CEL file names and the subject names and we will do this base on the SIF file.  Instead of applying `addSamples` an object, we will supply it a `data.frame` with the mapping info as below.
+As before we still need to supply the mapping between the CEL file names and the subject names and we will do this base on the SIF file instead of relying on the samples and subjects to be named the same.  On generating the `HW2exprSet` object we will supply it a `data.frame` with the mapping info.  Using `addSamples` with this object will produce the correct subject to sample mapping.
 
 ```{r}
-
-hw2.expr <- HW2exprSet(ccle.eset)
 
 sif.dta$ID <- paste0(sif.dta$ID, ".CEL")
 
@@ -348,10 +346,11 @@ all(sif.dta$ID %in% sampleNames(ccle.eset))
 all(sif.dta$CCLE.name %in% subj@subject.info$cellLine)
 
 expr.annot <- sif.dta[,c("CCLE.name", "ID")]
-names(expr.annot) <- c("cellLine","sample")
-expr.annot$type <- typeName(hw2.expr)
+names(expr.annot) <- c("subject","sample")
 
-addSamples(subj) <- expr.annot
+hw2.ccle.eset <- HW2exprSet(ccle.eset, sample.mapping = expr.annot)
+
+addSamples(subj) <- hw2.ccle.eset
 
 ```
 
@@ -367,7 +366,7 @@ We can then populate the database and create the configuration files.
 
 hw2.conf <- makeHW2Config(subject=subj, gene.model="entrez",
         data.types=list(seeds="GeneScore", target="Variants"),
-        Expression=hw2.expr, GeneScore=drug, Variants=maf.obj)
+        Expression=hw2.ccle.eset, GeneScore=drug, Variants=maf.obj)
 
 save(hw2.conf, file="hw2_config.RData")
 

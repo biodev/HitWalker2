@@ -77,7 +77,9 @@ NULL
 #' @slot node.name The name of the node representation of the assay unit
 #' @slot base.query A cypher template which provides the basic information about the assay at the gene level (see provided classes for examples).
 #' @slot template.query A cypher template which forms the basis of aggregation-based queries (see provided classes for examples)
-NeoData <- setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", node.name="character", base.query="character", template.query="character"))
+NeoData <- setClass(Class="NeoData", representation=list(sample.edge.name="character", gene.edge.name="character", 
+                                                         node.name="character", base.query="character", template.query="character",
+                                                         sample.mapping="data.frame"))
 
 setMethod("nodeName", signature("NeoData"), function(obj){
     return(obj@node.name)
@@ -96,6 +98,12 @@ setMethod("geneEdge", signature("NeoData"), function(obj){
 
 setMethod("typeName", signature("NeoData"), function(obj){
   capwords(tolower(sub("HAS_", "", sampleEdge(obj))))
+})
+
+#still need to complete me
+setMethod("typeName", signature("character"), function(obj){
+  
+  
 })
 
 DenseNeoData <- setClass(Class="DenseNeoData", representation=list(data="data.frame"), contains="NeoData")
@@ -664,9 +672,18 @@ setReplaceMethod("addSamples", signature("Subject"), function(obj, ..., value){
     {
         subj.name <- names(obj@subject.info)[1]
         
-        use.names <- intersect(sampleNames(value), obj@subject.info[,1])
+        if (nrow(value@sample.mapping) == 0){
+          
+          subject.names <- intersect(sampleNames(value), obj@subject.info[,1])
+          sample.names <- subject.names
+          
+        }else{
+          
+          subject.names <- value@sample.mapping$subject
+          sample.names <- value@sample.mapping$sample
+        }
         
-        call.list <- append(setNames(list(use.names, use.names), c(subj.name,"sample")), list(...))
+        call.list <- append(setNames(list(subject.names, sample.names), c(subj.name,"sample")), list(...))
         
         call.list$stringsAsFactors <- F
         
